@@ -12,14 +12,10 @@ RUN npm install -g corepack@latest && corepack enable && corepack prepare pnpm@9
 
 WORKDIR /build
 
-# Clone the app source from GitHub
-# Use build arg timestamp for cache busting instead of GitHub API (avoids 403 rate limits)
-ARG APP_REPO=askb/ha-garmin-fitness-coach-app
-ARG APP_REF=v0.24.0
-ARG CACHEBUST=1
-RUN echo "Cache bust: ${CACHEBUST}" && \
-    git clone --depth=1 --branch="${APP_REF}" \
-      "https://github.com/${APP_REPO}.git" .
+# Build the app from local vendored source (pulsecoach/app/ is a git subtree
+# of the app monorepo, merged into this repo). No external clone — this
+# private fork is self-contained, so our edits under app/ actually ship.
+COPY app/ .
 
 # Create minimal .env for build (real values injected at runtime by s6 run script)
 RUN echo 'DATABASE_URL="postgresql://build:build@localhost:5432/build"' > .env && \

@@ -30,23 +30,30 @@ addon-side changes; the app subtree tracks the app repo separately).
 
 ```
 .
-├── pulsecoach/            # HA addon packaging (Dockerfile, s6, config.json)
-└── app/                   # the Next.js monorepo (subtree of the app repo)
-    ├── apps/nextjs/       # the web UI (pages under src/app/*)
-    ├── packages/
-    │   ├── api/           # tRPC routers + AI backends (THE AI helper lives here)
-    │   ├── engine/        # deterministic coaching/metrics logic
-    │   ├── db/            # drizzle schema
-    │   └── ui/            # shadcn-style components + theme (theme.tsx)
-    └── tooling/tailwind/theme.css   # oklch light/dark design tokens
+└── pulsecoach/            # HA addon (build context for local HA addon builds)
+    ├── Dockerfile         # stage 1 builds app/ locally, stage 2 = HA base
+    ├── config.json        # addon options + schema
+    ├── rootfs/            # overlaid onto container (s6 services, run script)
+    └── app/               # the Next.js monorepo (git subtree of the app repo)
+        ├── apps/nextjs/   # the web UI (pages under src/app/*)
+        ├── packages/
+        │   ├── api/       # tRPC routers + AI backends (THE AI helper lives here)
+        │   ├── engine/    # deterministic coaching/metrics logic
+        │   ├── db/        # drizzle schema
+        │   └── ui/        # shadcn-style components + theme (theme.tsx)
+        └── tooling/tailwind/theme.css   # oklch light/dark design tokens
 ```
 
-### TODO: make Dockerfile build the local `app/` (not git clone)
+**Why `app/` lives under `pulsecoach/`, not the repo root:** HA builds a
+local add-on with the **add-on folder as the Docker build context**. App
+source outside that folder can't be `COPY`ed. So the subtree sits at
+`pulsecoach/app/`. To pull app updates later:
+`git subtree pull --prefix=pulsecoach/app <app-repo-url> <ref> --squash`.
 
-`pulsecoach/Dockerfile` stage 1 still does `git clone $APP_REPO @ $APP_REF`.
-For the single-repo build it must instead `COPY app/ .` and build from
-local source. (Not yet done at time of writing — do this so our `app/`
-edits actually ship.)
+### DONE: Dockerfile builds local `app/`
+
+`pulsecoach/Dockerfile` stage 1 now does `COPY app/ .` (was a GitHub
+clone of `$APP_REPO@$APP_REF`). Our `app/` edits ship in the image.
 
 ### AI helper — how it works and why it was broken
 

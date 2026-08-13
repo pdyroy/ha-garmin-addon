@@ -12,6 +12,7 @@ import { haConversationChat } from "../lib/ha-conversation";
 import { humanizeActivityName } from "../lib/humanize";
 import { renumberOrderedLists } from "../lib/llm-post";
 import { ollamaChat } from "../lib/ollama";
+import { isOpenRouterConfigured, openRouterChat } from "../lib/openrouter";
 import { evaluateResponseQuality, qualityBadge } from "../lib/quality-gate";
 import { protectedProcedure } from "../trpc";
 
@@ -157,35 +158,47 @@ export const chatRouter = {
           limit: 5,
         });
 
-        // 5. Call AI backend: HA Conversation → Ollama → fallback
+        // 5. Call AI backend: OpenRouter (if configured) → HA Conversation → Ollama → fallback
         let responseContent: string;
         const fullPrompt = `${systemPrompt}\n\n## Current Athlete Data\n${dataContext}\n\n## User Question\n${input.content}`;
+
+        // Shared message array for the message-based backends (OpenRouter,
+        // Ollama). `history` already includes the just-saved user message.
+        const chatMessages: OllamaMessage[] = [
+          {
+            role: "system",
+            content: `${systemPrompt}\n\n## Current Athlete Data\n${dataContext}`,
+          },
+          ...history.reverse().map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })),
+        ];
 
         console.log(
           `[Chat] Prompt size: ${fullPrompt.length} chars, data context: ${dataContext.length} chars`,
         );
 
         try {
-          responseContent = await haConversationChat(fullPrompt, {
-            timeoutMs: AI_TIMEOUT_MS,
-          });
+          if (isOpenRouterConfigured()) {
+            // Preferred path: direct OpenRouter API. Bypasses HA Conversation
+            // and the built-in Assist fallback that garbled replies before.
+            responseContent = await openRouterChat(chatMessages, {
+              temperature: 0.7,
+              timeoutMs: AI_TIMEOUT_MS,
+            });
+          } else {
+            responseContent = await haConversationChat(fullPrompt, {
+              timeoutMs: AI_TIMEOUT_MS,
+            });
+          }
         } catch (e) {
           console.error(
-            `[Chat] HA Conversation failed:`,
+            `[Chat] Primary AI backend failed:`,
             e instanceof Error ? e.message : e,
           );
           try {
-            const ollamaMessages: OllamaMessage[] = [
-              {
-                role: "system",
-                content: `${systemPrompt}\n\n## Current Athlete Data\n${dataContext}`,
-              },
-              ...history.reverse().map((m) => ({
-                role: m.role as "user" | "assistant",
-                content: m.content,
-              })),
-            ];
-            responseContent = await ollamaChat(ollamaMessages, {
+            responseContent = await ollamaChat(chatMessages, {
               temperature: 0.7,
               timeoutMs: AI_TIMEOUT_MS,
             });
