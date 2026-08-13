@@ -220,6 +220,9 @@ export const chatRouter = {
               // Already tried; nothing local left to fall back to.
               throw e;
             }
+            if (!process.env.OLLAMA_URL?.trim()) {
+              throw new Error("no Ollama URL configured — no local fallback");
+            }
             responseContent = await ollamaChat(chatMessages, {
               temperature: 0.7,
               timeoutMs: AI_TIMEOUT_MS,

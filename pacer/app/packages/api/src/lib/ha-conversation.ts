@@ -20,104 +20,73 @@ export interface HaConversationOptions {
 const SUPERVISOR_URL = "http://supervisor/core/api";
 
 /**
- * Auto-discover available conversation agents from HA.
- * Uses config_entries API (agent/list doesn't exist in all HA versions).
- * Prefers cloud LLM agents (Gemini, Claude, OpenAI) over the built-in
- * Assist agent, which returns canned device-control phrases for prompts
- * that don't match an intent.
+ * Auto-discover a conversation agent from Home Assistant.
+ *
+ * Modern Home Assistant addresses conversation agents by ENTITY ID
+ * (conversation.<something>), not by config entry ID. Passing an entry ID
+ * makes /conversation/process reject the call with
+ * "invalid agent ID for dictionary value @ data['agent_id']", after which the
+ * caller falls through and the user gets a rules-based answer.
+ *
+ * Reading the entity list also removes the need to keep a list of integration
+ * domains in sync with Home Assistant: anything that provides a conversation
+ * entity is found, whatever the integration is called.
  */
 async function discoverAgent(token: string): Promise<string | null> {
   // Every other fetch in this file carries an AbortSignal; this one did not,
-  // so a hung Supervisor blocked agent discovery — and therefore the whole
+  // so a hung Supervisor blocked agent discovery — and with it the whole
   // coach reply — indefinitely.
   const discoveryController = new AbortController();
   const discoveryTimer = setTimeout(() => discoveryController.abort(), 10_000);
   try {
-    // Primary: discover via config entries (works on all HA versions)
-    const response = await fetch(
-      `${SUPERVISOR_URL}/config/config_entries/entry`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        signal: discoveryController.signal,
+    const response = await fetch(`${SUPERVISOR_URL}/states`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
-    );
+      signal: discoveryController.signal,
+    });
     if (!response.ok) {
-      console.log(`[AI] Config entries API returned ${response.status}`);
+      console.log(`[AI] States API returned ${response.status}`);
       return null;
     }
-    const entries = (await response.json()) as {
-      domain: string;
-      title: string;
-      entry_id: string;
+    const states = (await response.json()) as {
+      entity_id: string;
+      attributes?: { friendly_name?: string };
     }[];
 
-    // Home Assistant's LLM integrations follow no single naming rule: the
-    // official OpenRouter one is "open_router" and Ollama is "ollama", so
-    // neither is caught by the "contains conversation" test below. A miss here
-    // is not a soft failure — discovery returns null, the request goes to HA's
-    // default agent, and the built-in Assist intent matcher answers a coaching
-    // prompt with a canned device-control phrase.
-    const CONVERSATION_DOMAINS = [
-      "google_generative_ai_conversation",
-      "openai_conversation",
-      "anthropic",
-      "open_router",
-      "openrouter",
-      "ollama",
-    ];
-    // Legacy: openclaw add-on used ~550MB idle and spiked to 1.5GB+ on
-    // prompts, OOM-killing the addon on RPi4. Keep it on the deny-list
-    // so any leftover entry never gets auto-selected.
-    const SKIP_DOMAINS = ["openclaw"];
+    // conversation.home_assistant is the built-in Assist intent matcher. It
+    // cannot answer a free-form coaching prompt and instead echoes it back as
+    // a supposed device name, so it must never be selected automatically.
+    const BUILTIN_ASSIST = "conversation.home_assistant";
 
-    const conversationAgents = entries.filter(
-      (e) =>
-        CONVERSATION_DOMAINS.includes(e.domain) ||
-        (e.domain.includes("conversation") && !SKIP_DOMAINS.includes(e.domain)),
+    const agents = states.filter(
+      (s) =>
+        typeof s.entity_id === "string" &&
+        s.entity_id.startsWith("conversation.") &&
+        s.entity_id !== BUILTIN_ASSIST,
     );
 
     console.log(
-      `[AI] Conversation agents found: ${conversationAgents.map((e) => `${e.domain} (${e.title}) → ${e.entry_id}`).join(", ") || "none"}`,
+      `[AI] Conversation entities found: ${
+        agents
+          .map((a) => `${a.entity_id} (${a.attributes?.friendly_name ?? "?"})`)
+          .join(", ") || "none"
+      }`,
     );
 
-    // Prefer Google AI (cloud-only, no local memory impact)
-    const googleAgent = conversationAgents.find((e) =>
-      e.domain.includes("google"),
+    const chosen = agents[0];
+    if (chosen) {
+      console.log(
+        `[AI] Using agent: ${chosen.entity_id} (${chosen.attributes?.friendly_name ?? "?"})`,
+      );
+      return chosen.entity_id;
+    }
+
+    console.log(
+      "[AI] No LLM conversation entity found — only the built-in Assist is " +
+        "available, which cannot answer coaching prompts",
     );
-    if (googleAgent) {
-      console.log(
-        `[AI] Using Google AI: ${googleAgent.entry_id} (${googleAgent.title})`,
-      );
-      return googleAgent.entry_id;
-    }
-
-    // Next: OpenAI, Anthropic or OpenRouter
-    const cloudAgent = conversationAgents.find(
-      (e) =>
-        e.domain.includes("openai") ||
-        e.domain.includes("anthropic") ||
-        e.domain.includes("router"),
-    );
-    if (cloudAgent) {
-      console.log(
-        `[AI] Using cloud agent: ${cloudAgent.entry_id} (${cloudAgent.title})`,
-      );
-      return cloudAgent.entry_id;
-    }
-
-    // Last resort: any non-skipped conversation agent
-    if (conversationAgents.length > 0) {
-      const agent = conversationAgents[0]!;
-      console.log(
-        `[AI] Using fallback agent: ${agent.entry_id} (${agent.title})`,
-      );
-      return agent.entry_id;
-    }
-
-    console.log("[AI] No conversation agents found — will use HA default");
     return null;
   } catch (err) {
     console.error(

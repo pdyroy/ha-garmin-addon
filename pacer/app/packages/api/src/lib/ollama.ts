@@ -28,7 +28,7 @@ export async function ollamaChat(
   options?: OllamaChatOptions,
 ): Promise<string> {
   const model = options?.model ?? process.env.OLLAMA_MODEL ?? "gpt-oss:20b";
-  const url = process.env.OLLAMA_URL ?? "http://localhost:11434";
+  const url = process.env.OLLAMA_URL?.trim() || "http://localhost:11434";
   const timeoutMs = options?.timeoutMs ?? 120_000;
 
   const controller = new AbortController();
@@ -93,7 +93,7 @@ export async function ollamaEmbed(
   const trimmed = text.trim();
   if (!trimmed) return null;
 
-  const url = process.env.OLLAMA_URL ?? "http://localhost:11434";
+  const url = process.env.OLLAMA_URL?.trim() || "http://localhost:11434";
   const primary =
     options?.model ?? process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
   const fallback = process.env.OLLAMA_MODEL ?? "gpt-oss:20b";
