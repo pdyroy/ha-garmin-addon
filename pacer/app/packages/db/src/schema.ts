@@ -110,6 +110,14 @@ export const DailyMetric = pgTable(
     garminApiVersion: t.varchar({ length: 20 }),
     deviceModel: t.varchar({ length: 50 }),
     rawDataHash: t.varchar({ length: 64 }),
+    // Added by ALTER TABLE in the s6 run script. They must be declared here
+    // too, because `drizzle-kit push` runs against the live database on every
+    // boot and drops anything this schema does not know about — which silently
+    // deleted the weight and body-fat history.
+    dataQuality: t.integer().default(0),
+    garminReadinessFactors: t.jsonb(),
+    weightKg: t.doublePrecision(),
+    bodyFatPct: t.doublePrecision(),
   }),
   (table) => [
     uniqueIndex("daily_metric_user_date_unique").on(table.userId, table.date),
@@ -181,6 +189,14 @@ export const Activity = pgTable(
     garminApiVersion: t.varchar({ length: 20 }),
     deviceModel: t.varchar({ length: 50 }),
     rawDataHash: t.varchar({ length: 64 }),
+    // These must stay declared here: the add-on runs `drizzle-kit push`
+    // against the live database on every boot, and any column missing from
+    // this schema gets dropped. strava-sync.py creates them with ADD COLUMN
+    // IF NOT EXISTS, and its ON CONFLICT (strava_activity_id) depends on the
+    // unique constraint — losing it re-inserted a week of activities on every
+    // restart, without limit.
+    stravaActivityId: t.varchar({ length: 100 }).unique(),
+    sourcePlatform: t.varchar({ length: 20 }),
   }),
   (table) => [
     index("activity_user_started_at_idx").on(table.userId, table.startedAt),

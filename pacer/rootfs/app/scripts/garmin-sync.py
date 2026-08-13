@@ -283,11 +283,14 @@ def get_client():
         try:
             client = Garmin(GARMIN_EMAIL or "token-user", GARMIN_PASSWORD or "")
             client.login(tokenstore=TOKEN_DIR)
-            # Re-save tokens (refreshes if needed)
+            # Re-save tokens (refreshes if needed). The pinned garminconnect
+            # 0.2.40 exposes the garth client as .garth, not .client — getting
+            # this wrong means no token is ever persisted and every run falls
+            # back to a full SSO password login.
             try:
-                client.client.dump(TOKEN_DIR)
+                client.garth.dump(TOKEN_DIR)
             except Exception as exc:
-                logging.getLogger(__name__).debug("token dump failed: %s", exc)
+                print(f"WARNING: could not save Garmin tokens: {exc}", file=sys.stderr)
             print("Authenticated with saved tokens")
             return client
         except Exception as e:
@@ -300,11 +303,17 @@ def get_client():
         try:
             client = Garmin(GARMIN_EMAIL, GARMIN_PASSWORD)
             client.login()
+            saved = True
             try:
-                client.client.dump(TOKEN_DIR)
+                client.garth.dump(TOKEN_DIR)
             except Exception as exc:
-                logging.getLogger(__name__).debug("token dump failed: %s", exc)
-            print("Authenticated with credentials, tokens saved")
+                saved = False
+                print(f"WARNING: could not save Garmin tokens: {exc}", file=sys.stderr)
+            print(
+                "Authenticated with credentials, tokens saved"
+                if saved
+                else "Authenticated with credentials, but tokens were NOT saved"
+            )
             return client
         except Exception as e:
             print(f"Credential login failed: {e}", file=sys.stderr)
@@ -658,8 +667,13 @@ def sync_daily_stats(client: Any, db: Any, date_str: str) -> bool:
                 )
                 if stress
                 else stats.get("averageStressLevel"),
-                stats.get("bodyBatteryChargedValue"),
-                stats.get("bodyBatteryDrainedValue"),
+                # bodyBatteryCharged/DrainedValue are the amounts gained and
+                # lost over the day, not levels. Storing them as start/end made
+                # a well-rested day (charged 80, drained 5) look like it ended
+                # at 5, which drove the recovery and rest-day recommendations
+                # the wrong way. Highest/Lowest are the actual levels.
+                stats.get("bodyBatteryHighestValue"),
+                stats.get("bodyBatteryLowestValue"),
                 stats.get("floorsAscended"),
                 stats.get("intensityMinutesGoal"),
                 _extract_sleep_time(sleep_dto, "sleepStartTimestampLocal"),
@@ -818,6 +832,17 @@ def _upsert_activity(cur, act: dict, act_id: str) -> None:
     if not isinstance(activity_type, dict):
         activity_type = {}
 
+    # Garmin reports averageSpeed in m/s; the column stores seconds per km as an
+    # integer. Writing the raw speed made every pace read 2-5 instead of ~360,
+    # which also fed the pace-derived zone model two orders of magnitude wrong.
+    avg_speed_ms = act.get("averageSpeed")
+    try:
+        avg_pace_sec_per_km = (
+            round(1000 / avg_speed_ms) if avg_speed_ms and avg_speed_ms > 0 else None
+        )
+    except (TypeError, ZeroDivisionError):
+        avg_pace_sec_per_km = None
+
     # Running dynamics (present on running activity summaries; None otherwise).
     # Columns already exist in the Drizzle schema but were never populated.
     running_dynamics = (
@@ -877,7 +902,7 @@ def _upsert_activity(cur, act: dict, act_id: str) -> None:
             avg_hr,
             act.get("maxHR"),
             act.get("calories"),
-            act.get("averageSpeed"),
+            avg_pace_sec_per_km,
             act.get("aerobicTrainingEffect"),
             act.get("anaerobicTrainingEffect"),
             hr_zones,
@@ -1817,12 +1842,20 @@ def main():
     db = get_db()
 
     today = _user_today()
+    # Track whether every day of the window actually synced. The completion
+    # marker below must not be written after a partial run, because nothing
+    # ever retries the backfill: the next run would silently drop to 7 days
+    # and the missing history would be gone for good.
+    all_days_ok = True
+    failed_days = 0
     for days_ago in range(sync_days):
         date_str = (today - timedelta(days=days_ago)).isoformat()
         _write_sync_status(
             "daily_stats", f"Syncing {date_str}", int((days_ago / sync_days) * 50)
         )
-        sync_daily_stats(client, db, date_str)
+        if not sync_daily_stats(client, db, date_str):
+            all_days_ok = False
+            failed_days += 1
         if (
             initial_backfill
             and GARMIN_INITIAL_BACKFILL_DAY_DELAY_SECONDS > 0
@@ -1865,10 +1898,20 @@ def main():
 
     db.close()
 
-    # Mark initial sync complete
+    # Mark initial sync complete — only when the whole window succeeded, so a
+    # rate-limited or interrupted first run is retried instead of being
+    # recorded as done with a permanent hole in the history.
     if not os.path.exists(HISTORY_MARKER):
-        with open(HISTORY_MARKER, "w") as f:
-            f.write(datetime.now(timezone.utc).isoformat())
+        if all_days_ok:
+            with open(HISTORY_MARKER, "w") as f:
+                f.write(datetime.now(timezone.utc).isoformat())
+        else:
+            print(
+                f"WARNING: {failed_days}/{sync_days} days failed to sync — "
+                "initial backfill stays incomplete and will be retried on the "
+                "next run",
+                file=sys.stderr,
+            )
 
     _clear_sync_status()
     _write_last_sync()
@@ -1965,4 +2008,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # The sync status file is a lock with no owner and no TTL: if the process
+    # dies anywhere between _write_sync_status and the normal clear, the UI
+    # reports "Sync already in progress" forever and the progress bar hangs.
+    # Clearing it here covers every exit path, including crashes.
+    try:
+        main()
+    finally:
+        try:
+            _clear_sync_status()
+        except Exception as exc:  # never mask the original failure
+            print(f"WARNING: could not clear sync status: {exc}", file=sys.stderr)

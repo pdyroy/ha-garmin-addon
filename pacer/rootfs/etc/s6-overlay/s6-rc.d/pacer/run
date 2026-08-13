@@ -133,9 +133,18 @@ if ! psql -h 127.0.0.1 -U postgres -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw 
     createdb -h 127.0.0.1 -U postgres pacer 2>/dev/null || true
 fi
 
-# Push schema to database (creates tables if missing)
+# Push schema to database (creates tables if missing).
+#
+# Deliberately NOT --force: that flag accepts every destructive statement the
+# diff produces, so any column present in the database but absent from
+# schema.ts was silently dropped on every boot. A failing push must stop the
+# boot rather than continue against a half-migrated database — running on a
+# schema the app does not expect corrupts data instead of merely erroring.
 bashio::log.info "Pushing database schema..."
-cd /app/packages/db && POSTGRES_URL="${POSTGRES_URL}" npx drizzle-kit push --force 2>&1 || bashio::log.warning "Schema push had warnings"
+if ! (cd /app/packages/db && POSTGRES_URL="${POSTGRES_URL}" npx drizzle-kit push 2>&1); then
+    bashio::log.fatal "Database schema push failed — refusing to start with a mismatched schema."
+    bashio::exit.nok
+fi
 
 # Restore database from /share/ backup if this is a fresh install
 restore_database "check"

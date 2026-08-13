@@ -17,8 +17,14 @@ export interface GarminDailySummary {
   restingHeartRateInBeatsPerMinute: number;
   maxHeartRateInBeatsPerMinute: number;
   averageStressLevel: number;
+  /** Amount gained over the day, not a level. */
   bodyBatteryChargedValue: number;
+  /** Amount lost over the day, not a level. */
   bodyBatteryDrainedValue: number;
+  /** Highest body battery level reached; absent on some payloads. */
+  bodyBatteryHighestValue?: number | null;
+  /** Lowest body battery level reached; absent on some payloads. */
+  bodyBatteryLowestValue?: number | null;
   steps: number;
   activeKilocalories: number;
   totalKilocalories: number;

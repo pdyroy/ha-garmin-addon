@@ -370,7 +370,7 @@ export default function CoachPage() {
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-zinc-950">
+    <div className="bg-background flex h-dvh flex-col">
       {/* Header */}
       <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900 px-4 py-3 pl-16">
         <div className="flex items-center gap-3">

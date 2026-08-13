@@ -179,25 +179,47 @@ export const chatRouter = {
           `[Chat] Prompt size: ${fullPrompt.length} chars, data context: ${dataContext.length} chars`,
         );
 
+        // Dispatch strictly on the configured backend. The prompt carries the
+        // athlete's health context — medications, diagnoses, injuries — so
+        // choosing "ollama" must never fall through to a cloud agent. Only
+        // Ollama, which is local, is used as a fallback.
+        const backend = process.env.AI_BACKEND ?? "none";
+
         try {
-          if (isOpenRouterConfigured()) {
-            // Preferred path: direct OpenRouter API. Bypasses HA Conversation
-            // and the built-in Assist fallback that garbled replies before.
-            responseContent = await openRouterChat(chatMessages, {
-              temperature: 0.7,
-              timeoutMs: AI_TIMEOUT_MS,
-            });
-          } else {
-            responseContent = await haConversationChat(fullPrompt, {
-              timeoutMs: AI_TIMEOUT_MS,
-            });
+          switch (backend) {
+            case "openrouter":
+              if (!isOpenRouterConfigured()) {
+                throw new Error("OpenRouter selected but no API key configured");
+              }
+              responseContent = await openRouterChat(chatMessages, {
+                temperature: 0.7,
+                timeoutMs: AI_TIMEOUT_MS,
+              });
+              break;
+            case "ha_conversation":
+              responseContent = await haConversationChat(fullPrompt, {
+                timeoutMs: AI_TIMEOUT_MS,
+              });
+              break;
+            case "ollama":
+              responseContent = await ollamaChat(chatMessages, {
+                temperature: 0.7,
+                timeoutMs: AI_TIMEOUT_MS,
+              });
+              break;
+            default:
+              throw new Error(`No AI backend configured (ai_backend=${backend})`);
           }
         } catch (e) {
           console.error(
-            `[Chat] Primary AI backend failed:`,
+            `[Chat] AI backend "${backend}" failed:`,
             e instanceof Error ? e.message : e,
           );
           try {
+            if (backend === "ollama") {
+              // Already tried; nothing local left to fall back to.
+              throw e;
+            }
             responseContent = await ollamaChat(chatMessages, {
               temperature: 0.7,
               timeoutMs: AI_TIMEOUT_MS,

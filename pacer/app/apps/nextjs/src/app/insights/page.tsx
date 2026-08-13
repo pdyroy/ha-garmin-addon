@@ -549,7 +549,7 @@ export default function InsightsPage() {
     | undefined;
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="bg-background min-h-screen">
       <main className="mx-auto max-w-lg space-y-4 px-4 pt-6 pb-24">
         {/* ── Header ── */}
         <div>

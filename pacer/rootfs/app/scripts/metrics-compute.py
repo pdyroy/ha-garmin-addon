@@ -834,9 +834,15 @@ def upsert_advanced_metrics(
 def run_compute(user_id: str):
     """Run a full metrics computation pass."""
     print(f"[metrics-compute] Computing advanced metrics for user {user_id}...")
-    db = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    # get_db() and the cursor must be inside the try: the recompute status file
+    # is a lock with no TTL, cleared only by the finally below. A connection
+    # failure here used to leave running:true behind forever, after which every
+    # periodic pass and every manual recompute was skipped with a 409.
+    db = None
+    cur = None
     try:
+        db = get_db()
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         ensure_advanced_metric_table(cur)
         ensure_data_quality_log_table(cur)
         daily_loads = fetch_daily_loads(cur, user_id)
@@ -938,14 +944,17 @@ def run_compute(user_id: str):
                 "matview refresh failed: %s", refresh_err
             )
     except Exception as e:
-        db.rollback()
+        if db is not None:
+            db.rollback()
         print(f"[metrics-compute] ERROR: {e}", file=sys.stderr)
         import traceback
 
         traceback.print_exc()
     finally:
-        cur.close()
-        db.close()
+        if cur is not None:
+            cur.close()
+        if db is not None:
+            db.close()
         # Clear recompute status file so UI knows we're done
         _clear_recompute_status()
 

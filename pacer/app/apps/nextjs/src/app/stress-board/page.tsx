@@ -370,7 +370,7 @@ export default function StressBoardPage() {
       : null;
 
   return (
-    <main className="min-h-screen bg-zinc-950 pb-24 font-mono text-sm text-zinc-200">
+    <main className="bg-background text-foreground min-h-screen pb-24 font-mono text-sm">
       <div className="mx-auto max-w-3xl px-4 pt-6">
         <div className="mb-4 flex items-center justify-between">
           <div>

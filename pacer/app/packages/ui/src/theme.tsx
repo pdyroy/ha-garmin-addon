@@ -79,15 +79,31 @@ export const themeDetectorScript = (function () {
       return validThemes.includes(theme as ThemeMode);
     };
 
-    const storedTheme = localStorage.getItem("theme-mode") ?? "auto";
+    // The app is served inside a Home Assistant ingress iframe, where reading
+    // localStorage throws whenever third-party storage is blocked (Safari ITP,
+    // Firefox strict mode). An uncaught throw here aborted the whole script,
+    // left <html> without any theme class, and — because every variant is
+    // class-based — rendered light tokens against dark markup. Falling back to
+    // the media query keeps the page readable instead.
+    let storedTheme = "auto";
+    try {
+      storedTheme = localStorage.getItem("theme-mode") ?? "auto";
+    } catch {
+      storedTheme = "auto";
+    }
     const validTheme = isValidTheme(storedTheme) ? storedTheme : "auto";
 
     if (validTheme === "auto") {
-      const autoTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light";
-      document.documentElement.classList.add(autoTheme, "auto");
+      let prefersDark = false;
+      try {
+        prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      } catch {
+        prefersDark = false;
+      }
+      document.documentElement.classList.add(
+        prefersDark ? "dark" : "light",
+        "auto",
+      );
     } else {
       document.documentElement.classList.add(validTheme);
     }

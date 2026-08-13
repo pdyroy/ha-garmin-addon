@@ -68,10 +68,17 @@ trigger:
     at: !input briefing_time
 
 condition:
-  - condition: state
-    entity_id: !input acwr_sensor
-    state: "unavailable"
-    match: "not"
+  # `match:` only aggregates across several entities (all/any); it cannot
+  # negate. `match: "not"` failed blueprint validation, so this automation was
+  # never created at all. ha-notify.py writes "unknown" when ACWR is missing,
+  # so both non-values have to be excluded.
+  - condition: not
+    conditions:
+      - condition: state
+        entity_id: !input acwr_sensor
+        state:
+          - "unavailable"
+          - "unknown"
 
 action:
   - variables:

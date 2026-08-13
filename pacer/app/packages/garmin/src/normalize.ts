@@ -12,8 +12,8 @@
  *   restingHeartRateInBeatsPerMinute    → restingHr
  *   maxHeartRateInBeatsPerMinute        → maxHr
  *   averageStressLevel                  → stressScore
- *   bodyBatteryChargedValue             → bodyBatteryStart
- *   bodyBatteryDrainedValue             → bodyBatteryEnd
+ *   bodyBatteryHighestValue             → bodyBatteryStart
+ *   bodyBatteryLowestValue              → bodyBatteryEnd
  *   sleepScoreValue                     → sleepScore
  *   trainingReadinessScore              → garminTrainingReadiness
  *   trainingLoadValue                   → garminTrainingLoad
@@ -59,8 +59,13 @@ export function normalizeDailySummary(
     restingHr: garminData.restingHeartRateInBeatsPerMinute,
     maxHr: garminData.maxHeartRateInBeatsPerMinute,
     stressScore: garminData.averageStressLevel,
-    bodyBatteryStart: garminData.bodyBatteryChargedValue,
-    bodyBatteryEnd: garminData.bodyBatteryDrainedValue,
+    // Charged/Drained are the amounts gained and lost over the day, not
+    // levels. Highest/Lowest are the actual body battery levels; keep the old
+    // fields only as a fallback for payloads that omit the new ones.
+    bodyBatteryStart:
+      garminData.bodyBatteryHighestValue ?? garminData.bodyBatteryChargedValue,
+    bodyBatteryEnd:
+      garminData.bodyBatteryLowestValue ?? garminData.bodyBatteryDrainedValue,
     steps: garminData.steps,
     calories: garminData.totalKilocalories,
     garminTrainingReadiness: garminData.trainingReadinessScore ?? null,
