@@ -33,7 +33,7 @@ if [ ! -f "${PG_DATA}/PG_VERSION" ]; then
     cat >> "${PG_DATA}/postgresql.conf" << 'EOF'
 listen_addresses = '127.0.0.1'
 port = 5432
-max_connections = 20
+max_connections = 50
 shared_buffers = 32MB
 work_mem = 4MB
 maintenance_work_mem = 16MB
@@ -52,4 +52,6 @@ bashio::log.info "Starting PostgreSQL..."
 # workload is a few hundred rows a day, so the async commit bought nothing
 # measurable while risking the loss of already-acknowledged transactions on an
 # unclean stop.
-exec s6-setuidgid postgres postgres -D "${PG_DATA}" -c synchronous_commit=on
+exec s6-setuidgid postgres postgres -D "${PG_DATA}" \
+    -c synchronous_commit=on \
+    -c max_connections=50
