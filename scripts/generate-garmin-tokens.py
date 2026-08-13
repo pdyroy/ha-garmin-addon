@@ -36,6 +36,11 @@ LOCAL_TOKEN_DIR = "/tmp/garmin-tokens"
 HAOS_HOST = os.environ.get("HAOS_HOST", "homeassistant.local")
 HAOS_PORT = os.environ.get("HAOS_PORT", "22222")
 HAOS_USER = os.environ.get("HAOS_USER", "hassio")
+# Container hostname of the running add-on. Home Assistant derives it from the
+# repository the add-on was installed from: "local-<slug>" for a local add-on,
+# "<repo-hash>-<slug>" for one installed from an add-on store. Override with
+# ADDON_HOST if yours differs.
+ADDON_HOST = os.environ.get("ADDON_HOST", "local-pulsecoach")
 ADDON_TOKEN_PATH = "/data/garmin-tokens"
 
 
@@ -170,7 +175,7 @@ def _offer_deploy():
                 f"{HAOS_USER}@{HAOS_HOST}",
                 f"curl -s -X POST -H 'Content-Type: application/json' "
                 f"-d '{payload}' "
-                f"'http://ecfdb23d-pulsecoach:3000/api/garmin/auth-import'",
+                f"'http://{ADDON_HOST}:3000/api/garmin/auth-import'",
             ],
             capture_output=True,
             text=True,
@@ -190,7 +195,7 @@ def _offer_deploy():
                 f"{HAOS_USER}@{HAOS_HOST}",
                 f"curl -s -X POST -H 'Content-Type: application/json' "
                 f"-d '{payload}' "
-                f"'http://ecfdb23d-pulsecoach:8099/auth/import-tokens'",
+                f"'http://{ADDON_HOST}:8099/auth/import-tokens'",
             ],
             capture_output=True,
             text=True,
