@@ -11,49 +11,9 @@ declare -r SHARE_BACKUP="/share/pulsecoach"
 
 mkdir -p "${LOG_DIR}" "${DATA_DIR}" "${SHARE_BACKUP}"
 
-# ─── Migration: move old /share/garmincoach/ data to /share/pulsecoach/ ──────
-if [ -d "/share/garmincoach" ] && [ ! -f "${SHARE_BACKUP}/.migrated" ]; then
-    bashio::log.info "Migrating data from /share/garmincoach/ to /share/pulsecoach/..."
-    cp -a /share/garmincoach/* "${SHARE_BACKUP}/" 2>/dev/null || true
-    touch "${SHARE_BACKUP}/.migrated"
-    bashio::log.info "Migration complete. Old data preserved in /share/garmincoach/"
-fi
-
-# ─── Restore tokens & database from /share/ (survives uninstall) ─────────────
-restore_from_share() {
-    # Legacy one-time token restore: older versions backed up Garmin tokens
-    # to /share/, which is readable by other add-ons. Restore once if /data
-    # has no tokens, then remove the exposed copies from /share/.
-    if [ -d "${SHARE_BACKUP}/garmin-tokens" ]; then
-        if [ ! -f "/data/garmin-tokens/garmin_tokens.json" ] && [ ! -f "/data/garmin-tokens/oauth1_token.json" ]; then
-            bashio::log.info "Restoring Garmin tokens from legacy /share/ backup..."
-            # /share/ is writable by other add-ons. Restore only the known
-            # token files and reject symlinks on both source and destination
-            # so a planted link cannot redirect later reads/writes outside
-            # /data (no blind `cp -a` of arbitrary /share/ entries).
-            if [ -L /data/garmin-tokens ]; then
-                bashio::log.warning "/data/garmin-tokens is a symlink; refusing to restore"
-            else
-                mkdir -p /data/garmin-tokens
-                chmod 700 /data/garmin-tokens
-                for tf in garmin_tokens.json oauth1_token.json oauth2_token.json session.json; do
-                    src="${SHARE_BACKUP}/garmin-tokens/${tf}"
-                    dst="/data/garmin-tokens/${tf}"
-                    if [ -f "${src}" ] && [ ! -L "${src}" ] && [ ! -L "${dst}" ]; then
-                        cp "${src}" "${dst}" 2>/dev/null || true
-                        chmod 600 "${dst}" 2>/dev/null || true
-                    fi
-                done
-            fi
-        fi
-        bashio::log.info "Removing legacy token backup from /share/ (tokens now stay in /data only)"
-        rm -rf "${SHARE_BACKUP}/garmin-tokens"
-    fi
-    # Same cleanup for pre-rename backups
-    rm -rf /share/garmincoach/garmin-tokens 2>/dev/null || true
-    # Restore PostgreSQL dump (after DB is ready, called later)
-}
-
+# ─── Restore database from /share/ (survives uninstall) ─────────────────────
+# NOTE: Garmin tokens are deliberately NOT kept in /share/ — it is readable by
+# other add-ons, so credential material stays in /data only.
 restore_database() {
     if [ -f "${SHARE_BACKUP}/pulsecoach.sql.gz" ] && [ -n "$1" ]; then
         # Only restore if the database is empty (fresh install)
@@ -86,9 +46,6 @@ backup_to_share() {
     bashio::log.info "Backup complete → /share/pulsecoach/"
 }
 
-# Restore tokens early (before DB starts)
-restore_from_share
-
 # ─── PID tracking & cleanup ──────────────────────────────────────────────────
 SYNC_PID=""
 COMPUTE_PID=""
@@ -113,55 +70,6 @@ cleanup() {
     bashio::log.info "All services stopped."
 }
 trap cleanup EXIT INT TERM
-
-# ─── Clean up stale options from OpenClaw → PulseCoach rename ─────────────────
-# Use Supervisor API to permanently remove stale keys from addon config,
-# then update the local options file atomically as a fallback.
-OPTIONS_FILE="${DATA_DIR}/options.json"
-STALE_KEYS=("openclaw_agent_id" "openclaw_api_key" "openclaw_url")
-if [[ -f "${OPTIONS_FILE}" ]]; then
-    NEEDS_CLEANUP=false
-    for key in "${STALE_KEYS[@]}"; do
-        if python3 -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if sys.argv[2] in d else 1)" \
-            "${OPTIONS_FILE}" "${key}" 2>/dev/null; then
-            NEEDS_CLEANUP=true
-            break
-        fi
-    done
-    if [[ "${NEEDS_CLEANUP}" == "true" ]]; then
-        bashio::log.info "Cleaning stale OpenClaw options from addon config..."
-        # Build cleaned options and update via Supervisor API for persistence
-        CLEANED_OPTIONS=$(python3 -c "
-import json, sys, os, tempfile
-opts_file = sys.argv[1]
-stale = set(sys.argv[2:])
-with open(opts_file, 'r') as f:
-    d = json.load(f)
-removed = [k for k in stale if k in d]
-for k in removed:
-    d.pop(k)
-if removed:
-    # Atomic write to local file as fallback
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(opts_file))
-    with os.fdopen(fd, 'w') as f:
-        json.dump(d, f, indent=2)
-    os.replace(tmp, opts_file)
-print(json.dumps(d))
-" "${OPTIONS_FILE}" "${STALE_KEYS[@]}" 2>/dev/null)
-        if [[ -n "${CLEANED_OPTIONS}" ]]; then
-            # Update Supervisor stored config so changes persist across restarts
-            if curl -sf -X POST \
-                -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-                -H "Content-Type: application/json" \
-                -d "{\"options\": ${CLEANED_OPTIONS}}" \
-                "http://supervisor/addons/self/options" >/dev/null 2>&1; then
-                bashio::log.info "Stale OpenClaw options removed via Supervisor API (persistent)"
-            else
-                bashio::log.warning "Supervisor API update failed; local options.json updated only"
-            fi
-        fi
-    fi
-fi
 
 # ─── Read addon configuration ─────────────────────────────────────────────────
 GARMIN_EMAIL=$(bashio::config 'garmin_email')
@@ -231,27 +139,6 @@ cd /app/packages/db && POSTGRES_URL="${POSTGRES_URL}" npx drizzle-kit push --for
 
 # Restore database from /share/ backup if this is a fresh install
 restore_database "check"
-
-# ─── Data migration v0.4.0: fix userId + force full resync from 2019 ─────────
-MIGRATION_MARKER="/data/garmin-tokens/.migration_v040_done"
-if [ ! -f "${MIGRATION_MARKER}" ]; then
-    bashio::log.info "Running v0.4.0 migration: fix userId + reset sync marker..."
-    psql -h 127.0.0.1 -U postgres -d pulsecoach -c \
-      "UPDATE daily_metric SET user_id = 'seed-user-001' WHERE user_id = 'addon-user';" 2>/dev/null
-    psql -h 127.0.0.1 -U postgres -d pulsecoach -c \
-      "UPDATE activity SET user_id = 'seed-user-001' WHERE user_id = 'addon-user';" 2>/dev/null
-    # Deduplicate
-    psql -h 127.0.0.1 -U postgres -d pulsecoach -c \
-      "DELETE FROM daily_metric a USING daily_metric b
-       WHERE a.id < b.id AND a.user_id = b.user_id AND a.date = b.date;" 2>/dev/null
-    psql -h 127.0.0.1 -U postgres -d pulsecoach -c \
-      "DELETE FROM activity a USING activity b
-       WHERE a.id < b.id AND a.garmin_activity_id = b.garmin_activity_id;" 2>/dev/null
-    # Force full resync from 2019
-    rm -f /data/garmin-tokens/.initial_sync_done
-    touch "${MIGRATION_MARKER}"
-    bashio::log.info "Migration complete — full resync from 2019 will start"
-fi
 
 # Create/refresh materialized view after schema push + restore + migrations
 # Add data_quality column if missing (addon-managed, not in Drizzle schema)
