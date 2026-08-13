@@ -1,0 +1,49 @@
+{
+  "name": "@acme/api",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    },
+    "./memory": {
+      "types": "./dist/lib/memory.d.ts",
+      "default": "./src/lib/memory.ts"
+    },
+    "./learning": {
+      "types": "./dist/lib/learning.d.ts",
+      "default": "./src/lib/learning.ts"
+    }
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "clean": "git clean -xdf .cache .turbo dist node_modules",
+    "dev": "tsc",
+    "format": "prettier --check . --ignore-path ../../.gitignore",
+    "lint": "eslint --flag unstable_native_nodejs_ts_config",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit --emitDeclarationOnly false"
+  },
+  "dependencies": {
+    "@acme/auth": "workspace:*",
+    "@acme/db": "workspace:*",
+    "@acme/engine": "workspace:*",
+    "@acme/garmin": "workspace:*",
+    "@acme/validators": "workspace:*",
+    "@trpc/server": "catalog:",
+    "superjson": "2.2.3",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@acme/eslint-config": "workspace:*",
+    "@acme/prettier-config": "workspace:*",
+    "@acme/tsconfig": "workspace:*",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "^4.1.7"
+  },
+  "prettier": "@acme/prettier-config"
+}
