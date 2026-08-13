@@ -40,7 +40,7 @@ HAOS_USER = os.environ.get("HAOS_USER", "hassio")
 # repository the add-on was installed from: "local-<slug>" for a local add-on,
 # "<repo-hash>-<slug>" for one installed from an add-on store. Override with
 # ADDON_HOST if yours differs.
-ADDON_HOST = os.environ.get("ADDON_HOST", "local-pulsecoach")
+ADDON_HOST = os.environ.get("ADDON_HOST", "local-pacer")
 ADDON_TOKEN_PATH = "/data/garmin-tokens"
 
 

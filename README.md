@@ -1,10 +1,11 @@
-# PulseCoach — Home Assistant Addon
+# Pacer — Home Assistant Add-on
 
-[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Faskb%2Fha-garmin-fitness-coach-addon)
-[![GitHub Release](https://img.shields.io/github/v/release/askb/ha-garmin-fitness-coach-addon?label=release)](https://github.com/askb/ha-garmin-fitness-coach-addon/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/askb/ha-garmin-fitness-coach-addon/total?label=downloads)](https://github.com/askb/ha-garmin-fitness-coach-addon/releases)
-[![GHCR](https://ghcr-badge.egpl.dev/askb/pulsecoach-addon-amd64/latest_tag?label=ghcr)](https://github.com/askb/ha-garmin-fitness-coach-addon/pkgs/container/pulsecoach-addon-amd64)
-[![License](https://img.shields.io/github/license/askb/ha-garmin-fitness-coach-addon)](LICENSE)
+> **Fork.** Built on
+> [ha-garmin-fitness-coach-addon](https://github.com/askb/ha-garmin-fitness-coach-addon)
+> and [ha-garmin-fitness-coach-app](https://github.com/askb/ha-garmin-fitness-coach-app)
+> by Anil Belur (Apache-2.0 / MIT), which in turn build on
+> [create-t3-turbo](https://github.com/t3-oss/create-t3-turbo) (MIT).
+> Renamed to Pacer and adapted for private use.
 
 AI-powered sport scientist that turns your Garmin data into actionable
 coaching, training analysis, and recovery optimization — running entirely on
@@ -148,11 +149,11 @@ view with synthetic demo data (all people and meetings are fictional).
 ```mermaid
 flowchart TD
     subgraph HAOS["🏠 Home Assistant OS"]
-        subgraph ADDON["📦 PulseCoach Addon · s6-overlay"]
+        subgraph ADDON["📦 Pacer Addon · s6-overlay"]
             S6["⚙️ s6-overlay init"]
             PG[("🐘 postgresql<br/>longrun")]
             Auth["🔐 garmin-auth<br/>Flask :8099"]
-            GC["🎛️ pulsecoach orchestrator<br/>longrun"]
+            GC["🎛️ pacer orchestrator<br/>longrun"]
             Sync["🔄 garmin-sync.py<br/>loop · every N min"]
             Metrics["📊 metrics-compute.py<br/>120s delay · every 60 min"]
             Notify["🔔 ha-notify.py<br/>180s delay · every 30 min"]
@@ -160,7 +161,7 @@ flowchart TD
             Ingress["🔀 ingress-proxy<br/>:3000 → :3001"]
             Monitor["🩺 process monitor<br/>every 60s"]
             Stress["💓 meeting-stress.py<br/>on demand"]
-            Share[/"📁 /share/pulsecoach<br/>events · interactions · results"/]
+            Share[/"📁 /share/pacer<br/>events · interactions · results"/]
         end
         HA["🏡 Home Assistant Core"]
         Ollama["🦙 Ollama Addon<br/>optional"]
@@ -223,7 +224,7 @@ flowchart TD
 
 ```text
 Startup order:
-  postgresql → garmin-auth (parallel) → pulsecoach orchestrator
+  postgresql → garmin-auth (parallel) → pacer orchestrator
     → garmin-sync (background loop, waits for tokens)
     → metrics-compute (120s delay, then every 60 min)
     → ha-notify (180s delay, then every 30 min)
@@ -236,29 +237,30 @@ Supported architectures: **amd64**, **aarch64**.
 
 ## Installation
 
-### One-Click Install
+Pacer is installed as a **local add-on**: Home Assistant builds the image on
+your own machine from this repository. There is no prebuilt image and no
+public add-on store entry.
 
-Click the button at the top of this README, or:
-
-[![Add Repository](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Faskb%2Fha-garmin-fitness-coach-addon)
-
-Then install **PulseCoach** from the add-on store and start it.
-
-### Manual Install
-
-1. In Home Assistant go to **Settings → Add-ons → Add-on Store → ⋮ →
-   Repositories**.
-2. Paste the repository URL:
+1. Copy the `pacer/` folder of this repository to `/addons/pacer/` on your
+   Home Assistant host. HA expects `config.json` to sit directly beneath the
+   add-on folder, so copy `pacer/`, not the repository root. Over SSH:
+   ```bash
+   rsync -a --delete pacer/ root@<haos-host>:/addons/pacer/
    ```
-   https://github.com/askb/ha-garmin-fitness-coach-addon
-   ```
-3. Click **Add**, then find **PulseCoach** in the store and click **Install**.
-4. Wait for the build to complete (~10-15 minutes on aarch64, ~5 min on amd64).
-5. Start the addon — it appears in your sidebar automatically.
+   The Samba or "Advanced SSH & Web Terminal" add-ons both expose `/addons`.
+2. In Home Assistant go to **Settings → Add-ons → Add-on Store → ⋮ → Check
+   for updates**. **Pacer** appears under *Local add-ons*.
+3. Click **Install**. The first build takes roughly 5 minutes on amd64 and
+   10-15 minutes on aarch64, since the Next.js app is compiled from source.
+4. Start the add-on — it appears in your sidebar automatically.
+
+To update, re-copy the folder and rebuild from the same screen.
+
+Supported architectures: amd64 and aarch64.
 
 ### First-Time Setup
 
-1. **Open the addon** from your HA sidebar (or Settings → Add-ons → PulseCoach → Open Web UI).
+1. **Open the addon** from your HA sidebar (or Settings → Add-ons → Pacer → Open Web UI).
 2. **Complete the onboarding wizard** (4 steps):
    - **About You** — age, sex, weight, height
    - **Your Sports** — select sports and goals for each
@@ -283,38 +285,15 @@ Then install **PulseCoach** from the add-on store and start it.
 > **💡 Tip:** You can trigger a manual sync at any time from
 > **Settings → 🔄 Sync Now** without waiting for the next scheduled interval.
 
-### Updating to a new version
+### Updating
 
-Home Assistant Supervisor caches the addon store on disk and only re-reads
-release metadata every few hours. If a new version (e.g. `v0.17.10`) has
-shipped here but the **Update** button has not yet appeared in the UI:
+Re-copy the `pacer/` folder to `/addons/pacer/`, then **Settings → Add-ons →
+Add-on Store → ⋮ → Check for updates**. Bump `version` in
+`pacer/config.json` if you want Supervisor to offer an explicit **Update**
+button; otherwise use **Rebuild** on the add-on page. Supervisor reads the
+version from `config.json`, not from a git tag.
 
-1. **Settings → Add-ons → Add-on Store → ⋮ (top-right) → Reload**.
-   This re-fetches `config.json` from this repository and shows the latest
-   `version:` field within a few seconds.
-2. Open **PulseCoach** in the store — if a newer version exists, an
-   **Update** button replaces **Open**.
-3. Click **Update**. The addon ships as a prebuilt multi-arch image on
-   GHCR (`ghcr.io/askb/pulsecoach-addon-{arch}`), so Supervisor pulls the
-   image rather than rebuilding from source — usually under a minute on
-   a decent connection. The addon restarts automatically when the pull
-   completes.
-
-Power-user alternatives:
-
-- **CLI** (HAOS / Supervised): `ha store reload` then `ha addons update <slug>`.
-- **REST API**: `POST /store/reload` against the Supervisor to refresh
-  add-on store metadata (this is the endpoint backing `ha store reload`;
-  `POST /supervisor/reload` only reloads the Supervisor process config).
-- **HACS users**: HACS pulls release tags via the GitHub API and usually
-  picks up new releases within ~30 minutes. To force it, open HACS → ⋮ →
-  **Reload data**.
-
-If the version still does not appear after a reload, confirm the release
-is published (not draft) at
-[the releases page](https://github.com/askb/ha-garmin-fitness-coach-addon/releases)
-and that `pulsecoach/config.json` on `main` has the matching `version:` —
-HA Supervisor reads the config file, not the git tag.
+On the CLI: `ha addons rebuild local_pacer`.
 
 ## Configuration
 
@@ -328,9 +307,9 @@ HA Supervisor reads the config file, not the git tag.
 
 ## Garmin Authentication
 
-PulseCoach authenticates with Garmin Connect using a **web-based auth flow**:
+Pacer authenticates with Garmin Connect using a **web-based auth flow**:
 
-1. Open the addon **Web UI** (sidebar → PulseCoach).
+1. Open the addon **Web UI** (sidebar → Pacer).
 2. Navigate to **Settings → Connect Garmin**.
 3. Enter your **email** and **password**. If your account has MFA enabled you
    will be prompted for the one-time code during the same flow.
@@ -378,21 +357,21 @@ PulseCoach authenticates with Garmin Connect using a **web-based auth flow**:
 
 | Entity ID | Description |
 |-----------|-------------|
-| `sensor.pulsecoach_ctl` | Chronic Training Load (42-day fitness) |
-| `sensor.pulsecoach_atl` | Acute Training Load (7-day fatigue) |
-| `sensor.pulsecoach_form` | Training Stress Balance (TSB = CTL − ATL) |
-| `sensor.pulsecoach_acwr` | Acute:Chronic Workload Ratio (injury risk) |
-| `sensor.pulsecoach_injury_risk` | Risk level: Low / Moderate / High / Very High |
-| `sensor.pulsecoach_body_battery` | Current Garmin Body Battery value |
-| `sensor.pulsecoach_sleep_debt` | Accumulated sleep debt (hours) |
-| `sensor.pulsecoach_data_quality` | Unresolved sync-gap count, with `missing_days_14d` / `stale_days` / `field_gaps` / `status` attributes |
+| `sensor.pacer_ctl` | Chronic Training Load (42-day fitness) |
+| `sensor.pacer_atl` | Acute Training Load (7-day fatigue) |
+| `sensor.pacer_form` | Training Stress Balance (TSB = CTL − ATL) |
+| `sensor.pacer_acwr` | Acute:Chronic Workload Ratio (injury risk) |
+| `sensor.pacer_injury_risk` | Risk level: Low / Moderate / High / Very High |
+| `sensor.pacer_body_battery` | Current Garmin Body Battery value |
+| `sensor.pacer_sleep_debt` | Accumulated sleep debt (hours) |
+| `sensor.pacer_data_quality` | Unresolved sync-gap count, with `missing_days_14d` / `stale_days` / `field_gaps` / `status` attributes |
 
 ## Automation Blueprints & Templates
 
 ### HA Blueprints (importable)
 
 Five ready-to-import Home Assistant blueprints are included in
-`pulsecoach/rootfs/app/blueprints/`. Import them via **Settings → Automations
+`pacer/rootfs/app/blueprints/`. Import them via **Settings → Automations
 → Blueprints → Import Blueprint** using the raw GitHub URL:
 
 | Blueprint | Trigger | What It Does |
@@ -404,12 +383,12 @@ Five ready-to-import Home Assistant blueprints are included in
 | **Weekly Training Summary** | Configurable day/time | Weekly CTL, ATL, TSB, ACWR, risk, body battery summary |
 
 All blueprints use configurable inputs (thresholds, notification targets,
-scenes) with sensible defaults for PulseCoach sensor entities.
+scenes) with sensible defaults for Pacer sensor entities.
 
 ### Copy-Paste Automations
 
 Seven additional ready-to-paste automations are provided in
-[`HA_AUTOMATIONS.md`](pulsecoach/HA_AUTOMATIONS.md):
+[`HA_AUTOMATIONS.md`](pacer/HA_AUTOMATIONS.md):
 
 1. **Low Body Battery Recovery Mode** — dim lights, enable DND
 2. **Morning Training Briefing** — daily notification with readiness + plan
@@ -421,21 +400,21 @@ Seven additional ready-to-paste automations are provided in
 
 ## Testing
 
-- **28 passing pytest tests** (+ 59 pre-existing errors in legacy sync tests)
-  covering:
-  - Garmin auth flow, token handling, daily stats sync, activity sync
-  - TRIMP calculation, ingress proxy path rewriting
-  - AI workout recommendation logic (rest triggers, optimal signals)
-  - Injury risk computation (ACWR, TSB, ramp rate thresholds)
-  - EWMA decay constant validation (7-day ATL, 42-day CTL)
-  - Confidence degradation with missing/extreme data
-  - Scientific reference accuracy (VO2max, Cooper, Riegel)
-- **CI:** GitHub Actions builds the Docker image and runs `pytest -v` on every
-  PR
+The engine unit tests cover the deterministic maths — readiness, strain,
+ACWR, CTL/ATL/TSB, VO2max, forecasting and the daily recommendation rules:
+
+```bash
+cd pacer/app && pnpm --filter @acme/engine test
+```
+
+These matter because readiness scoring and workout recommendation are
+implemented twice — in Python for the Home Assistant sensors and in
+TypeScript for the web UI — and the `accuracy-reference` spec is what keeps
+the two in agreement.
 
 ## Garmin Watch Compatibility
 
-PulseCoach connects to the **Garmin Connect web API** — not directly to your
+Pacer connects to the **Garmin Connect web API** — not directly to your
 watch. Any Garmin watch that syncs to Garmin Connect will work, but the depth
 of coaching features depends on which sensors your watch has.
 
@@ -474,7 +453,7 @@ Watches with steps + HR only (no advanced physiology):
 Steps, heart rate, and sleep duration are available. Advanced training metrics
 (VO2 Max, Training Status, Body Battery) will not be populated.
 
-> **Note:** PulseCoach handles missing data gracefully — sensors for
+> **Note:** Pacer handles missing data gracefully — sensors for
 > unavailable metrics simply show as "Unknown" in Home Assistant.
 
 ## Known Issues
@@ -513,10 +492,10 @@ automatically after token loss. Instead, startup logs will show
 
 **How to fix:**
 
-1. **Stop the addon** — Settings → Add-ons → PulseCoach → Stop
+1. **Stop the addon** — Settings → Add-ons → Pacer → Stop
 2. **Wait 15–30 minutes** for the Garmin rate limit window to expire
 3. **Start the addon** — it will attempt one clean login
-4. **Verify authentication succeeded** — Settings → Add-ons → PulseCoach →
+4. **Verify authentication succeeded** — Settings → Add-ons → Pacer →
    Log tab, look for either `Authenticated with credentials, tokens saved` or
    `Tokens saved to /data/garmin-tokens`
 5. **If logs are unclear, verify token files exist** — confirm both
@@ -533,7 +512,7 @@ subsequent syncs use token refresh (not counted as a login attempt).
 
 - Keep `sync_interval_minutes` at **30 or above** (default: 60)
 - Avoid frequent uninstall/reinstall cycles — use **Restart** instead
-- Tokens are backed up to `/share/pulsecoach/garmin-tokens/` and auto-restored
+- Tokens are backed up to `/share/pacer/garmin-tokens/` and auto-restored
   on reinstall, so a normal uninstall → reinstall should not trigger fresh login
 - If you change your Garmin password, you must re-authenticate via the addon's
   Settings → Connect Garmin flow
@@ -561,16 +540,16 @@ authentication errors. Re-authenticate from **Settings → Connect Garmin**.
 ## Data Persistence & Backup
 
 All data is stored in PostgreSQL at `/data/postgresql/` and automatically
-backed up to `/share/pulsecoach/` (survives addon uninstalls).
+backed up to `/share/pacer/` (survives addon uninstalls).
 
 ### What Gets Saved
 
 | Data | Location | Backup Path |
 |---|---|---|
-| Daily metrics, activities, VO2max | PostgreSQL `/data/` | `/share/pulsecoach/pulsecoach.sql.gz` |
-| Athlete Profile & Health info | PostgreSQL `/data/` (profile table) | `/share/pulsecoach/pulsecoach.sql.gz` |
-| Readiness scores, chat history | PostgreSQL `/data/` | `/share/pulsecoach/pulsecoach.sql.gz` |
-| Garmin OAuth tokens | `/data/garmin-tokens/` | `/share/pulsecoach/garmin-tokens/` |
+| Daily metrics, activities, VO2max | PostgreSQL `/data/` | `/share/pacer/pacer.sql.gz` |
+| Athlete Profile & Health info | PostgreSQL `/data/` (profile table) | `/share/pacer/pacer.sql.gz` |
+| Readiness scores, chat history | PostgreSQL `/data/` | `/share/pacer/pacer.sql.gz` |
+| Garmin OAuth tokens | `/data/garmin-tokens/` | `/share/pacer/garmin-tokens/` |
 
 ### When Backups Happen
 
@@ -580,8 +559,8 @@ backed up to `/share/pulsecoach/` (survives addon uninstalls).
 ### Restore on Reinstall
 
 When the addon starts with an empty database:
-1. Checks `/share/pulsecoach/pulsecoach.sql.gz` — restores full DB if found
-2. Checks `/share/pulsecoach/garmin-tokens/` — restores auth tokens if found
+1. Checks `/share/pacer/pacer.sql.gz` — restores full DB if found
+2. Checks `/share/pacer/garmin-tokens/` — restores auth tokens if found
 
 No manual steps needed — data is restored automatically.
 
@@ -645,15 +624,14 @@ identical to what Garmin Connect shows.
 
 ## Development
 
-This addon packages the
-[PulseCoach App](https://github.com/askb/ha-garmin-fitness-coach-app) for
-Home Assistant. See the app repo for the full Next.js / tRPC / Drizzle
-codebase.
+This repository is self-contained. The add-on packaging lives in `pacer/`
+and the Next.js / tRPC / Drizzle application it serves lives in
+`pacer/app/`, built from local source by the Dockerfile. See `CLAUDE.md` for
+the layout and architecture notes.
 
 ### Prerequisites
 
 - Docker
-- The app repo cloned at `~/git/ha-garmin-fitness-coach-app`
 
 ### Build Locally
 
@@ -684,7 +662,7 @@ Tagged releases create GitHub Releases automatically.
 ### Release gating
 
 The release workflow calls `release-gate.yml` before publishing. The gate
-checks the PulseCoach app repo's `main` branch and refuses to ship addon
+checks the Pacer app repo's `main` branch and refuses to ship addon
 images when the app checks are not green, preventing releases that point at a
 broken app commit.
 
@@ -703,7 +681,7 @@ This project is **not affiliated with, endorsed by, or connected to Garmin
 Ltd. or any of its subsidiaries**. "Garmin", "Garmin Connect", "Body Battery",
 "Training Status", and related trademarks are the property of Garmin Ltd.
 
-PulseCoach is an independent, community-developed project that reads publicly
+Pacer is an independent, community-developed project that reads publicly
 available user data from the Garmin Connect API. Use at your own risk.
 
 ## License

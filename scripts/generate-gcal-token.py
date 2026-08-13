@@ -9,12 +9,12 @@
 #
 # Runs the browser loopback flow with the read-only calendar scope and writes
 # gcal-token.json (client id/secret + refresh token). Copy that file to
-# /share/pulsecoach/ on HAOS — the addon adopts it into /data on first run.
+# /share/pacer/ on HAOS — the addon adopts it into /data on first run.
 #
 # stdlib only: the loopback listener is a plain http.server; token exchange
 # is urllib. No google-auth dependency for a one-shot helper.
 ##############################################################################
-"""Generate a Google Calendar refresh token for PulseCoach meeting stress."""
+"""Generate a Google Calendar refresh token for Pacer meeting stress."""
 
 from __future__ import annotations
 
@@ -138,7 +138,7 @@ def main() -> int:
             indent=1,
         )
     print(f"\n✓ Wrote {OUT_FILE}")
-    print("Copy it to HAOS:  scp gcal-token.json <haos>:/share/pulsecoach/")
+    print("Copy it to HAOS:  scp gcal-token.json <haos>:/share/pacer/")
     print("The addon moves it into /data (private) on the next meeting-stress run.")
     return 0
 

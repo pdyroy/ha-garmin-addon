@@ -7,7 +7,6 @@ node_modules/
 
 # Local dev
 .local-data/
-garmincoach/ha-garmin-fitness-coach-app/
 
 # Secrets / environment
 .env

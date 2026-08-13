@@ -11,7 +11,7 @@ live together, and the image is built entirely from local source.
 
 ```
 .
-├── pulsecoach/                  # add-on folder — this IS the Docker build context
+├── pacer/                  # add-on folder — this IS the Docker build context
 │   ├── config.json              # manifest: options, schema, ingress
 │   ├── build.json               # multi-arch build config
 │   ├── Dockerfile               # stage 1 builds app/, stage 2 = HA base image
@@ -32,17 +32,17 @@ live together, and the image is built entirely from local source.
 └── repository.json              # HA add-on repository manifest
 ```
 
-**Why `app/` sits inside `pulsecoach/`:** Home Assistant builds a local add-on
+**Why `app/` sits inside `pacer/`:** Home Assistant builds a local add-on
 with the add-on folder as the Docker build context. Source outside that folder
 cannot be `COPY`ed, so the application lives one level down.
 
 ## Architecture notes
 
 ### Add-on structure
-- The `pulsecoach/` directory name is the add-on slug — renaming it means HA
+- The `pacer/` directory name is the add-on slug — renaming it means HA
   treats it as a different add-on, with a fresh database and new entity IDs.
 - `rootfs/` is overlaid onto the container filesystem at runtime.
-- s6-overlay manages the service lifecycle. `s6-rc.d/pulsecoach/run` is the
+- s6-overlay manages the service lifecycle. `s6-rc.d/pacer/run` is the
   entry point: it boots PostgreSQL, pushes the schema, starts Next.js behind
   an ingress proxy, and supervises five background loops.
 - `SUPERVISOR_TOKEN` is injected by HA because `homeassistant_api: true`.
@@ -88,9 +88,9 @@ tests are what keep the two in agreement. Change one, check the other.
 ./scripts/build-local.sh --clean  # remove build artifacts
 ```
 
-Engine tests: `pnpm --filter @acme/engine test` inside `pulsecoach/app/`.
+Engine tests: `pnpm --filter @acme/engine test` inside `pacer/app/`.
 
-To run this on HAOS, mirror the `pulsecoach/` folder to `/addons/<slug>/` —
+To run this on HAOS, mirror the `pacer/` folder to `/addons/<slug>/` —
 HA expects `config.json` directly beneath the add-on folder — then build it
 from the local add-on entry in the UI. `config.json` must have no `image`
 key, otherwise HA pulls a registry image instead of building.

@@ -1,0 +1,65 @@
+{
+  "name": "Pacer",
+  "version": "1.0.0",
+  "slug": "pacer",
+  "description": "AI-powered sport scientist — training analysis, coaching, and recovery optimization from your Garmin data",
+  "arch": [
+    "amd64",
+    "aarch64"
+  ],
+  "homeassistant_api": true,
+  "ingress": true,
+  "ingress_port": 3000,
+  "panel_icon": "mdi:heart-pulse",
+  "panel_title": "Pacer",
+  "init": false,
+  "startup": "application",
+  "timeout": 120,
+  "map": [
+    "addon_config:rw",
+    "share:rw"
+  ],
+  "options": {
+    "garmin_email": "",
+    "garmin_password": "",
+    "strava_client_id": "",
+    "strava_client_secret": "",
+    "strava_refresh_token": "",
+    "ai_backend": "none",
+    "openrouter_api_key": "",
+    "openrouter_model": "anthropic/claude-3.5-sonnet",
+    "ollama_url": "",
+    "ollama_embed_model": "nomic-embed-text",
+    "sync_interval_minutes": 60,
+    "user_timezone": "UTC",
+    "ha_events_enabled": true,
+    "low_readiness_threshold": 50,
+    "missed_session_grace_min": 360,
+    "meeting_lookback_days": 30,
+    "meeting_rescore_interval_minutes": 360
+  },
+  "schema": {
+    "garmin_email": "str?",
+    "garmin_password": "password?",
+    "strava_client_id": "str?",
+    "strava_client_secret": "password?",
+    "strava_refresh_token": "password?",
+    "ai_backend": "list(ha_conversation|ollama|openrouter|none)",
+    "openrouter_api_key": "password?",
+    "openrouter_model": "str?",
+    "ollama_url": "str?",
+    "ollama_embed_model": "str?",
+    "sync_interval_minutes": "int(5,1440)?",
+    "user_timezone": "str?",
+    "ha_events_enabled": "bool",
+    "low_readiness_threshold": "int(0,100)",
+    "missed_session_grace_min": "int(0,1440)",
+    "meeting_lookback_days": "int(1,365)?",
+    "meeting_rescore_interval_minutes": "int(0,1440)?"
+  },
+  "environment": {
+    "DATABASE_URL": "postgresql://postgres@127.0.0.1:5432/pacer",
+    "POSTGRES_URL": "postgresql://postgres@127.0.0.1:5432/pacer",
+    "NODE_ENV": "production"
+  }
+}
