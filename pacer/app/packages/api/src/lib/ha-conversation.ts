@@ -27,6 +27,11 @@ const SUPERVISOR_URL = "http://supervisor/core/api";
  * that don't match an intent.
  */
 async function discoverAgent(token: string): Promise<string | null> {
+  // Every other fetch in this file carries an AbortSignal; this one did not,
+  // so a hung Supervisor blocked agent discovery — and therefore the whole
+  // coach reply — indefinitely.
+  const discoveryController = new AbortController();
+  const discoveryTimer = setTimeout(() => discoveryController.abort(), 10_000);
   try {
     // Primary: discover via config entries (works on all HA versions)
     const response = await fetch(
@@ -36,6 +41,7 @@ async function discoverAgent(token: string): Promise<string | null> {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        signal: discoveryController.signal,
       },
     );
     if (!response.ok) {
@@ -48,11 +54,19 @@ async function discoverAgent(token: string): Promise<string | null> {
       entry_id: string;
     }[];
 
-    // Find conversation-capable integrations
+    // Home Assistant's LLM integrations follow no single naming rule: the
+    // official OpenRouter one is "open_router" and Ollama is "ollama", so
+    // neither is caught by the "contains conversation" test below. A miss here
+    // is not a soft failure — discovery returns null, the request goes to HA's
+    // default agent, and the built-in Assist intent matcher answers a coaching
+    // prompt with a canned device-control phrase.
     const CONVERSATION_DOMAINS = [
       "google_generative_ai_conversation",
       "openai_conversation",
       "anthropic",
+      "open_router",
+      "openrouter",
+      "ollama",
     ];
     // Legacy: openclaw add-on used ~550MB idle and spiked to 1.5GB+ on
     // prompts, OOM-killing the addon on RPi4. Keep it on the deny-list
@@ -80,9 +94,12 @@ async function discoverAgent(token: string): Promise<string | null> {
       return googleAgent.entry_id;
     }
 
-    // Next: OpenAI or Anthropic
+    // Next: OpenAI, Anthropic or OpenRouter
     const cloudAgent = conversationAgents.find(
-      (e) => e.domain.includes("openai") || e.domain.includes("anthropic"),
+      (e) =>
+        e.domain.includes("openai") ||
+        e.domain.includes("anthropic") ||
+        e.domain.includes("router"),
     );
     if (cloudAgent) {
       console.log(
@@ -108,6 +125,8 @@ async function discoverAgent(token: string): Promise<string | null> {
       err instanceof Error ? err.message : err,
     );
     return null;
+  } finally {
+    clearTimeout(discoveryTimer);
   }
 }
 
@@ -126,6 +145,14 @@ const HA_ASSIST_FALLBACK_PATTERNS: RegExp[] = [
   /i can help you (with )?control(ling)? your (smart )?home/i,
   /sorry,?\s*i['']?\s*m? not (sure|able)/i,
   /i don['']?t know how to (answer|help with) that/i,
+  // Assist's entity-lookup miss. It echoes the tail of the prompt back as a
+  // supposed device name, so the user saw the whole system prompt quoted
+  // inside "Sorry, I am not aware of any device called <...>".
+  /not aware of any (device|area|entity)/i,
+  /i am not aware of/i,
+  // German locale variants of the same canned replies.
+  /ich kenne kein(e|en)? (ger[äa]t|bereich)/i,
+  /entschuldigung,? (das )?wei[ßs] ich nicht/i,
 ];
 
 export function isHaAssistFallback(text: string): boolean {

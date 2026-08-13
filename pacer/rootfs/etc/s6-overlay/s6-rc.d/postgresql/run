@@ -16,7 +16,14 @@ if [ ! -f "${PG_DATA}/PG_VERSION" ]; then
     bashio::log.info "Initializing PostgreSQL database..."
     mkdir -p "${PG_DATA}"
     chown -R postgres:postgres "${PG_DATA}"
-    su - postgres -c "initdb -D '${PG_DATA}' --auth=trust --no-locale --encoding=UTF8"
+    # A failed initdb used to fall through to the config appends below, leaving
+    # a non-empty data directory without PG_VERSION. Every later start then hit
+    # "directory exists but is not empty" — an unrecoverable restart loop.
+    if ! su - postgres -c "initdb -D '${PG_DATA}' --auth=trust --no-locale --encoding=UTF8"; then
+        bashio::log.fatal "initdb failed — refusing to continue with a half-initialised data directory."
+        rm -rf "${PG_DATA:?}/"* 2>/dev/null || true
+        bashio::exit.nok
+    fi
 
     # Configure for local connections only
     echo "host all all 127.0.0.1/32 trust" >> "${PG_DATA}/pg_hba.conf"
@@ -31,7 +38,7 @@ shared_buffers = 32MB
 work_mem = 4MB
 maintenance_work_mem = 16MB
 fsync = on
-synchronous_commit = off
+synchronous_commit = on
 unix_socket_directories = '/run/postgresql'
 logging_collector = off
 log_destination = 'stderr'
@@ -39,4 +46,10 @@ EOF
 fi
 
 bashio::log.info "Starting PostgreSQL..."
-exec s6-setuidgid postgres postgres -D "${PG_DATA}"
+# synchronous_commit is forced on the command line as well as in the config,
+# because postgresql.conf is only written during the initial initdb — existing
+# installations would otherwise keep the old asynchronous setting. This
+# workload is a few hundred rows a day, so the async commit bought nothing
+# measurable while risking the loss of already-acknowledged transactions on an
+# unclean stop.
+exec s6-setuidgid postgres postgres -D "${PG_DATA}" -c synchronous_commit=on

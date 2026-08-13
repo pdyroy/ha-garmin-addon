@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-# Pacer — s6-overlay run script (formerly Pacer)
+# Pacer — s6-overlay run script
 # ==============================================================================
 
 declare -r DATA_DIR="/data"
@@ -38,7 +38,7 @@ backup_to_share() {
     # NOTE: tokens are deliberately NOT backed up — /share/ is readable by
     # other add-ons, so credential material stays in /data only.
     # Backup database (compressed)
-    if pg_isready -h 127.0.0.1 -p 5432 -q 2>/dev/null; then
+    if pg_isready -h 127.0.0.1 -p 5432 -U postgres -q 2>/dev/null; then
         pg_dump -h 127.0.0.1 -U postgres pacer 2>/dev/null | \
             gzip > "${SHARE_BACKUP}/pacer.sql.gz.tmp" && \
             mv "${SHARE_BACKUP}/pacer.sql.gz.tmp" "${SHARE_BACKUP}/pacer.sql.gz"
@@ -48,6 +48,7 @@ backup_to_share() {
 
 # ─── PID tracking & cleanup ──────────────────────────────────────────────────
 SYNC_PID=""
+STRAVA_SYNC_PID=""
 COMPUTE_PID=""
 NOTIFY_PID=""
 MEMORY_PID=""
@@ -56,17 +57,50 @@ NEXTJS_PID=""
 INGRESS_PID=""
 SHUTTING_DOWN=false
 
+# Every supervised child must be listed here. A worker that is started but
+# never killed still holds the bare `wait` below, so the service never exits
+# and the Supervisor SIGKILLs the whole container after its stop timeout —
+# taking PostgreSQL down mid-write.
+all_worker_pids() {
+    echo "${SYNC_PID} ${STRAVA_SYNC_PID} ${COMPUTE_PID} ${NOTIFY_PID}" \
+         "${MEMORY_PID} ${RESCORE_PID} ${NEXTJS_PID} ${INGRESS_PID}"
+}
+
 cleanup() {
+    # The trap fires for EXIT as well as INT/TERM, so without this guard a
+    # normal stop ran the whole body twice — two full pg_dump | gzip passes,
+    # doubling the shutdown window that causes the timeout in the first place.
+    if [ "${SHUTTING_DOWN}" = "true" ]; then
+        return 0
+    fi
     SHUTTING_DOWN=true
+
     bashio::log.info "Shutting down Pacer services..."
     # Backup before shutdown
     backup_to_share
-    for pid in $SYNC_PID $COMPUTE_PID $NOTIFY_PID $MEMORY_PID $RESCORE_PID $NEXTJS_PID $INGRESS_PID; do
-        if kill -0 "$pid" 2>/dev/null; then
-            kill "$pid" 2>/dev/null
-        fi
+
+    local pid
+    for pid in $(all_worker_pids); do
+        [ -n "${pid}" ] && kill "${pid}" 2>/dev/null
     done
-    wait
+
+    # Wait briefly for a clean exit, then insist. Unbounded `wait` here is what
+    # let a single unresponsive child hang the stop indefinitely.
+    local waited=0
+    while [ "${waited}" -lt 15 ]; do
+        local alive=false
+        for pid in $(all_worker_pids); do
+            [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null && alive=true
+        done
+        [ "${alive}" = "false" ] && break
+        sleep 1
+        waited=$((waited + 1))
+    done
+    for pid in $(all_worker_pids); do
+        [ -n "${pid}" ] && kill -9 "${pid}" 2>/dev/null
+    done
+    wait 2>/dev/null || true
+
     bashio::log.info "All services stopped."
 }
 trap cleanup EXIT INT TERM
@@ -117,12 +151,20 @@ export HA_BASE_URL="http://supervisor/core"
 
 # ─── Wait for PostgreSQL and initialize database ─────────────────────────────
 bashio::log.info "Waiting for PostgreSQL..."
-for i in $(seq 1 30); do
-    if pg_isready -h 127.0.0.1 -p 5432 -q; then
+for i in $(seq 1 60); do
+    if pg_isready -h 127.0.0.1 -p 5432 -U postgres -q; then
         break
     fi
     sleep 1
 done
+# Everything after this point tolerates failure (|| true, 2>/dev/null,
+# || log.warning), so without this check a slow first initdb produced a boot
+# that created no database, pushed no schema, and still logged
+# "All services started".
+if ! pg_isready -h 127.0.0.1 -p 5432 -U postgres -q; then
+    bashio::log.fatal "PostgreSQL did not become ready in 60s — aborting start."
+    bashio::exit.nok
+fi
 
 # Ensure token directory exists (needed for migration marker)
 mkdir -p /data/garmin-tokens
