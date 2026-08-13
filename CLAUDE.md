@@ -3,6 +3,105 @@
 
 # Agent Development Guidelines
 
+---
+
+## ⭐ PRIVATE FORK NOTES (pdyroy) — read first
+
+This is **pdyroy's private single-repo fork**. Everything below in this
+section overrides the upstream guidance where they conflict.
+
+### What this repo is now
+
+Upstream shipped PulseCoach as **two** repos:
+
+- `askb/ha-garmin-fitness-coach-addon` — HA addon packaging (Docker, s6,
+  `config.json`). This repo.
+- `askb/ha-garmin-fitness-coach-app` — the actual product: a pnpm/Turbo
+  **Next.js monorepo** (UI + tRPC API + coaching engine). The addon's
+  Dockerfile cloned it from GitHub at build time (`APP_REPO` / `APP_REF`).
+
+We **merged the app into this repo** via `git subtree` at tag `v0.24.0`,
+under **`app/`**. Goal: one private repo, self-contained, no external
+clone. `origin` = `github.com/pdyroy/ha-garmin-fitness-coach-addon`
+(private). `upstream` = `askb/ha-garmin-fitness-coach-addon` (for syncing
+addon-side changes; the app subtree tracks the app repo separately).
+
+### Layout after merge
+
+```
+.
+├── pulsecoach/            # HA addon packaging (Dockerfile, s6, config.json)
+└── app/                   # the Next.js monorepo (subtree of the app repo)
+    ├── apps/nextjs/       # the web UI (pages under src/app/*)
+    ├── packages/
+    │   ├── api/           # tRPC routers + AI backends (THE AI helper lives here)
+    │   ├── engine/        # deterministic coaching/metrics logic
+    │   ├── db/            # drizzle schema
+    │   └── ui/            # shadcn-style components + theme (theme.tsx)
+    └── tooling/tailwind/theme.css   # oklch light/dark design tokens
+```
+
+### TODO: make Dockerfile build the local `app/` (not git clone)
+
+`pulsecoach/Dockerfile` stage 1 still does `git clone $APP_REPO @ $APP_REF`.
+For the single-repo build it must instead `COPY app/ .` and build from
+local source. (Not yet done at time of writing — do this so our `app/`
+edits actually ship.)
+
+### AI helper — how it works and why it was broken
+
+Flow: web chat → `app/packages/api/src/router/chat.ts` → tries backends in
+order. HA-conversation backend is `app/packages/api/src/lib/ha-conversation.ts`.
+
+`ha-conversation.ts` `discoverAgent()` picks an HA conversation agent by
+domain, only matching: `google_generative_ai_conversation`,
+`openai_conversation`, `anthropic`, or any domain containing the substring
+`"conversation"`.
+
+**Bug:** HA's official OpenRouter integration has domain **`open_router`** —
+matches none of those (and has no "conversation" substring). So discovery
+returns `null` → `agent_id` omitted → HA falls back to the **built-in Assist**
+intent-matcher → it can't parse the giant coaching prompt → returns a canned
+`"Sorry, I am not aware of any device called …"` AND echoes the whole system
+prompt back to the user. `isHaAssistFallback()` doesn't match that exact
+phrase, so the garbage reaches the UI instead of falling through.
+
+**Fix direction (chosen):** add a **native OpenRouter backend** in the app
+(`app/packages/api/src/lib/openrouter.ts`, mirroring `ollama.ts` — direct
+`POST https://openrouter.ai/api/v1/chat/completions`), wired into `chat.ts`
+and gated by `OPENROUTER_API_KEY` / `OPENROUTER_MODEL`. This bypasses HA
+Conversation entirely (no Assist, no fragile discovery). Requires:
+- `app/`: new `openrouter.ts` + wire into `chat.ts` backend chain.
+- `pulsecoach/config.json`: add `openrouter_api_key` / `openrouter_model`
+  options + schema entries; extend the `ai_backend` enum with `openrouter`.
+- `pulsecoach/rootfs/etc/s6-overlay/s6-rc.d/pulsecoach/run`: export those
+  as env into the Next.js process.
+(Cheaper stopgap that keeps `ha_conversation`: add `open_router` to
+`CONVERSATION_DOMAINS` + add the "not aware of any device" phrase to
+`HA_ASSIST_FALLBACK_PATTERNS`.)
+
+### Theme / color bugs (white-on-white, black pages in light mode)
+
+Theme system: `app/packages/ui/src/theme.tsx` toggles `light`/`dark`/`auto`
+classes on `<html>`; tokens in `app/tooling/tailwind/theme.css` (oklch,
+`:root` = light, `@variant dark` = dark); consumed via `bg-background` /
+`text-foreground` (see `app/apps/nextjs/src/app/layout.tsx`). Bugs are
+diffuse (likely per-page hardcoded colors or the `auto`+resolved dual-class
+interaction) — **not a blind one-liner; needs a real build + visual pass to
+pin down.** Investigate per-page under `app/apps/nextjs/src/app/*`.
+
+### Runtime facts (this user's HA)
+
+- Addon installed from the store as slug `ecfdb23d_pulsecoach` on HAOS
+  `192.168.1.21`. Config lives in the Supervisor add-on options, NOT in
+  `/addon_configs/ecfdb23d_pulsecoach/` (that dir is empty).
+- Supervisor options API replaces the **whole** options object — partial
+  POST fails validation (`Missing option '…'`). Always send all fields.
+- To run THIS fork on HA: build it as a **local add-on** (clone into
+  `/addons/` on HAOS) and disable the store copy.
+
+---
+
 ## Constitution
 
 If `.specify/memory/constitution.md` exists in this repository, read it and
