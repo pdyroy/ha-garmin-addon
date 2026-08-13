@@ -73,7 +73,6 @@
     "OPENCLAW_AGENT_ID",
     "PERSONA",
     "PORT",
-    "SKIP_DB_TESTS",
     "SUPERVISOR_TOKEN"
   ],
   "globalPassThroughEnv": [
