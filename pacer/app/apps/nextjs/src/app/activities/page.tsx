@@ -12,6 +12,7 @@ import {
   formatTimeInTz,
   useUserTimezone,
 } from "~/lib/format-date";
+import { fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 
@@ -20,13 +21,13 @@ import { BottomNav } from "../_components/bottom-nav";
 // ---------------------------------------------------------------------------
 
 const SPORT_FILTERS = [
-  { value: undefined, label: "All" },
-  { value: "running", label: "Running" },
-  { value: "cycling", label: "Cycling" },
-  { value: "strength_training", label: "Strength" },
-  { value: "swimming", label: "Swimming" },
-  { value: "walking", label: "Walking" },
-  { value: "hiking", label: "Hiking" },
+  { value: undefined, label: "Alle" },
+  { value: "running", label: "Laufen" },
+  { value: "cycling", label: "Radfahren" },
+  { value: "strength_training", label: "Kraft" },
+  { value: "swimming", label: "Schwimmen" },
+  { value: "walking", label: "Gehen" },
+  { value: "hiking", label: "Wandern" },
 ] as const;
 
 const SPORT_ICONS: Record<string, string> = {
@@ -77,13 +78,13 @@ function formatDuration(minutes: number | null): string {
   if (minutes == null) return "—";
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
-  return h > 0 ? `${h}h ${m}m` : `${m} min`;
+  return h > 0 ? `${h} Std ${m} Min` : `${m} Min`;
 }
 
 function formatDistance(meters: number | null): string {
   if (meters == null) return "";
   const km = meters / 1000;
-  return km >= 1 ? `${km.toFixed(1)} km` : `${Math.round(meters)} m`;
+  return km >= 1 ? `${fmtNum(km, 1)} km` : `${Math.round(meters)} m`;
 }
 
 function formatPace(secPerKm: number | null): string {
@@ -97,9 +98,48 @@ function formatPace(secPerKm: number | null): string {
 // ~/lib/format-date so it respects the user's profile timezone
 // instead of the SSR container's UTC.
 
+// The API humanizes raw sportType/subType slugs to English Title Case
+// (see humanizeActivityRow in packages/api) before they reach this
+// component, so we translate the display label here rather than
+// touching the shared backend helper other agents/AI prompts rely on.
+// ponytail: known sport codes only, unmapped ones fall back to the
+// English title-case string — add entries here as new sports appear.
+const SPORT_LABELS_DE: Record<string, string> = {
+  running: "Laufen",
+  "trail running": "Trailrunning",
+  "treadmill running": "Laufband",
+  "indoor running": "Indoor-Laufen",
+  cycling: "Radfahren",
+  "road biking": "Rennradfahren",
+  "mountain biking": "Mountainbiken",
+  "indoor cycling": "Indoor-Radfahren",
+  "virtual ride": "Virtuelle Fahrt",
+  "strength training": "Krafttraining",
+  weightlifting: "Gewichtheben",
+  swimming: "Schwimmen",
+  "lap swimming": "Bahnenschwimmen",
+  "open water swimming": "Freiwasserschwimmen",
+  walking: "Gehen",
+  "treadmill walking": "Gehen (Laufband)",
+  hiking: "Wandern",
+  yoga: "Yoga",
+  pilates: "Pilates",
+  meditation: "Meditation",
+  stretching: "Dehnen",
+  breathwork: "Atemübungen",
+  mobility: "Beweglichkeit",
+  elliptical: "Crosstrainer",
+  rowing: "Rudern",
+  "indoor rowing": "Indoor-Rudern",
+  other: "Sonstiges",
+};
+
 function sportLabel(sportType: string | null): string {
-  if (!sportType) return "Activity";
-  return sportType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  if (!sportType) return "Aktivität";
+  const humanized = sportType
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return SPORT_LABELS_DE[humanized.toLowerCase()] ?? humanized;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,9 +163,9 @@ export default function ActivitiesPage() {
       <div className="space-y-4">
       {/* Header */}
       <div>
-        <h1 className="pl-12 text-2xl font-bold">Activities</h1>
+        <h1 className="pl-12 text-2xl font-bold">Aktivitäten</h1>
         <p className="text-muted-foreground pl-12 text-sm">
-          Your recent workouts
+          Deine letzten Workouts
         </p>
       </div>
 
@@ -156,9 +196,9 @@ export default function ActivitiesPage() {
         </div>
       ) : !activities?.length ? (
         <div className="bg-card rounded-xl p-8 text-center">
-          <p className="text-muted-foreground text-lg">No activities found</p>
+          <p className="text-muted-foreground text-lg">Keine Aktivitäten gefunden</p>
           <p className="text-muted-foreground mt-1 text-sm">
-            Sync your Garmin device to see workouts here
+            Synchronisiere dein Garmin-Gerät, um hier Workouts zu sehen
           </p>
         </div>
       ) : (
@@ -226,12 +266,12 @@ export default function ActivitiesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-muted-foreground border-border border-b text-left text-xs">
-                  <th className="px-3 py-2 font-medium">Activity</th>
-                  <th className="px-3 py-2 font-medium">Date</th>
-                  <th className="px-3 py-2 font-medium">Duration</th>
-                  <th className="px-3 py-2 font-medium">Distance</th>
+                  <th className="px-3 py-2 font-medium">Aktivität</th>
+                  <th className="px-3 py-2 font-medium">Datum</th>
+                  <th className="px-3 py-2 font-medium">Dauer</th>
+                  <th className="px-3 py-2 font-medium">Distanz</th>
                   <th className="px-3 py-2 font-medium">Pace</th>
-                  <th className="px-3 py-2 font-medium">HR</th>
+                  <th className="px-3 py-2 font-medium">Puls</th>
                   <th className="px-3 py-2 font-medium">Strain</th>
                 </tr>
               </thead>

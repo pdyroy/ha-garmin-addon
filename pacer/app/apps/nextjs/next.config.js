@@ -29,8 +29,17 @@ const config = {
     NEXT_PUBLIC_BUILD_TIME: buildTime,
   },
 
-  /** We already do linting and typechecking as separate tasks in CI */
-  typescript: { ignoreBuildErrors: true },
+  /**
+   * Typecheck as part of the build.
+   *
+   * The upstream comment said this was safe because CI typechecked
+   * separately — but this fork has no CI, and Home Assistant builds the
+   * add-on on the user's own device. With errors ignored, `next build`
+   * happily shipped a release in which four pages compared an object
+   * against a number, because a shared return type had changed underneath
+   * them. The build is the only gate that exists here, so it has to be one.
+   */
+  typescript: { ignoreBuildErrors: false },
 };
 
 export default config;

@@ -7,6 +7,7 @@ import { Button } from "@acme/ui/button";
 import { toast } from "@acme/ui/toast";
 
 import { PageShell } from "~/components/page-shell";
+import { fmtDelta, fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 
@@ -15,12 +16,12 @@ import { BottomNav } from "../_components/bottom-nav";
 // ---------------------------------------------------------------------------
 
 const MEASUREMENT_TYPES = [
-  { key: "lab_vo2max", emoji: "🔬", label: "Lab VO2max" },
-  { key: "lactate_threshold", emoji: "🩸", label: "Lactate Threshold" },
-  { key: "body_composition", emoji: "⚖️", label: "Body Composition" },
-  { key: "chest_strap_hr", emoji: "❤️", label: "Chest Strap HR" },
-  { key: "ecg_hrv", emoji: "📊", label: "ECG HRV" },
-  { key: "sleep_lab", emoji: "🛏️", label: "Sleep Lab" },
+  { key: "lab_vo2max", emoji: "🔬", label: "Labor-VO2max" },
+  { key: "lactate_threshold", emoji: "🩸", label: "Laktatschwelle" },
+  { key: "body_composition", emoji: "⚖️", label: "Körperzusammensetzung" },
+  { key: "chest_strap_hr", emoji: "❤️", label: "Brustgurt-Herzfrequenz" },
+  { key: "ecg_hrv", emoji: "📊", label: "EKG-HRV" },
+  { key: "sleep_lab", emoji: "🛏️", label: "Schlaflabor" },
 ] as const;
 
 type MeasurementTypeKey = (typeof MEASUREMENT_TYPES)[number]["key"];
@@ -35,12 +36,12 @@ const MEASUREMENT_UNITS: Record<MeasurementTypeKey, string> = {
 };
 
 const GARMIN_LABEL: Record<MeasurementTypeKey, string> = {
-  lab_vo2max: "Garmin estimated VO2max on this date",
-  lactate_threshold: "Garmin estimated lactate threshold HR on this date",
-  body_composition: "Garmin body composition % on this date",
-  chest_strap_hr: "Garmin average HR on this date",
-  ecg_hrv: "Garmin HRV on this date",
-  sleep_lab: "Garmin total sleep minutes on this date",
+  lab_vo2max: "Von Garmin geschätztes VO2max an diesem Datum",
+  lactate_threshold: "Von Garmin geschätzte Laktatschwellen-HF an diesem Datum",
+  body_composition: "Körperzusammensetzung (%) von Garmin an diesem Datum",
+  chest_strap_hr: "Durchschnittliche HF von Garmin an diesem Datum",
+  ecg_hrv: "HRV von Garmin an diesem Datum",
+  sleep_lab: "Gesamtschlafminuten von Garmin an diesem Datum",
 };
 
 function today(): string {
@@ -50,32 +51,27 @@ function today(): string {
 function deviationBadge(pct: number | null | undefined): React.ReactNode {
   if (pct == null) return null;
   const abs = Math.abs(pct);
-  const sign = pct >= 0 ? "+" : "";
   if (abs < 5)
     return (
       <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-        🟢 Excellent ({sign}
-        {pct.toFixed(1)}%)
+        🟢 Ausgezeichnet ({fmtDelta(pct, 1)}%)
       </span>
     );
   if (abs < 10)
     return (
       <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
-        🟡 Good ({sign}
-        {pct.toFixed(1)}%)
+        🟡 Gut ({fmtDelta(pct, 1)}%)
       </span>
     );
   if (abs < 15)
     return (
       <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
-        🟠 Fair ({sign}
-        {pct.toFixed(1)}%)
+        🟠 Mäßig ({fmtDelta(pct, 1)}%)
       </span>
     );
   return (
     <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-      🔴 Poor ({sign}
-      {pct.toFixed(1)}%)
+      🔴 Schwach ({fmtDelta(pct, 1)}%)
     </span>
   );
 }
@@ -100,10 +96,10 @@ const RVC_STATUS_STYLE: Record<RvcRow["status"], string> = {
 };
 
 const RVC_STATUS_LABEL: Record<RvcRow["status"], string> = {
-  match: "🟢 Match",
-  minor: "🟡 Minor",
-  diverged: "🔴 Diverged",
-  invalid: "⚪ Out of range",
+  match: "🟢 Übereinstimmung",
+  minor: "🟡 Gering",
+  diverged: "🔴 Abweichend",
+  invalid: "⚪ Außerhalb des Bereichs",
 };
 
 function RawVsComputedTable({
@@ -126,7 +122,7 @@ function RawVsComputedTable({
         <table className="w-full text-xs">
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
-              <th className="px-2 py-1.5 text-left font-medium">Date</th>
+              <th className="px-2 py-1.5 text-left font-medium">Datum</th>
               <th className="px-2 py-1.5 text-right font-medium">Garmin</th>
               <th className="px-2 py-1.5 text-right font-medium">Engine</th>
               <th className="px-2 py-1.5 text-right font-medium">Δ</th>
@@ -138,17 +134,15 @@ function RawVsComputedTable({
               <tr key={r.date} className="border-t">
                 <td className="px-2 py-1.5">{r.date}</td>
                 <td className="px-2 py-1.5 text-right tabular-nums">
-                  {r.raw.toFixed(1)}
+                  {fmtNum(r.raw, 1)}
                   {unit}
                 </td>
                 <td className="px-2 py-1.5 text-right tabular-nums">
-                  {r.computed.toFixed(1)}
+                  {fmtNum(r.computed, 1)}
                   {unit}
                 </td>
                 <td className="px-2 py-1.5 text-right tabular-nums">
-                  {r.deltaPct == null
-                    ? "—"
-                    : `${r.deltaPct >= 0 ? "+" : ""}${r.deltaPct.toFixed(1)}%`}
+                  {r.deltaPct == null ? "—" : `${fmtDelta(r.deltaPct, 1)}%`}
                 </td>
                 <td className="px-2 py-1.5 text-right">
                   <span
@@ -195,9 +189,9 @@ export default function ValidationPage() {
         setValue("");
         setGarminValue("");
         setNotes("");
-        toast.success("Reference measurement saved");
+        toast.success("Referenzmessung gespeichert");
       },
-      onError: () => toast.error("Failed to save measurement"),
+      onError: () => toast.error("Messung konnte nicht gespeichert werden"),
     }),
   );
 
@@ -206,16 +200,16 @@ export default function ValidationPage() {
       onSuccess: () => {
         void queryClient.invalidateQueries(trpc.reference.list.queryFilter());
         setConfirmDelete(null);
-        toast.success("Measurement deleted");
+        toast.success("Messung gelöscht");
       },
-      onError: () => toast.error("Failed to delete"),
+      onError: () => toast.error("Löschen fehlgeschlagen"),
     }),
   );
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const num = parseFloat(value);
-    if (isNaN(num)) return toast.error("Enter a valid number");
+    if (isNaN(num)) return toast.error("Gib eine gültige Zahl ein");
     const garminNum = garminValue ? parseFloat(garminValue) : undefined;
     createMutation.mutate({
       measurementType: selectedType,
@@ -241,9 +235,9 @@ export default function ValidationPage() {
     <PageShell density="data">
       {/* Header (custom: pl-12 clears the fixed mobile hamburger button) */}
       <div className="mb-8">
-        <h1 className="pl-12 text-2xl font-bold">Data Validation</h1>
+        <h1 className="pl-12 text-2xl font-bold">Datenvalidierung</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Compare Garmin estimates against reference measurements
+          Garmin-Schätzungen mit Referenzmessungen vergleichen
         </p>
       </div>
 
@@ -253,31 +247,31 @@ export default function ValidationPage() {
           <div className="bg-card rounded-xl border p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-foreground font-semibold">
-                Engine vs Garmin
+                Engine vs. Garmin
               </h2>
               {rawVsComputed.summary.agreementPct != null && (
                 <span className="text-muted-foreground text-xs">
-                  {rawVsComputed.summary.agreementPct}% agreement ·{" "}
-                  {rawVsComputed.summary.comparedPairs} pairs
+                  {rawVsComputed.summary.agreementPct}% Übereinstimmung ·{" "}
+                  {rawVsComputed.summary.comparedPairs} Paare
                 </span>
               )}
             </div>
             <p className="text-muted-foreground mb-3 text-xs">
-              How Pacer&apos;s computed metrics compare to the raw values
-              Garmin provides, over the last 30 days. Large divergences flag
-              where the engine&apos;s model differs from Garmin&apos;s — useful
-              for trust and debugging.
+              Wie Pacers berechnete Metriken über die letzten 30 Tage mit den
+              Rohwerten von Garmin übereinstimmen. Große Abweichungen zeigen,
+              wo sich das Modell der Engine von Garmins unterscheidet —
+              nützlich für Vertrauen und Fehlersuche.
             </p>
             <div className="space-y-4">
               <RawVsComputedTable
                 title="Readiness"
-                hint="Garmin Training Readiness vs the Buchheit composite score."
+                hint="Garmin Training Readiness vs. der Buchheit-Kompositwert."
                 rows={rawVsComputed.readiness}
                 unit=""
               />
               <RawVsComputedTable
                 title="VO2max"
-                hint="Garmin official VO2max vs engine effective VO2max."
+                hint="Offizielles Garmin VO2max vs. effektives VO2max der Engine."
                 rows={rawVsComputed.vo2max}
                 unit=""
               />
@@ -288,7 +282,7 @@ export default function ValidationPage() {
         {/* Add Reference Measurement */}
         <div className="bg-card rounded-xl border p-4 shadow-sm">
           <h2 className="text-foreground mb-3 font-semibold">
-            Add Reference Measurement
+            Referenzmessung hinzufügen
           </h2>
           <form onSubmit={handleSubmit} className="space-y-3">
             {/* Type selector */}
@@ -313,7 +307,7 @@ export default function ValidationPage() {
             {/* Date */}
             <div>
               <label className="text-foreground mb-1 block text-sm font-medium">
-                Date
+                Datum
               </label>
               <input
                 type="date"
@@ -328,20 +322,20 @@ export default function ValidationPage() {
             <div className="flex gap-2">
               <div className="flex-1">
                 <label className="text-foreground mb-1 block text-sm font-medium">
-                  Reference Value
+                  Referenzwert
                 </label>
                 <input
                   type="number"
                   step="any"
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
-                  placeholder="e.g. 52.4"
+                  placeholder="z. B. 52,4"
                   className="border-border w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 />
               </div>
               <div className="w-28">
                 <label className="text-foreground mb-1 block text-sm font-medium">
-                  Unit
+                  Einheit
                 </label>
                 <div className="border-border bg-muted text-muted-foreground flex h-[38px] items-center rounded-lg border px-3 text-sm">
                   {unit}
@@ -362,7 +356,7 @@ export default function ValidationPage() {
                 step="any"
                 value={garminValue}
                 onChange={(e) => setGarminValue(e.target.value)}
-                placeholder={`Garmin's ${unit} estimate`}
+                placeholder={`Garmins ${unit}-Schätzung`}
                 className="border-border w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
@@ -370,7 +364,7 @@ export default function ValidationPage() {
             {/* Notes */}
             <div>
               <label className="text-foreground mb-1 block text-sm font-medium">
-                Notes{" "}
+                Notizen{" "}
                 <span className="text-muted-foreground font-normal">
                   (optional)
                 </span>
@@ -379,7 +373,7 @@ export default function ValidationPage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
-                placeholder="Lab conditions, protocol, context…"
+                placeholder="Laborbedingungen, Protokoll, Kontext…"
                 className="border-border w-full resize-none rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
@@ -389,7 +383,7 @@ export default function ValidationPage() {
               disabled={createMutation.isPending || !value}
               className="w-full"
             >
-              {createMutation.isPending ? "Saving…" : "Save Measurement"}
+              {createMutation.isPending ? "Wird gespeichert…" : "Messung speichern"}
             </Button>
           </form>
         </div>
@@ -398,7 +392,7 @@ export default function ValidationPage() {
         {Object.keys(matchQuality).length > 0 && (
           <div className="bg-card rounded-xl border p-4 shadow-sm">
             <h2 className="text-foreground mb-3 font-semibold">
-              Match Quality
+              Übereinstimmungsqualität
             </h2>
             <div className="space-y-2">
               {Object.entries(matchQuality).map(([type, { sum, count }]) => {
@@ -412,7 +406,7 @@ export default function ValidationPage() {
                     <span className="text-foreground">
                       {typeInfo?.emoji} {typeInfo?.label ?? type}
                       <span className="text-muted-foreground ml-1">
-                        ({count} readings)
+                        ({count} Messungen)
                       </span>
                     </span>
                     {deviationBadge(avg)}
@@ -426,14 +420,15 @@ export default function ValidationPage() {
         {/* History */}
         <div className="bg-card rounded-xl border p-4 shadow-sm">
           <h2 className="text-foreground mb-3 font-semibold">
-            Reference Measurements
+            Referenzmessungen
           </h2>
           {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading…</p>
+            <p className="text-muted-foreground text-sm">Lädt…</p>
           ) : measurements.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              No reference measurements yet. Add a lab or reference value above
-              to compare it against Garmin&apos;s estimate and track accuracy.
+              Noch keine Referenzmessungen. Füge oben einen Labor- oder
+              Referenzwert hinzu, um ihn mit Garmins Schätzung zu vergleichen
+              und die Genauigkeit zu verfolgen.
             </p>
           ) : (
             <div className="space-y-3">
@@ -482,20 +477,20 @@ export default function ValidationPage() {
                               }
                               className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
                             >
-                              Confirm
+                              Bestätigen
                             </button>
                             <button
                               onClick={() => setConfirmDelete(null)}
                               className="text-muted-foreground hover:bg-muted rounded px-2 py-1 text-xs"
                             >
-                              Cancel
+                              Abbrechen
                             </button>
                           </div>
                         ) : (
                           <button
                             onClick={() => setConfirmDelete(m.id)}
                             className="text-muted-foreground hover:bg-muted rounded p-1 hover:text-red-500"
-                            aria-label="Delete"
+                            aria-label="Löschen"
                           >
                             🗑️
                           </button>

@@ -41,7 +41,7 @@ export function DailyOutlookCard({ targetStrain, isLoading }: Props) {
     <div className="bg-card rounded-2xl border p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold tracking-wide uppercase">
-          Today&apos;s Target Strain
+          Ziel-Strain heute
         </h2>
         <span
           className="rounded-full px-2 py-0.5 text-[10px] font-medium tabular-nums"
@@ -72,14 +72,14 @@ export function DailyOutlookCard({ targetStrain, isLoading }: Props) {
           <div
             className="absolute top-1/2 h-3 w-0.5 -translate-y-1/2 bg-white"
             style={{ left: `${pctTarget}%` }}
-            aria-label="Target midpoint"
+            aria-label="Zielmitte"
           />
         </div>
         <div className="text-muted-foreground mt-1 flex justify-between text-[10px] tabular-nums">
           <span>0</span>
-          <span>Light</span>
-          <span>Moderate</span>
-          <span>Vigorous</span>
+          <span>Leicht</span>
+          <span>Moderat</span>
+          <span>Intensiv</span>
           <span>21</span>
         </div>
       </div>

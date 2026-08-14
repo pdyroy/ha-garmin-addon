@@ -18,13 +18,13 @@ export const metadata: Metadata = {
       ? "https://pacer.app"
       : "http://localhost:3000",
   ),
-  title: "Pacer — Your Personal Training Coach",
+  title: "Pacer — Dein persönlicher Trainingscoach",
   description:
-    "WHOOP-like coaching app powered by your Garmin data. Daily readiness scores, personalized workouts, and smart training guidance.",
+    "WHOOP-ähnliche Coaching-App auf Basis deiner Garmin-Daten. Tägliche Readiness-Werte, personalisierte Workouts und smarte Trainingsempfehlungen.",
   openGraph: {
     title: "Pacer",
     description:
-      "Daily readiness + personalized workouts from your Garmin data",
+      "Tägliche Readiness-Werte + personalisierte Workouts aus deinen Garmin-Daten",
   },
 };
 
@@ -46,7 +46,7 @@ const geistMono = Geist_Mono({
 
 export default function RootLayout(props: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="de" suppressHydrationWarning>
       <body
         className={cn(
           "bg-background text-foreground min-h-screen font-sans antialiased",

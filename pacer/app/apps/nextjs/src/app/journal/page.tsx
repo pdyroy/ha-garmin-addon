@@ -9,6 +9,7 @@ import { toast } from "@acme/ui/toast";
 
 import { IngressLink as Link } from "~/app/_components/ingress-link";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
+import { fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
@@ -25,16 +26,20 @@ interface TagDef {
   options?: string[];
 }
 
+// tag.options values are stored verbatim in the tags object sent to the
+// API (see handleSave) and rendered back as-is in the active-tag badge —
+// they're data, not just display text, so they stay in English. Only
+// `label` (shown on the button itself) is translated.
 const TAGS: TagDef[] = [
-  { key: "alcohol", emoji: "🍺", label: "Alcohol", type: "toggle" },
+  { key: "alcohol", emoji: "🍺", label: "Alkohol", type: "toggle" },
   {
     key: "caffeine",
     emoji: "☕",
-    label: "Caffeine",
+    label: "Koffein",
     type: "select",
     options: ["1", "2", "3+"],
   },
-  { key: "travel", emoji: "✈️", label: "Travel", type: "toggle" },
+  { key: "travel", emoji: "✈️", label: "Reise", type: "toggle" },
   {
     key: "stress",
     emoji: "😰",
@@ -50,9 +55,9 @@ const TAGS: TagDef[] = [
     options: ["poor", "ok", "good", "excellent"],
   },
   { key: "meditation", emoji: "🧘", label: "Meditation", type: "toggle" },
-  { key: "illness", emoji: "🤒", label: "Illness", type: "toggle" },
-  { key: "social", emoji: "🎉", label: "Social", type: "toggle" },
-  { key: "supplements", emoji: "💊", label: "Supplements", type: "toggle" },
+  { key: "illness", emoji: "🤒", label: "Krankheit", type: "toggle" },
+  { key: "social", emoji: "🎉", label: "Soziales", type: "toggle" },
+  { key: "supplements", emoji: "💊", label: "Nahrungsergänzung", type: "toggle" },
 ];
 
 const TAG_COLORS: Record<string, string> = {
@@ -71,6 +76,9 @@ const TAG_COLORS: Record<string, string> = {
 // Constants
 // ---------------------------------------------------------------------------
 
+// Rendered directly as button text AND stored/sent to the API as
+// sorenessRegions data (see handleSave) — left in English rather than
+// splitting display from stored value here.
 const SORENESS_REGIONS = [
   "quads",
   "hamstrings",
@@ -86,10 +94,10 @@ const SORENESS_REGIONS = [
 ];
 
 const MENSTRUAL_PHASES = [
-  { key: "follicular", label: "Follicular", emoji: "🌱" },
-  { key: "ovulation", label: "Ovulation", emoji: "🌕" },
-  { key: "luteal", label: "Luteal", emoji: "🍂" },
-  { key: "menstrual", label: "Menstrual", emoji: "🔴" },
+  { key: "follicular", label: "Follikelphase", emoji: "🌱" },
+  { key: "ovulation", label: "Eisprung", emoji: "🌕" },
+  { key: "luteal", label: "Lutealphase", emoji: "🍂" },
+  { key: "menstrual", label: "Menstruation", emoji: "🔴" },
 ] as const;
 
 type MenstrualPhase = "follicular" | "ovulation" | "luteal" | "menstrual";
@@ -112,6 +120,20 @@ function toDateStr(d: Date, timezone?: string): string {
     month: "2-digit",
     day: "2-digit",
   }).format(d);
+}
+
+// c.strength from trpc.analytics.getCorrelations — "strong" | "moderate" |
+// "weak" | "none" (packages/engine/src/types.ts). Display only: the raw
+// value still drives the badge color className below.
+const STRENGTH_LABELS_DE: Record<string, string> = {
+  strong: "Stark",
+  moderate: "Mäßig",
+  weak: "Schwach",
+  none: "Keine",
+};
+
+function strengthLabel(strength: string): string {
+  return STRENGTH_LABELS_DE[strength] ?? strength;
 }
 
 function fmtDate(iso: string, timezone: string): string {
@@ -270,7 +292,7 @@ export default function JournalPage() {
   const upsertMutation = useMutation(
     trpc.journal.upsert.mutationOptions({
       onSuccess: () => {
-        toast.success("Entry saved");
+        toast.success("Eintrag gespeichert");
         void queryClient.invalidateQueries(trpc.journal.pathFilter());
       },
       onError: (err) => {
@@ -282,7 +304,7 @@ export default function JournalPage() {
   const deleteMutation = useMutation(
     trpc.journal.delete.mutationOptions({
       onSuccess: () => {
-        toast.success("Entry deleted");
+        toast.success("Eintrag gelöscht");
         setDeleteConfirm(null);
         void queryClient.invalidateQueries(trpc.journal.pathFilter());
       },
@@ -379,7 +401,7 @@ export default function JournalPage() {
       <div className="mb-6">
         <h1 className="text-xl font-bold">Journal</h1>
         <p className="text-muted-foreground text-sm">
-          Track factors that affect your performance
+          Erfasse Faktoren, die deine Leistung beeinflussen
         </p>
       </div>
 
@@ -397,7 +419,7 @@ export default function JournalPage() {
           }}
         >
           {selectedDate === toDateStr(new Date(), timezone)
-            ? "Today"
+            ? "Heute"
             : fmtDate(selectedDate, timezone)}
         </button>
         <Button
@@ -413,23 +435,23 @@ export default function JournalPage() {
       {/* ---- Body Feel Section ---- */}
       <div className="bg-card space-y-5 rounded-2xl border p-4">
         <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-          Body Feel
+          Körpergefühl
         </h2>
 
         {/* Soreness Score */}
         <div className="space-y-2">
           <p className="text-sm font-medium">
-            Soreness{" "}
+            Muskelkater{" "}
             <span className="text-muted-foreground text-xs font-normal">
-              (1 = None · 10 = Severe)
+              (1 = Keiner · 10 = Stark)
             </span>
           </p>
           <ScoreSlider
             value={sorenessScore}
             onChange={setSorenessScore}
-            lowLabel="None"
-            midLabel="How sore are you?"
-            highLabel="Severe"
+            lowLabel="Keiner"
+            midLabel="Wie stark ist dein Muskelkater?"
+            highLabel="Stark"
           />
         </div>
 
@@ -437,7 +459,7 @@ export default function JournalPage() {
         {sorenessScore !== null && sorenessScore > 1 && (
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Where?
+              Wo?
             </p>
             <div className="flex flex-wrap gap-1.5">
               {SORENESS_REGIONS.map((region) => (
@@ -461,17 +483,17 @@ export default function JournalPage() {
         {/* Mood Score */}
         <div className="space-y-2">
           <p className="text-sm font-medium">
-            Mood{" "}
+            Stimmung{" "}
             <span className="text-muted-foreground text-xs font-normal">
-              (1 = Low · 10 = Great)
+              (1 = Schlecht · 10 = Großartig)
             </span>
           </p>
           <ScoreSlider
             value={moodScore}
             onChange={setMoodScore}
-            lowLabel="Low"
-            midLabel="How are you feeling?"
-            highLabel="Great"
+            lowLabel="Schlecht"
+            midLabel="Wie fühlst du dich?"
+            highLabel="Großartig"
           />
         </div>
       </div>
@@ -479,12 +501,12 @@ export default function JournalPage() {
       {/* ---- Inputs Section ---- */}
       <div className="bg-card space-y-5 rounded-2xl border p-4">
         <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-          Inputs
+          Eingaben
         </h2>
 
         {/* Caffeine */}
         <div className="space-y-2">
-          <p className="text-sm font-medium">☕ Caffeine</p>
+          <p className="text-sm font-medium">☕ Koffein</p>
           <div className="flex flex-wrap gap-2">
             {CAFFEINE_OPTIONS.map((mg) => (
               <button
@@ -499,14 +521,14 @@ export default function JournalPage() {
                     : "bg-secondary/50 text-muted-foreground hover:bg-secondary border-transparent",
                 )}
               >
-                {mg === 400 ? "400+" : mg === 0 ? "None" : `${mg}mg`}
+                {mg === 400 ? "400+" : mg === 0 ? "Keine" : `${mg}mg`}
               </button>
             ))}
           </div>
           {caffeineAmountMg !== null && caffeineAmountMg > 0 && (
             <input
               type="text"
-              placeholder="Time (HH:MM)"
+              placeholder="Uhrzeit (HH:MM)"
               value={caffeineTime}
               onChange={(e) => setCaffeineTime(e.target.value)}
               className="bg-secondary/50 border-border focus:ring-primary/40 rounded-lg border px-3 py-1.5 text-xs focus:ring-2 focus:outline-none"
@@ -516,7 +538,7 @@ export default function JournalPage() {
 
         {/* Alcohol */}
         <div className="space-y-2">
-          <p className="text-sm font-medium">🍺 Alcohol</p>
+          <p className="text-sm font-medium">🍺 Alkohol</p>
           <div className="flex flex-wrap gap-2">
             {ALCOHOL_OPTIONS.map((n) => (
               <button
@@ -529,7 +551,7 @@ export default function JournalPage() {
                     : "bg-secondary/50 text-muted-foreground hover:bg-secondary border-transparent",
                 )}
               >
-                {n === 5 ? "5+" : n === 0 ? "None" : `${n}`}
+                {n === 5 ? "5+" : n === 0 ? "Keine" : `${n}`}
               </button>
             ))}
           </div>
@@ -537,7 +559,7 @@ export default function JournalPage() {
 
         {/* Nap */}
         <div className="space-y-2">
-          <p className="text-sm font-medium">😴 Nap</p>
+          <p className="text-sm font-medium">😴 Nickerchen</p>
           <div className="flex flex-wrap gap-2">
             {NAP_OPTIONS.map((min) => (
               <button
@@ -550,7 +572,7 @@ export default function JournalPage() {
                     : "bg-secondary/50 text-muted-foreground hover:bg-secondary border-transparent",
                 )}
               >
-                {min === 0 ? "None" : `${min}m`}
+                {min === 0 ? "Keins" : `${min}m`}
               </button>
             ))}
           </div>
@@ -558,10 +580,10 @@ export default function JournalPage() {
 
         {/* Medications / Supplements */}
         <div className="space-y-2">
-          <p className="text-sm font-medium">💊 Medications / Supplements</p>
+          <p className="text-sm font-medium">💊 Medikamente / Nahrungsergänzung</p>
           <input
             type="text"
-            placeholder="e.g. ibuprofen, magnesium (comma-separated)"
+            placeholder="z. B. Ibuprofen, Magnesium (kommagetrennt)"
             value={medicationsText}
             onChange={(e) => setMedicationsText(e.target.value)}
             className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-2.5 text-xs focus:ring-2 focus:outline-none"
@@ -572,7 +594,7 @@ export default function JournalPage() {
       {/* ---- Lifestyle Tags Section ---- */}
       <div className="bg-card space-y-4 rounded-2xl border p-4">
         <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-          Lifestyle
+          Lebensstil
         </h2>
 
         <div className="grid-metrics">
@@ -610,12 +632,12 @@ export default function JournalPage() {
         {/* Notes */}
         <div className="space-y-2">
           <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-            Notes
+            Notizen
           </h2>
           <textarea
             className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-3 text-sm placeholder:text-muted-foreground focus:ring-2 focus:outline-none"
             rows={3}
-            placeholder="How are you feeling today?"
+            placeholder="Wie fühlst du dich heute?"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
@@ -629,16 +651,16 @@ export default function JournalPage() {
             onClick={() => setShowCycle((v) => !v)}
             className="flex w-full items-center justify-between text-sm font-medium"
           >
-            <span>🩸 Track cycle</span>
+            <span>🩸 Zyklus verfolgen</span>
             <span className="text-muted-foreground text-xs">
-              {showCycle ? "▲ Hide" : "▼ Show"}
+              {showCycle ? "▲ Ausblenden" : "▼ Anzeigen"}
             </span>
           </button>
 
           {showCycle && (
             <div className="mt-4 space-y-3">
               <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-                Menstrual Phase
+                Menstruationsphase
               </p>
               <div className="flex flex-wrap gap-2">
                 {MENSTRUAL_PHASES.map((phase) => (
@@ -672,13 +694,13 @@ export default function JournalPage() {
         onClick={handleSave}
         disabled={upsertMutation.isPending}
       >
-        {upsertMutation.isPending ? "Saving…" : "Save Entry"}
+        {upsertMutation.isPending ? "Wird gespeichert…" : "Eintrag speichern"}
       </Button>
 
       {/* ---- Journal History ---- */}
       <div>
         <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
-          Recent Entries
+          Letzte Einträge
         </h2>
 
         {historyQuery.isLoading ? (
@@ -693,7 +715,7 @@ export default function JournalPage() {
         ) : !historyQuery.data?.length ? (
           <div className="bg-card rounded-xl border p-4">
             <p className="text-muted-foreground text-sm">
-              No entries yet. Start journaling above!
+              Noch keine Einträge. Starte oben mit deinem Journal!
             </p>
           </div>
         ) : (
@@ -772,7 +794,7 @@ export default function JournalPage() {
                             }}
                             disabled={deleteMutation.isPending}
                           >
-                            Confirm
+                            Bestätigen
                           </Button>
                           <Button
                             variant="outline"
@@ -812,13 +834,13 @@ export default function JournalPage() {
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-            Correlation Insights
+            Korrelations-Insights
           </h2>
           <Link
             href="/correlations"
             className="text-primary text-xs font-medium"
           >
-            View all →
+            Alle ansehen →
           </Link>
         </div>
 
@@ -834,7 +856,7 @@ export default function JournalPage() {
         ) : topCorrelations.length === 0 ? (
           <div className="bg-card rounded-xl border p-4">
             <p className="text-muted-foreground text-sm">
-              Not enough data yet for correlation analysis.
+              Noch nicht genug Daten für eine Korrelationsanalyse.
             </p>
           </div>
         ) : (
@@ -852,7 +874,7 @@ export default function JournalPage() {
                     {c.metricA} → {c.metricB}
                   </p>
                   <p className="text-muted-foreground text-xs">
-                    r = {c.rValue.toFixed(2)} ·{" "}
+                    r = {fmtNum(c.rValue, 2)} ·{" "}
                     {c.direction === "positive"
                       ? "↑"
                       : c.direction === "negative"
@@ -870,7 +892,7 @@ export default function JournalPage() {
                         : "bg-muted text-muted-foreground",
                   )}
                 >
-                  {c.strength}
+                  {strengthLabel(c.strength)}
                 </span>
               </Link>
             ))}

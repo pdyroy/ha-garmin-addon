@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@acme/ui";
 
 import { PageShell } from "~/components/page-shell";
+import { fmtNum } from "~/lib/format-number";
 import type { EndChoice, InteractionRec } from "./quick-add-lib";
 import { BottomNav } from "../_components/bottom-nav";
 import { getIngressUrl } from "../_components/ingress-provider";
@@ -81,6 +82,20 @@ function labelColor(label: string): string {
   return "text-muted-foreground";
 }
 
+// p.label comes from the meeting-stress addon's JSON response as one of
+// these fixed English phrases — labelColor() above still switches on the
+// raw value, this only translates what's shown.
+const LABEL_TEXT_DE: Record<string, string> = {
+  "prime suspect": "Hauptverdächtiger",
+  "mild stressor": "leichter Stressfaktor",
+  "slightly raises HR": "erhöht Puls leicht",
+  calming: "beruhigend",
+};
+
+function labelText(label: string): string {
+  return LABEL_TEXT_DE[label] ?? label;
+}
+
 async function fetchStatus(): Promise<StressStatus> {
   try {
     const res = await fetch(getIngressUrl("/api/garmin/meeting-stress"));
@@ -130,7 +145,8 @@ export default function StressBoardPage() {
         method: "POST",
       });
       const data = (await res.json()) as { success: boolean; message?: string };
-      if (!data.success) throw new Error(data.message ?? "Failed to start");
+      if (!data.success)
+        throw new Error(data.message ?? "Start fehlgeschlagen");
       return data;
     },
     onSuccess: () => {
@@ -155,7 +171,7 @@ export default function StressBoardPage() {
         payload = JSON.parse(tokenText);
       } catch {
         throw new Error(
-          "That isn't valid JSON — paste the whole gcal-token.json file.",
+          "Das ist kein gültiges JSON — füge den Inhalt der gcal-token.json vollständig ein.",
         );
       }
       const res = await fetch(getIngressUrl("/api/garmin/gcal-link"), {
@@ -164,7 +180,8 @@ export default function StressBoardPage() {
         body: JSON.stringify(payload),
       });
       const data = (await res.json()) as { success: boolean; message?: string };
-      if (!data.success) throw new Error(data.message ?? "Failed to link");
+      if (!data.success)
+        throw new Error(data.message ?? "Verbinden fehlgeschlagen");
       return data;
     },
     onSuccess: () => {
@@ -183,7 +200,8 @@ export default function StressBoardPage() {
         method: "DELETE",
       });
       const data = (await res.json()) as { success: boolean; message?: string };
-      if (!data.success) throw new Error(data.message ?? "Failed to unlink");
+      if (!data.success)
+        throw new Error(data.message ?? "Trennen fehlgeschlagen");
       return data;
     },
     onSuccess: () => {
@@ -211,7 +229,7 @@ export default function StressBoardPage() {
           message?: string;
         };
       } catch {
-        return { success: false, message: "Cannot reach the addon." };
+        return { success: false, message: "Addon nicht erreichbar." };
       }
     },
     // Only hit the addon once the panel is actually open.
@@ -221,7 +239,7 @@ export default function StressBoardPage() {
   const calendars = useMemo(() => calData?.calendars ?? [], [calData]);
   const calError =
     calData?.success === false
-      ? (calData.message ?? "Could not load calendars.")
+      ? (calData.message ?? "Kalender konnten nicht geladen werden.")
       : null;
   // Effective selection: the user's edits if any, else the server's saved set.
   const serverSelected = useMemo(
@@ -238,11 +256,12 @@ export default function StressBoardPage() {
         body: JSON.stringify({ calendar_ids: [...selected] }),
       });
       const data = (await res.json()) as { success: boolean; message?: string };
-      if (!data.success) throw new Error(data.message ?? "Failed to save");
+      if (!data.success)
+        throw new Error(data.message ?? "Speichern fehlgeschlagen");
       return data;
     },
     onSuccess: () => {
-      setMessage("Calendar selection saved — hit ▶ run to refresh.");
+      setMessage("Kalenderauswahl gespeichert — auf ▶ starten klicken, um zu aktualisieren.");
       setSelectedOverride(null);
       void queryClient.invalidateQueries({ queryKey: ["meeting-stress"] });
       void queryClient.invalidateQueries({ queryKey: ["gcal-calendars"] });
@@ -299,13 +318,16 @@ export default function StressBoardPage() {
         }),
       });
       const data = await parseApiResponse(res);
-      if (!data.success) throw new Error(data.message ?? "Failed to log");
+      if (!data.success)
+        throw new Error(data.message ?? "Protokollieren fehlgeschlagen");
       return data;
     },
     onSuccess: () => {
       setPersonInput("");
       setEndChoice("now");
-      setMessage("Logged — hit ▶ run to score it against your heart rate.");
+      setMessage(
+        "Protokolliert — auf ▶ starten klicken, um es gegen deinen Puls auszuwerten.",
+      );
       void queryClient.invalidateQueries({ queryKey: ["interactions"] });
     },
     onError: (err) => setMessage(err.message),
@@ -318,7 +340,8 @@ export default function StressBoardPage() {
         { method: "DELETE" },
       );
       const data = await parseApiResponse(res);
-      if (!data.success) throw new Error(data.message ?? "Failed to delete");
+      if (!data.success)
+        throw new Error(data.message ?? "Löschen fehlgeschlagen");
       return data;
     },
     onSuccess: () => {
@@ -358,16 +381,16 @@ export default function StressBoardPage() {
   const noHrTitles = Array.isArray(skip?.no_hr_titles) ? skip.no_hr_titles : [];
   const skipNote =
     skip && skip.no_hr > 0
-      ? `⚠ ${skip.no_hr} event${skip.no_hr === 1 ? "" : "s"} had no heart-rate coverage yet` +
+      ? `⚠ ${skip.no_hr} ${skip.no_hr === 1 ? "Ereignis hatte" : "Ereignisse hatten"} noch keine Puls-Daten` +
         (skip.interactions_no_hr > 0
-          ? ` (incl. ${skip.interactions_no_hr} logged interaction${
-              skip.interactions_no_hr === 1 ? "" : "s"
+          ? ` (davon ${skip.interactions_no_hr} protokollierte ${
+              skip.interactions_no_hr === 1 ? "Interaktion" : "Interaktionen"
             })`
           : "") +
         (!masked && noHrTitles.length > 0
           ? ` — ${noHrTitles.join(", ")}`
           : "") +
-        `. They'll show once Garmin syncs that time window — then hit ▶ run again.`
+        `. Sie erscheinen, sobald Garmin dieses Zeitfenster synchronisiert hat — dann erneut auf ▶ starten klicken.`
       : null;
 
   return (
@@ -377,19 +400,19 @@ export default function StressBoardPage() {
             <h1 className="text-foreground text-lg font-bold">
               STRESS BOARD{" "}
               <span className="text-muted-foreground text-xs font-normal">
-                who spikes my heart rate
+                wer meinen puls hochtreibt
               </span>
             </h1>
             <p className="text-muted-foreground text-xs">
               {isLoading || !status
-                ? "calendar: checking…"
+                ? "kalender: wird geprüft…"
                 : status.calendar_linked
-                  ? "calendar: linked (Google)"
+                  ? "kalender: verbunden (Google)"
                   : status.events_file
-                    ? "calendar: file (/share/pacer)"
-                    : "calendar: not connected"}
+                    ? "kalender: datei (/share/pacer)"
+                    : "kalender: nicht verbunden"}
               {results?.generated
-                ? ` · last run ${new Date(results.generated).toLocaleString()}`
+                ? ` · letzter lauf ${new Date(results.generated).toLocaleString()}`
                 : ""}
             </p>
           </div>
@@ -397,7 +420,7 @@ export default function StressBoardPage() {
             {status?.calendar_linked && (
               <button
                 onClick={() => setShowCals((s) => !s)}
-                title="Choose calendars / unlink"
+                title="Kalender wählen / trennen"
                 className={cn(
                   "rounded border px-3 py-1.5 text-xs",
                   showCals
@@ -405,12 +428,12 @@ export default function StressBoardPage() {
                     : "border-border text-muted-foreground hover:bg-accent",
                 )}
               >
-                📅 calendars
+                📅 kalender
               </button>
             )}
             <button
               onClick={() => setMasked((m) => !m)}
-              title="Mask names for screenshots"
+              title="Namen für Screenshots maskieren"
               className={cn(
                 "rounded border px-3 py-1.5 text-xs",
                 masked
@@ -418,7 +441,7 @@ export default function StressBoardPage() {
                   : "border-border text-muted-foreground hover:bg-accent",
               )}
             >
-              {masked ? "🙈 masked" : "👁 names"}
+              {masked ? "🙈 maskiert" : "👁 namen"}
             </button>
             <button
               onClick={() => run.mutate()}
@@ -430,7 +453,7 @@ export default function StressBoardPage() {
                   : "text-foreground hover:bg-accent",
               )}
             >
-              {status?.running ? "running…" : "▶ run"}
+              {status?.running ? "läuft…" : "▶ starten"}
             </button>
           </div>
         </div>
@@ -450,28 +473,28 @@ export default function StressBoardPage() {
         {status?.calendar_linked && showCals && (
           <div className="mb-3 rounded border border-sky-500/30 bg-sky-500/5 p-3 text-xs">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-foreground font-bold">Google Calendars</p>
+              <p className="text-foreground font-bold">Google-Kalender</p>
               <button
                 onClick={() => unlink.mutate()}
                 disabled={unlink.isPending}
                 className="rounded border border-red-500/40 px-2 py-1 text-red-400 hover:bg-red-500/10"
               >
-                {unlink.isPending ? "unlinking…" : "Unlink"}
+                {unlink.isPending ? "wird getrennt…" : "Trennen"}
               </button>
             </div>
             {calError ? (
               <p className="text-amber-400">{calError}</p>
             ) : calLoading ? (
-              <p className="text-muted-foreground">Loading calendars…</p>
+              <p className="text-muted-foreground">Kalender werden geladen…</p>
             ) : calendars.length === 0 ? (
               <p className="text-muted-foreground">
-                No calendars found on this account.
+                Keine Kalender in diesem Konto gefunden.
               </p>
             ) : (
               <>
                 <p className="text-muted-foreground mb-2">
-                  Pick which calendars feed the board (events shared across
-                  calendars are counted once).
+                  Wähle, welche Kalender das Board speisen (Termine in
+                  mehreren Kalendern werden nur einmal gezählt).
                 </p>
                 <div className="mb-2 max-h-48 space-y-1 overflow-y-auto">
                   {calendars.map((c) => (
@@ -495,7 +518,7 @@ export default function StressBoardPage() {
                       />
                       <span>{c.summary}</span>
                       {c.primary && (
-                        <span className="text-muted-foreground">(primary)</span>
+                        <span className="text-muted-foreground">(primär)</span>
                       )}
                     </label>
                   ))}
@@ -505,7 +528,7 @@ export default function StressBoardPage() {
                   disabled={saveCals.isPending || selected.size === 0}
                   className="border-border text-foreground hover:bg-accent disabled:text-muted-foreground rounded border px-3 py-1.5 disabled:cursor-not-allowed"
                 >
-                  {saveCals.isPending ? "saving…" : "Save selection"}
+                  {saveCals.isPending ? "wird gespeichert…" : "Auswahl speichern"}
                 </button>
               </>
             )}
@@ -515,9 +538,9 @@ export default function StressBoardPage() {
         {addonHealthy && ixSupported && (
           <div className="border-border bg-card mb-3 rounded border p-3 text-xs">
             <p className="text-foreground mb-2 font-bold tracking-widest">
-              LOG INTERACTION{" "}
+              INTERAKTION PROTOKOLLIEREN{" "}
               <span className="text-muted-foreground font-normal tracking-normal">
-                off-calendar chat, call, drop-by
+                chat, anruf oder spontanes gespräch außerhalb des kalenders
               </span>
             </p>
             <form
@@ -531,8 +554,8 @@ export default function StressBoardPage() {
                 value={personInput}
                 onChange={(e) => setPersonInput(e.target.value)}
                 list="known-people"
-                placeholder="who?"
-                aria-label="Person you interacted with"
+                placeholder="wer?"
+                aria-label="Person, mit der du interagiert hast"
                 autoComplete="off"
                 autoCapitalize="off"
                 className="border-border bg-muted text-foreground placeholder:text-muted-foreground w-36 rounded border px-2 py-1.5"
@@ -562,12 +585,12 @@ export default function StressBoardPage() {
               <select
                 value={endChoice}
                 onChange={(e) => setEndChoice(e.target.value as EndChoice)}
-                aria-label="When the interaction ended"
+                aria-label="Wann die Interaktion endete"
                 className="border-border bg-muted text-foreground rounded border px-2 py-1.5"
               >
                 {END_CHOICES.map((c) => (
                   <option key={c.key} value={c.key}>
-                    ended {c.label}
+                    beendet {c.label}
                   </option>
                 ))}
               </select>
@@ -576,7 +599,7 @@ export default function StressBoardPage() {
                 disabled={!canLog}
                 className="border-border text-foreground hover:bg-accent disabled:text-muted-foreground rounded border px-3 py-1.5 disabled:cursor-not-allowed"
               >
-                {addInteraction.isPending ? "logging…" : "+ log"}
+                {addInteraction.isPending ? "wird protokolliert…" : "+ eintragen"}
               </button>
             </form>
             {recent.length > 0 && (
@@ -588,13 +611,13 @@ export default function StressBoardPage() {
                   >
                     <span className="text-foreground">{person(r.person)}</span>
                     <span>
-                      {r.minutes}m · ended {fmtEnd(r.end)}
+                      {r.minutes}m · beendet {fmtEnd(r.end)}
                     </span>
                     <button
                       onClick={() => deleteInteraction.mutate(r.id)}
                       disabled={deleteInteraction.isPending}
-                      title="Remove this interaction"
-                      aria-label={`Remove interaction with ${person(r.person)}`}
+                      title="Diese Interaktion entfernen"
+                      aria-label={`Interaktion mit ${person(r.person)} entfernen`}
                       className="text-muted-foreground rounded px-1 hover:bg-red-500/10 hover:text-red-400"
                     >
                       ×
@@ -609,25 +632,26 @@ export default function StressBoardPage() {
         {!showSetup && !results && !isLoading && (
           <p className="border-border bg-card text-muted-foreground rounded border p-4 text-xs">
             {status?.unsupported
-              ? "Addon does not expose meeting stress yet — update to v0.20.0+."
+              ? "Addon bietet Meeting-Stress noch nicht — aktualisiere auf v0.20.0+."
               : status?.unreachable
-                ? "Cannot reach the addon auth server."
-                : "No results yet — hit ▶ run."}
+                ? "Auth-Server des Addons nicht erreichbar."
+                : "Noch keine Ergebnisse — auf ▶ starten klicken."}
           </p>
         )}
 
         {showSetup && (
           <div className="border-border bg-card text-muted-foreground rounded border p-4 text-xs">
             <p className="text-foreground mb-2 font-bold">
-              Connect Google Calendar
+              Google Kalender verbinden
             </p>
             <p className="mb-2">
-              On your computer, mint a read-only token with{" "}
+              Erzeuge auf deinem Rechner einen Read-only-Token mit{" "}
               <code className="text-foreground">
                 scripts/generate-gcal-token.py
               </code>{" "}
-              (addon repo), then paste the contents of the resulting{" "}
-              <code className="text-foreground">gcal-token.json</code> here:
+              (Addon-Repo) und füge dann den Inhalt der erzeugten{" "}
+              <code className="text-foreground">gcal-token.json</code> hier
+              ein:
             </p>
             <textarea
               value={tokenText}
@@ -647,12 +671,12 @@ export default function StressBoardPage() {
               disabled={link.isPending || tokenText.trim().length === 0}
               className="border-border text-foreground hover:bg-accent disabled:text-muted-foreground rounded border px-3 py-1.5 disabled:cursor-not-allowed"
             >
-              {link.isPending ? "connecting…" : "Connect"}
+              {link.isPending ? "wird verbunden…" : "Verbinden"}
             </button>
             <p className="text-muted-foreground mt-3">
-              Prefer files? Drop the token in{" "}
-              <code className="text-muted-foreground">/share/pacer/</code>, or
-              export an ICS and convert it with{" "}
+              Lieber Dateien? Lege den Token in{" "}
+              <code className="text-muted-foreground">/share/pacer/</code> ab,
+              oder exportiere eine ICS-Datei und konvertiere sie mit{" "}
               <code className="text-muted-foreground">scripts/ics_to_events.py</code>.
             </p>
           </div>
@@ -663,20 +687,22 @@ export default function StressBoardPage() {
             {/* PER-PERSON leaderboard — the headline, like the post */}
             <section className="mb-6">
               <h2 className="border-border text-foreground mb-1 border-b pb-1 text-xs font-bold tracking-widest">
-                PER-PERSON{" "}
+                PRO PERSON{" "}
                 <span className="text-muted-foreground font-normal">
-                  ranked by ridge marginal effect (bpm)
+                  sortiert nach ridge-grenzeffekt (bpm)
                 </span>
               </h2>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-muted-foreground text-left">
-                    <th className="py-1 pr-2 font-normal">attendee</th>
+                    <th className="py-1 pr-2 font-normal">teilnehmer</th>
                     <th className="pr-2 text-right font-normal">n</th>
-                    <th className="pr-2 text-right font-normal">naive</th>
+                    <th className="pr-2 text-right font-normal">naiv</th>
                     <th className="pr-2 text-right font-normal">ridge</th>
                     <th className="pr-2 font-normal">rel</th>
-                    <th className="pr-2 font-normal">calming ← 0 → stress</th>
+                    <th className="pr-2 font-normal">
+                      beruhigend ← 0 → stressig
+                    </th>
                     <th className="font-normal">label</th>
                   </tr>
                 </thead>
@@ -692,7 +718,7 @@ export default function StressBoardPage() {
                         </td>
                         <td className="pr-2 text-right">{p.n}</td>
                         <td className="pr-2 text-right">
-                          {p.naive.toFixed(2)}
+                          {fmtNum(p.naive, 2)}
                         </td>
                         <td
                           className={cn(
@@ -700,7 +726,7 @@ export default function StressBoardPage() {
                             dbpmColor(p.ridge),
                           )}
                         >
-                          {p.ridge.toFixed(2)}
+                          {fmtNum(p.ridge, 2)}
                         </td>
                         <td className="text-muted-foreground pr-2">{p.reliability}</td>
                         <td className="pr-2">
@@ -724,7 +750,9 @@ export default function StressBoardPage() {
                             </div>
                           </div>
                         </td>
-                        <td className={labelColor(p.label)}>{p.label}</td>
+                        <td className={labelColor(p.label)}>
+                          {labelText(p.label)}
+                        </td>
                       </tr>
                     );
                   })}
@@ -735,9 +763,9 @@ export default function StressBoardPage() {
             {/* MEETING STRESS table */}
             <section className="mb-6">
               <h2 className="border-border text-foreground mb-1 border-b pb-1 text-xs font-bold tracking-widest">
-                MEETING STRESS{" "}
+                MEETING-STRESS{" "}
                 <span className="text-muted-foreground font-normal">
-                  mean HR over surrounding baseline
+                  mittlerer puls über umgebender baseline
                 </span>
               </h2>
               <table className="w-full text-xs">
@@ -747,7 +775,7 @@ export default function StressBoardPage() {
                     <th className="pr-2 text-right font-normal">z</th>
                     <th className="pr-2 text-right font-normal">elev</th>
                     <th className="pr-2 font-normal">meeting</th>
-                    <th className="font-normal">attendees</th>
+                    <th className="font-normal">teilnehmer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -760,9 +788,9 @@ export default function StressBoardPage() {
                         )}
                       >
                         {m.dbpm >= 0 ? "+" : ""}
-                        {m.dbpm.toFixed(1)}
+                        {fmtNum(m.dbpm, 1)}
                       </td>
-                      <td className="pr-2 text-right">{m.z.toFixed(2)}</td>
+                      <td className="pr-2 text-right">{fmtNum(m.z, 2)}</td>
                       <td className="pr-2 text-right">
                         {Math.round(m.elev * 100)}%
                       </td>
@@ -779,8 +807,9 @@ export default function StressBoardPage() {
             </section>
 
             <p className="text-muted-foreground text-[10px]">
-              correlation ≠ causation — a leaderboard for laughs, not HR. thin
-              data (n &lt; 3) ranks are noise.
+              korrelation ≠ kausalität — eine bestenliste zum spaß, keine
+              wissenschaft. bei wenig daten (n &lt; 3) ist das ranking nur
+              rauschen.
             </p>
           </>
         )}

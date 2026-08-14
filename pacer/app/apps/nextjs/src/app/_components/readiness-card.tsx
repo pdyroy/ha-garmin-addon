@@ -8,31 +8,31 @@ const zoneConfig: Record<
   { label: string; color: string; bg: string; ring: string }
 > = {
   prime: {
-    label: "Prime",
+    label: "Optimal",
     color: "text-green-500",
     bg: "bg-green-500/10",
     ring: "ring-green-500/30",
   },
   high: {
-    label: "High",
+    label: "Hoch",
     color: "text-teal-500",
     bg: "bg-teal-500/10",
     ring: "ring-teal-500/30",
   },
   moderate: {
-    label: "Moderate",
+    label: "Moderat",
     color: "text-yellow-500",
     bg: "bg-yellow-500/10",
     ring: "ring-yellow-500/30",
   },
   low: {
-    label: "Low",
+    label: "Niedrig",
     color: "text-orange-500",
     bg: "bg-orange-500/10",
     ring: "ring-orange-500/30",
   },
   poor: {
-    label: "Poor",
+    label: "Schwach",
     color: "text-red-500",
     bg: "bg-red-500/10",
     ring: "ring-red-500/30",
@@ -55,23 +55,23 @@ const dqDotColor: Record<DataQualityStatus, string> = {
 };
 
 const dqStatusLabel: Record<DataQualityStatus, string> = {
-  good: "good",
-  stale: "stale",
-  missing: "missing",
+  good: "gut",
+  stale: "veraltet",
+  missing: "fehlt",
 };
 
 function DataQualityDots({ dq }: { dq: DataQuality }) {
   const items: [string, DataQualityStatus][] = [
     ["HRV", dq.hrv],
-    ["Sleep", dq.sleep],
-    ["HR", dq.restingHr],
-    ["Load", dq.trainingLoad],
+    ["Schlaf", dq.sleep],
+    ["Ruhepuls", dq.restingHr],
+    ["Training Load", dq.trainingLoad],
   ];
   return (
     <div
       className="mt-2 grid grid-cols-2 gap-2 min-[380px]:flex min-[380px]:flex-wrap"
       role="list"
-      aria-label="Data quality indicators"
+      aria-label="Datenqualitätsindikatoren"
     >
       {items.map(([label, status]) => (
         <span
@@ -128,7 +128,7 @@ export function ReadinessCard({
     return (
       <div className="bg-card rounded-2xl border p-6 text-center">
         <p className="text-muted-foreground">
-          No readiness data yet. Connect your Garmin to get started.
+          Noch keine Readiness-Daten. Verbinde deinen Garmin, um loszulegen.
         </p>
       </div>
     );
@@ -151,7 +151,7 @@ export function ReadinessCard({
       {doNotOverinterpret && (
         <div className="mb-3 flex items-center gap-2 rounded-lg bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
           <span>⚠️</span>
-          <span>Low data confidence — score may not be reliable</span>
+          <span>Geringe Datensicherheit — Score möglicherweise nicht zuverlässig</span>
         </div>
       )}
 
@@ -186,7 +186,7 @@ export function ReadinessCard({
             </span>
             {confidencePct != null && (
               <span className="text-muted-foreground mt-0.5 text-[9px] whitespace-nowrap tabular-nums">
-                {confidencePct}% confidence
+                {confidencePct} % Konfidenz
               </span>
             )}
           </div>

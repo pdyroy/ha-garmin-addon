@@ -21,15 +21,15 @@ import { BottomNav } from "../_components/bottom-nav";
 
 const HEALTH_CONDITIONS = [
   { id: "asthma", label: "🫁 Asthma" },
-  { id: "hypertension", label: "❤️‍🩹 High Blood Pressure" },
-  { id: "diabetes_t1", label: "💉 Type 1 Diabetes" },
-  { id: "diabetes_t2", label: "🩺 Type 2 Diabetes" },
-  { id: "heart_condition", label: "🫀 Heart Condition" },
-  { id: "joint_issues", label: "🦴 Joint Problems" },
-  { id: "back_issues", label: "🔙 Back Problems" },
-  { id: "respiratory", label: "😮‍💨 Respiratory Issues" },
-  { id: "thyroid", label: "🦋 Thyroid Disorder" },
-  { id: "anxiety_depression", label: "🧠 Anxiety/Depression" },
+  { id: "hypertension", label: "❤️‍🩹 Bluthochdruck" },
+  { id: "diabetes_t1", label: "💉 Diabetes Typ 1" },
+  { id: "diabetes_t2", label: "🩺 Diabetes Typ 2" },
+  { id: "heart_condition", label: "🫀 Herzerkrankung" },
+  { id: "joint_issues", label: "🦴 Gelenkprobleme" },
+  { id: "back_issues", label: "🔙 Rückenprobleme" },
+  { id: "respiratory", label: "😮‍💨 Atemwegserkrankungen" },
+  { id: "thyroid", label: "🦋 Schilddrüsenerkrankung" },
+  { id: "anxiety_depression", label: "🧠 Angst/Depression" },
 ];
 
 const BODY_PARTS = [
@@ -48,6 +48,38 @@ const BODY_PARTS = [
   "calf",
   "quad",
 ];
+
+// Display-only translations. The underlying values (body part IDs, sex,
+// severity) are unchanged — they're stored and compared as-is; only the
+// German label shown to the user is looked up here.
+const BODY_PART_LABELS: Record<string, string> = {
+  knee: "Knie",
+  ankle: "Knöchel",
+  hip: "Hüfte",
+  shoulder: "Schulter",
+  lower_back: "Unterer Rücken",
+  upper_back: "Oberer Rücken",
+  wrist: "Handgelenk",
+  elbow: "Ellbogen",
+  neck: "Nacken",
+  foot: "Fuß",
+  shin: "Schienbein",
+  hamstring: "Beinbeuger",
+  calf: "Wade",
+  quad: "Quadrizeps",
+};
+
+const SEVERITY_LABELS: Record<"mild" | "moderate" | "severe", string> = {
+  mild: "Leicht",
+  moderate: "Mittel",
+  severe: "Schwer",
+};
+
+const SEX_LABELS: Record<string, string> = {
+  male: "Männlich",
+  female: "Weiblich",
+  other: "Divers",
+};
 
 function getBrowserTimezone(): string {
   if (typeof Intl === "undefined") return "UTC";
@@ -126,9 +158,9 @@ function ProfileEditor() {
     return (
       <div className="bg-card space-y-3 rounded-2xl border p-4">
         <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-          Athlete Profile
+          Athleten-Profil
         </h2>
-        <p className="text-muted-foreground text-sm">Loading profile…</p>
+        <p className="text-muted-foreground text-sm">Profil wird geladen…</p>
       </div>
     );
   }
@@ -138,27 +170,27 @@ function ProfileEditor() {
       <div className="bg-card space-y-3 rounded-2xl border p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-            Athlete Profile
+            Athleten-Profil
           </h2>
           <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-            Edit
+            Bearbeiten
           </Button>
         </div>
         <div className="grid-metrics text-sm">
           <div>
-            <span className="text-muted-foreground">Age:</span>{" "}
+            <span className="text-muted-foreground">Alter:</span>{" "}
             {profile?.age ?? "—"}
           </div>
           <div>
-            <span className="text-muted-foreground">Sex:</span>{" "}
-            <span className="capitalize">{profile?.sex ?? "—"}</span>
+            <span className="text-muted-foreground">Geschlecht:</span>{" "}
+            <span>{profile?.sex ? (SEX_LABELS[profile.sex] ?? profile.sex) : "—"}</span>
           </div>
           <div>
-            <span className="text-muted-foreground">Weight:</span>{" "}
+            <span className="text-muted-foreground">Gewicht:</span>{" "}
             {profile?.massKg ? `${profile.massKg} kg` : "—"}
           </div>
           <div>
-            <span className="text-muted-foreground">Height:</span>{" "}
+            <span className="text-muted-foreground">Größe:</span>{" "}
             {profile?.heightCm ? `${profile.heightCm} cm` : "—"}
           </div>
         </div>
@@ -169,11 +201,11 @@ function ProfileEditor() {
   return (
     <div className="bg-card space-y-3 rounded-2xl border p-4">
       <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-        Athlete Profile
+        Athleten-Profil
       </h2>
       <div className="grid-metrics">
         <div>
-          <Label>Age</Label>
+          <Label>Alter</Label>
           <Input
             type="number"
             value={age}
@@ -181,26 +213,26 @@ function ProfileEditor() {
           />
         </div>
         <div>
-          <Label>Sex</Label>
+          <Label>Geschlecht</Label>
           <div className="flex gap-1">
             {(["male", "female", "other"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setSex(s)}
                 className={cn(
-                  "flex-1 rounded-lg border px-2 py-1.5 text-xs capitalize",
+                  "flex-1 rounded-lg border px-2 py-1.5 text-xs",
                   sex === s
                     ? "border-primary bg-primary/10 text-primary"
                     : "text-muted-foreground",
                 )}
               >
-                {s}
+                {SEX_LABELS[s]}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <Label>Weight (kg)</Label>
+          <Label>Gewicht (kg)</Label>
           <Input
             type="number"
             value={massKg}
@@ -208,7 +240,7 @@ function ProfileEditor() {
           />
         </div>
         <div>
-          <Label>Height (cm)</Label>
+          <Label>Größe (cm)</Label>
           <Input
             type="number"
             value={heightCm}
@@ -230,10 +262,10 @@ function ProfileEditor() {
             })
           }
         >
-          {upsertProfile.isPending ? "Saving…" : "Save"}
+          {upsertProfile.isPending ? "Wird gespeichert…" : "Speichern"}
         </Button>
         <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
-          Cancel
+          Abbrechen
         </Button>
       </div>
     </div>
@@ -290,17 +322,17 @@ function HealthProfile() {
       <div className="bg-card space-y-3 rounded-2xl border p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-            Health & Safety
+            Gesundheit & Sicherheit
           </h2>
           <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-            {hasAny ? "Edit" : "Add"}
+            {hasAny ? "Bearbeiten" : "Hinzufügen"}
           </Button>
         </div>
         {hasAny ? (
           <div className="space-y-2 text-sm">
             {conditions.length > 0 && (
               <p>
-                <span className="text-muted-foreground">Conditions:</span>{" "}
+                <span className="text-muted-foreground">Erkrankungen:</span>{" "}
                 {conditions
                   .map(
                     (c) =>
@@ -311,29 +343,33 @@ function HealthProfile() {
             )}
             {injuries.length > 0 && (
               <p>
-                <span className="text-muted-foreground">Injuries:</span>{" "}
+                <span className="text-muted-foreground">Verletzungen:</span>{" "}
                 {injuries
-                  .map((i) => `${i.bodyPart.replace("_", " ")} (${i.severity})`)
+                  .map(
+                    (i) =>
+                      `${BODY_PART_LABELS[i.bodyPart] ?? i.bodyPart} (${SEVERITY_LABELS[i.severity]})`,
+                  )
                   .join(", ")}
               </p>
             )}
             {medications && (
               <p>
-                <span className="text-muted-foreground">Medications:</span>{" "}
+                <span className="text-muted-foreground">Medikamente:</span>{" "}
                 {medications}
               </p>
             )}
             {allergies && (
               <p>
-                <span className="text-muted-foreground">Allergies:</span>{" "}
+                <span className="text-muted-foreground">Allergien:</span>{" "}
                 {allergies}
               </p>
             )}
           </div>
         ) : (
           <p className="text-muted-foreground text-xs">
-            No health information set. Add conditions, injuries, or medications
-            to help the AI coach tailor safe recommendations.
+            Keine Gesundheitsinformationen hinterlegt. Füge Erkrankungen,
+            Verletzungen oder Medikamente hinzu, damit der KI-Coach sichere
+            Empfehlungen geben kann.
           </p>
         )}
       </div>
@@ -343,12 +379,12 @@ function HealthProfile() {
   return (
     <div className="bg-card space-y-4 rounded-2xl border p-4">
       <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-        Health & Safety
+        Gesundheit & Sicherheit
       </h2>
 
       {/* Conditions */}
       <div>
-        <Label className="text-sm font-medium">Health conditions</Label>
+        <Label className="text-sm font-medium">Gesundheitliche Vorerkrankungen</Label>
         <div className="mt-1 flex flex-wrap gap-1">
           {HEALTH_CONDITIONS.map((c) => (
             <button
@@ -375,7 +411,7 @@ function HealthProfile() {
 
       {/* Injuries */}
       <div>
-        <Label className="text-sm font-medium">Current injuries</Label>
+        <Label className="text-sm font-medium">Aktuelle Verletzungen</Label>
         <div className="mt-1 flex flex-wrap gap-1">
           {BODY_PARTS.map((part) => {
             const existing = injuries.find((i) => i.bodyPart === part);
@@ -393,13 +429,13 @@ function HealthProfile() {
                   )
                 }
                 className={cn(
-                  "rounded-full border px-2 py-1 text-xs capitalize transition-colors",
+                  "rounded-full border px-2 py-1 text-xs transition-colors",
                   existing
                     ? "border-amber-500 bg-amber-500/10 font-medium text-amber-600"
                     : "text-muted-foreground hover:border-foreground/30",
                 )}
               >
-                {part.replace("_", " ")}
+                {BODY_PART_LABELS[part] ?? part}
               </button>
             );
           })}
@@ -411,8 +447,8 @@ function HealthProfile() {
                 key={injury.bodyPart}
                 className="flex items-center gap-2 text-xs"
               >
-                <span className="min-w-[70px] font-medium capitalize">
-                  {injury.bodyPart.replace("_", " ")}:
+                <span className="min-w-[70px] font-medium">
+                  {BODY_PART_LABELS[injury.bodyPart] ?? injury.bodyPart}:
                 </span>
                 {(["mild", "moderate", "severe"] as const).map((sev) => (
                   <button
@@ -427,7 +463,7 @@ function HealthProfile() {
                       )
                     }
                     className={cn(
-                      "rounded border px-2 py-0.5 capitalize",
+                      "rounded border px-2 py-0.5",
                       injury.severity === sev
                         ? sev === "mild"
                           ? "border-green-500 bg-green-500/10 text-green-700"
@@ -437,7 +473,7 @@ function HealthProfile() {
                         : "text-muted-foreground",
                     )}
                   >
-                    {sev}
+                    {SEVERITY_LABELS[sev]}
                   </button>
                 ))}
               </div>
@@ -448,21 +484,21 @@ function HealthProfile() {
 
       {/* Medications */}
       <div>
-        <Label>Medications</Label>
+        <Label>Medikamente</Label>
         <Input
           value={medications}
           onChange={(e) => setMedications(e.target.value)}
-          placeholder="e.g., Beta-blockers, Metformin…"
+          placeholder="z. B. Betablocker, Metformin…"
         />
       </div>
 
       {/* Allergies */}
       <div>
-        <Label>Allergies or sensitivities</Label>
+        <Label>Allergien oder Unverträglichkeiten</Label>
         <Input
           value={allergies}
           onChange={(e) => setAllergies(e.target.value)}
-          placeholder="e.g., Pollen, lactose…"
+          placeholder="z. B. Pollen, Laktose…"
         />
       </div>
 
@@ -479,19 +515,21 @@ function HealthProfile() {
             })
           }
         >
-          {updateHealth.isPending ? "Saving…" : "Save"}
+          {updateHealth.isPending ? "Wird gespeichert…" : "Speichern"}
         </Button>
         <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
-          Cancel
+          Abbrechen
         </Button>
       </div>
 
       <p className="text-muted-foreground text-xs italic">
-        💡 All health info is stored locally and used only for safe AI coaching.
+        💡 Alle Gesundheitsinformationen werden lokal gespeichert und dienen nur
+        einem sicheren KI-Coaching.
       </p>
       <p className="text-xs text-amber-700 dark:text-amber-400">
-        ⚠️ Not a substitute for professional medical advice. Consult a qualified
-        healthcare professional for personalized guidance.
+        ⚠️ Kein Ersatz für professionelle medizinische Beratung. Wende dich für
+        eine individuelle Einschätzung an eine qualifizierte Ärztin oder einen
+        qualifizierten Arzt.
       </p>
     </div>
   );
@@ -540,14 +578,14 @@ function TimezoneSettings() {
   return (
     <div className="bg-card space-y-3 rounded-2xl border p-4">
       <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-        Timezone
+        Zeitzone
       </h2>
       <p className="text-sm">
-        <span className="text-muted-foreground">Current:</span>{" "}
+        <span className="text-muted-foreground">Aktuell:</span>{" "}
         {formatTimezoneLabel(currentTimezone)}
       </p>
       <div className="space-y-2">
-        <Label htmlFor="timezone-select">IANA timezone</Label>
+        <Label htmlFor="timezone-select">IANA-Zeitzone</Label>
         <input
           id="timezone-select"
           list="timezone-options"
@@ -555,7 +593,7 @@ function TimezoneSettings() {
           value={selectedTimezone}
           onChange={(event) => setSelectedTimezone(event.target.value)}
           className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm"
-          placeholder="Search timezones"
+          placeholder="Zeitzone suchen"
         />
         <datalist id="timezone-options">
           {timezones.map((timezone) => (
@@ -572,7 +610,7 @@ function TimezoneSettings() {
           size="sm"
           onClick={() => setSelectedTimezone(browserTimezone)}
         >
-          Auto-detect from browser
+          Automatisch aus Browser erkennen
         </Button>
         <Button
           type="button"
@@ -582,11 +620,11 @@ function TimezoneSettings() {
           }
           onClick={() => updateTimezone.mutate({ timezone: selectedTimezone })}
         >
-          {updateTimezone.isPending ? "Saving…" : "Save timezone"}
+          {updateTimezone.isPending ? "Wird gespeichert…" : "Zeitzone speichern"}
         </Button>
       </div>
       {!timezones.includes(selectedTimezone) ? (
-        <p className="text-xs text-red-500">Choose a valid IANA timezone.</p>
+        <p className="text-xs text-red-500">Wähle eine gültige IANA-Zeitzone.</p>
       ) : null}
     </div>
   );
@@ -754,10 +792,14 @@ function GarminConnection() {
       const res = await fetch(apiUrl("/api/garmin/sync"), { method: "POST" });
       const data = (await res.json()) as { success: boolean; message?: string };
       if (!data.success) {
-        setError(data.message ?? "Failed to start sync");
+        setError(
+          data.message ?? "Synchronisierung konnte nicht gestartet werden.",
+        );
       }
     } catch {
-      setError("Failed to trigger sync");
+      setError(
+        "Synchronisierung fehlgeschlagen. Prüfe deine Verbindung und versuche es erneut.",
+      );
     } finally {
       setTriggeringSyncState(false);
     }
@@ -776,10 +818,14 @@ function GarminConnection() {
         message?: string;
       };
       if (!data.success) {
-        setError(data.message ?? "Failed to start recompute");
+        setError(
+          data.message ?? "Neuberechnung konnte nicht gestartet werden.",
+        );
       }
     } catch {
-      setError("Failed to trigger recompute");
+      setError(
+        "Neuberechnung fehlgeschlagen. Prüfe deine Verbindung und versuche es erneut.",
+      );
     } finally {
       setRecomputing(false);
     }
@@ -805,10 +851,14 @@ function GarminConnection() {
       } else if (data.needsMfa) {
         setShowMfa(true);
       } else {
-        setError(data.message ?? "Login failed");
+        setError(
+          data.message ?? "Anmeldung fehlgeschlagen. Prüfe E-Mail und Passwort.",
+        );
       }
     } catch {
-      setError("Connection error");
+      setError(
+        "Verbindungsfehler. Prüfe deine Internetverbindung und versuche es erneut.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -834,10 +884,14 @@ function GarminConnection() {
         setPassword("");
         await fetchStatus();
       } else {
-        setError(data.message ?? "MFA verification failed");
+        setError(
+          data.message ?? "MFA-Verifizierung fehlgeschlagen. Prüfe den Code.",
+        );
       }
     } catch {
-      setError("Connection error");
+      setError(
+        "Verbindungsfehler. Prüfe deine Internetverbindung und versuche es erneut.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -850,7 +904,7 @@ function GarminConnection() {
       await fetch(apiUrl("/api/garmin/auth"), { method: "DELETE" });
       await fetchStatus();
     } catch {
-      setError("Failed to disconnect");
+      setError("Trennen fehlgeschlagen. Versuche es erneut.");
     } finally {
       setSubmitting(false);
     }
@@ -860,10 +914,10 @@ function GarminConnection() {
     return (
       <div className="bg-card space-y-3 rounded-2xl border p-4">
         <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-          Garmin Connection
+          Garmin-Verbindung
         </h2>
         <p className="text-muted-foreground text-sm">
-          Checking connection… {debugUrl && `(${debugUrl})`}
+          Verbindung wird geprüft… {debugUrl && `(${debugUrl})`}
         </p>
       </div>
     );
@@ -874,7 +928,7 @@ function GarminConnection() {
     return (
       <div className="bg-card space-y-3 rounded-2xl border p-4">
         <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-          Garmin Connection
+          Garmin-Verbindung
         </h2>
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/10">
@@ -883,17 +937,17 @@ function GarminConnection() {
           <div>
             <p className="text-sm font-medium">Garmin Connect</p>
             <p className="text-muted-foreground text-xs">
-              Connected{status.email ? ` · ${status.email}` : ""}
+              Verbunden{status.email ? ` · ${status.email}` : ""}
             </p>
             {status.lastSync && (
               <p className="text-muted-foreground text-xs">
-                Last sync:{" "}
+                Letzter Sync:{" "}
                 {formatDateInTz(status.lastSync, timezone, {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
                 })}{" "}
-                at {formatTimeInTz(status.lastSync, timezone)}
+                um {formatTimeInTz(status.lastSync, timezone)}
               </p>
             )}
           </div>
@@ -922,7 +976,7 @@ function GarminConnection() {
                 />
               </svg>
               <span className="text-primary text-sm font-medium">
-                Syncing...
+                Wird synchronisiert …
               </span>
             </div>
             <p className="text-muted-foreground text-xs">
@@ -943,7 +997,7 @@ function GarminConnection() {
             disabled={triggeringSyncState}
             className="mt-2"
           >
-            {triggeringSyncState ? "Starting..." : "🔄 Sync Now"}
+            {triggeringSyncState ? "Wird gestartet …" : "🔄 Jetzt synchronisieren"}
           </Button>
         )}
         <Button
@@ -951,7 +1005,7 @@ function GarminConnection() {
           onClick={handleRecompute}
           disabled={recomputing || !status?.connected}
         >
-          {recomputing ? "Computing..." : "🔄 Recompute Metrics"}
+          {recomputing ? "Wird berechnet …" : "🔄 Metriken neu berechnen"}
         </Button>
         {error && <p className="text-xs text-red-500">{error}</p>}
         <Button
@@ -960,7 +1014,7 @@ function GarminConnection() {
           onClick={handleDisconnect}
           disabled={submitting}
         >
-          {submitting ? "Disconnecting…" : "Disconnect"}
+          {submitting ? "Wird getrennt …" : "Trennen"}
         </Button>
       </div>
     );
@@ -971,17 +1025,17 @@ function GarminConnection() {
     return (
       <div className="bg-card space-y-3 rounded-2xl border p-4">
         <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-          Garmin Connection
+          Garmin-Verbindung
         </h2>
         <p className="text-sm">
-          A verification code was sent to your device. Enter it below.
+          Ein Bestätigungscode wurde an dein Gerät gesendet. Gib ihn unten ein.
         </p>
         <form onSubmit={handleMfa} className="space-y-3">
           <input
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
-            placeholder="MFA Code"
+            placeholder="MFA-Code"
             value={mfaCode}
             onChange={(e) => setMfaCode(e.target.value)}
             className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm"
@@ -990,7 +1044,7 @@ function GarminConnection() {
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={submitting}>
-              {submitting ? "Verifying…" : "Verify"}
+              {submitting ? "Wird überprüft …" : "Bestätigen"}
             </Button>
             <Button
               type="button"
@@ -1002,7 +1056,7 @@ function GarminConnection() {
                 setError("");
               }}
             >
-              Cancel
+              Abbrechen
             </Button>
           </div>
         </form>
@@ -1014,7 +1068,7 @@ function GarminConnection() {
   return (
     <div className="bg-card space-y-3 rounded-2xl border p-4">
       <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-        Garmin Connection
+        Garmin-Verbindung
       </h2>
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10">
@@ -1022,13 +1076,13 @@ function GarminConnection() {
         </div>
         <div>
           <p className="text-sm font-medium">Garmin Connect</p>
-          <p className="text-muted-foreground text-xs">Not connected</p>
+          <p className="text-muted-foreground text-xs">Nicht verbunden</p>
         </div>
       </div>
       <form onSubmit={handleLogin} className="space-y-3">
         <input
           type="email"
-          placeholder="Garmin Email"
+          placeholder="Garmin-E-Mail"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
@@ -1037,7 +1091,7 @@ function GarminConnection() {
         />
         <input
           type="password"
-          placeholder="Password"
+          placeholder="Passwort"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
@@ -1046,7 +1100,7 @@ function GarminConnection() {
         />
         {error && <p className="text-xs text-red-500">{error}</p>}
         <Button type="submit" size="sm" disabled={submitting}>
-          {submitting ? "Connecting…" : "Connect"}
+          {submitting ? "Wird verbunden …" : "Verbinden"}
         </Button>
       </form>
     </div>
@@ -1059,7 +1113,7 @@ export default function SettingsPage() {
 
   return (
     <PageShell density="reading">
-      <h1 className="pl-12 text-2xl font-bold">Settings</h1>
+      <h1 className="pl-12 text-2xl font-bold">Einstellungen</h1>
 
       <div className="mt-6 space-y-6">
         {/* Athlete Profile */}
@@ -1077,20 +1131,21 @@ export default function SettingsPage() {
         {/* Data & Privacy */}
         <div className="bg-card space-y-3 rounded-2xl border p-4">
           <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-            Data & Privacy
+            Daten & Datenschutz
           </h2>
           <p className="text-muted-foreground text-xs">
-            Your Garmin data is stored securely and used only to compute your
-            readiness score and workout recommendations. We never share your
-            data.
+            Deine Garmin-Daten werden sicher gespeichert und ausschließlich zur
+            Berechnung deines Readiness-Werts und deiner Trainingsempfehlungen
+            genutzt. Wir geben deine Daten niemals weiter.
           </p>
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
             <p className="text-xs text-amber-700 dark:text-amber-400">
-              <strong>⚠️ Medical Disclaimer:</strong> Pacer provides
-              AI-generated fitness guidance and is not a substitute for
-              professional medical advice, diagnosis, or treatment. Always
-              consult a qualified healthcare professional before starting or
-              modifying any exercise program. Individual results may vary.
+              <strong>⚠️ Medizinischer Hinweis:</strong> Pacer liefert
+              KI-generierte Trainingshinweise und ersetzt keine professionelle
+              medizinische Beratung, Diagnose oder Behandlung. Konsultiere vor
+              Beginn oder Änderung eines Trainingsprogramms immer eine
+              qualifizierte Ärztin oder einen qualifizierten Arzt. Individuelle
+              Ergebnisse können variieren.
             </p>
           </div>
         </div>

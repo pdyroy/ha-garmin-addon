@@ -12,11 +12,11 @@ import { IngressLink as Link } from "./ingress-link";
 
 /** The five most-used destinations, always visible below `sm`. */
 const primaryItems: NavItem[] = [
-  { href: "/", label: "Today", icon: "🏠" },
+  { href: "/", label: "Heute", icon: "🏠" },
   { href: "/trends", label: "Trends", icon: "📊" },
   { href: "/training", label: "Training Load", icon: "💪" },
-  { href: "/sleep", label: "Sleep", icon: "🌙" },
-  { href: "/coach", label: "AI Coach", icon: "🤖" },
+  { href: "/sleep", label: "Schlaf", icon: "🌙" },
+  { href: "/coach", label: "KI-Coach", icon: "🤖" },
 ];
 
 const primaryHrefs = new Set(primaryItems.map((item) => item.href));
@@ -50,7 +50,7 @@ export function BottomNav() {
         className="h-[calc(3.5rem+env(safe-area-inset-bottom))] sm:hidden"
       />
       <nav
-        aria-label="Main"
+        aria-label="Hauptnavigation"
         className="bg-card border-border fixed right-0 bottom-0 left-0 z-50 border-t pb-[env(safe-area-inset-bottom)] sm:hidden"
       >
         <div className="mx-auto flex max-w-md items-center justify-around px-1 py-1">

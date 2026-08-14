@@ -20,20 +20,21 @@ interface RuleEffectiveness {
 
 /** Human-friendly labels for the engine's stable rule ids. */
 const RULE_LABELS: Record<string, string> = {
-  "low-readiness-blocks-hard": "Easing back when readiness is low",
-  "hrv-suppressed-blocks-hard": "Backing off when HRV is suppressed",
-  "acwr-spike-blocks-hard": "Reining in load on ACWR spikes",
-  "acwr-very-low-suggests-light-build": "Rebuilding from a very low load",
-  "tsb-overreaching-suggests-deload": "Deloading when overreaching",
+  "low-readiness-blocks-hard": "Zurückhaltung bei niedriger Readiness",
+  "hrv-suppressed-blocks-hard": "Weniger Intensität bei unterdrückter HRV",
+  "acwr-spike-blocks-hard": "Belastung zügeln bei ACWR-Ausschlägen",
+  "acwr-very-low-suggests-light-build":
+    "Wiederaufbau nach sehr niedriger Belastung",
+  "tsb-overreaching-suggests-deload": "Deload bei Overreaching",
   "consecutive-hard-suggests-recovery":
-    "Recovering after back-to-back hard days",
-  "race-week-protects-taper": "Protecting your race-week taper",
-  "race-day-rest": "Resting on race day",
-  "intervention-recent-respects": "Respecting a recent recovery nudge",
-  "sleep-debt-blocks-hard": "Holding back when in sleep debt",
-  "plan-honored-when-safe": "Following your plan when it's safe",
-  "weekly-quota-met-suggests-rest": "Resting once the weekly quota is met",
-  "sparse-data-low-confidence": "Staying cautious with sparse data",
+    "Erholung nach mehreren harten Tagen in Folge",
+  "race-week-protects-taper": "Schutz deines Tapers in der Wettkampfwoche",
+  "race-day-rest": "Ruhe am Wettkampftag",
+  "intervention-recent-respects": "Berücksichtigung eines kürzlichen Erholungshinweises",
+  "sleep-debt-blocks-hard": "Zurückhaltung bei Schlafdefizit",
+  "plan-honored-when-safe": "Deinem Plan folgen, wenn es sicher ist",
+  "weekly-quota-met-suggests-rest": "Ruhe nach Erreichen des Wochenziels",
+  "sparse-data-low-confidence": "Vorsicht bei dünner Datenlage",
 };
 
 function labelFor(ruleId: string): string {
@@ -68,13 +69,14 @@ export function WhatsWorkingCard() {
     <section className="bg-card rounded-2xl border p-5 shadow-sm">
       <div>
         <p className="text-muted-foreground text-sm font-medium">
-          Learned from your outcomes
+          Aus deinen Ergebnissen gelernt
         </p>
         <h2 className="mt-1 text-xl font-semibold">
-          What&apos;s working for you
+          Was bei dir funktioniert
         </h2>
         <p className="text-muted-foreground mt-1 text-xs">
-          How recovery markers moved after each coaching decision.
+          Wie sich deine Erholungswerte nach jeder Coaching-Entscheidung
+          verändert haben.
         </p>
       </div>
 
@@ -122,7 +124,7 @@ export function WhatsWorkingCard() {
                 />
               </div>
               <p className="text-muted-foreground mt-1 text-[11px]">
-                {r.n} decision{r.n === 1 ? "" : "s"} measured
+                {r.n} Entscheidung{r.n === 1 ? "" : "en"} ausgewertet
               </p>
             </li>
           );
@@ -130,8 +132,9 @@ export function WhatsWorkingCard() {
       </ul>
 
       <p className="text-muted-foreground mt-3 text-[11px]">
-        Scores reflect how your readiness, HRV and form trended in the days
-        after each decision — not medical advice.
+        Die Werte zeigen, wie sich deine Readiness, HRV und Form in den Tagen
+        nach jeder Entscheidung entwickelt haben — keine medizinische
+        Beratung.
       </p>
     </section>
   );

@@ -35,123 +35,123 @@ interface AgentConfig {
 const AGENTS: AgentConfig[] = [
   {
     id: "sport-scientist",
-    label: "Sport Scientist",
-    shortLabel: "Scientist",
+    label: "Sportwissenschaftler",
+    shortLabel: "Wissenschaft",
     icon: "🏋️",
     accent: "text-blue-400",
     accentBg: "bg-blue-600 hover:bg-blue-500",
     accentBorder: "border-blue-500",
     welcome:
-      "I'm your Sport Scientist. I analyze training loads, zone distribution, ACWR, and VO2max trends to optimize your performance. Ask me anything about your training.",
+      "Ich bin dein Sportwissenschaftler. Ich analysiere deine Training Load, Zonenverteilung, ACWR und VO2max-Trends, um deine Leistung zu optimieren. Frag mich einfach alles zu deinem Training.",
     quickActions: [
       {
-        label: "Am I overtraining?",
-        message: "Am I overtraining? Analyze my ACWR and training load.",
+        label: "Trainiere ich zu viel?",
+        message: "Trainiere ich zu viel? Analysiere meinen ACWR und meine Training Load.",
       },
       {
-        label: "Zone distribution",
+        label: "Zonenverteilung",
         message:
-          "Analyze my heart rate zone distribution over the last 30 days.",
+          "Analysiere meine Herzfrequenz-Zonenverteilung der letzten 30 Tage.",
       },
       {
-        label: "Race prep for 10K",
+        label: "Vorbereitung auf 10 km",
         message:
-          "How should I prepare for a 10K race based on my current fitness?",
+          "Wie sollte ich mich basierend auf meiner aktuellen Fitness auf ein 10-km-Rennen vorbereiten?",
       },
       {
-        label: "Training advice",
+        label: "Trainingstipp",
         message:
-          "What should my training look like today based on my readiness?",
+          "Wie sollte mein Training heute basierend auf meiner Readiness aussehen?",
       },
     ],
   },
   {
     id: "psychologist",
-    label: "Psychologist",
-    shortLabel: "Mindset",
+    label: "Psychologe",
+    shortLabel: "Psyche",
     icon: "🧠",
     accent: "text-purple-400",
     accentBg: "bg-purple-600 hover:bg-purple-500",
     accentBorder: "border-purple-500",
     welcome:
-      "I'm your Sport Psychologist. I help with motivation, mental resilience, and performance psychology. Let's work on the mental side of your training.",
+      "Ich bin dein Sportpsychologe. Ich helfe dir bei Motivation, mentaler Widerstandsfähigkeit und Leistungspsychologie. Lass uns an der mentalen Seite deines Trainings arbeiten.",
     quickActions: [
       {
-        label: "Losing motivation",
-        message: "I'm losing motivation to train. Can you help?",
+        label: "Motivation verloren",
+        message: "Ich verliere die Motivation zu trainieren. Kannst du mir helfen?",
       },
       {
-        label: "Race day prep",
-        message: "Help me with mental preparation for race day.",
+        label: "Wettkampftag-Vorbereitung",
+        message: "Hilf mir bei der mentalen Vorbereitung auf den Wettkampftag.",
       },
       {
-        label: "Stay consistent",
-        message: "How can I stay more consistent with my training?",
+        label: "Dranbleiben",
+        message: "Wie kann ich mein Training konsequenter durchziehen?",
       },
       {
-        label: "Handle pressure",
-        message: "How do I handle performance pressure and anxiety?",
+        label: "Mit Druck umgehen",
+        message: "Wie gehe ich mit Leistungsdruck und Nervosität um?",
       },
     ],
   },
   {
     id: "nutritionist",
-    label: "Nutritionist",
-    shortLabel: "Nutrition",
+    label: "Ernährungsberater",
+    shortLabel: "Ernährung",
     icon: "🥗",
     accent: "text-green-400",
     accentBg: "bg-green-600 hover:bg-green-500",
     accentBorder: "border-green-500",
     welcome:
-      "I'm your Sports Nutritionist. I help with fueling strategies, recovery nutrition, and hydration based on your training demands.",
+      "Ich bin dein Sporternährungsberater. Ich helfe dir bei Ernährungsstrategien, Regenerationsernährung und Flüssigkeitszufuhr passend zu deiner Trainingsbelastung.",
     quickActions: [
       {
-        label: "Pre-workout fuel",
-        message: "What should I eat before my workout?",
+        label: "Vor dem Training essen",
+        message: "Was sollte ich vor meinem Training essen?",
       },
       {
-        label: "Recovery meals",
+        label: "Regenerationsmahlzeiten",
         message:
-          "What are the best recovery meal suggestions after a hard session?",
+          "Was sind die besten Mahlzeiten zur Regeneration nach einer harten Einheit?",
       },
       {
-        label: "Calorie needs",
+        label: "Kalorienbedarf",
         message:
-          "What are my calorie and macro needs based on my current training load?",
+          "Wie hoch ist mein Kalorien- und Makronährstoffbedarf basierend auf meiner aktuellen Training Load?",
       },
       {
-        label: "Hydration plan",
-        message: "Help me with a hydration strategy for my training.",
+        label: "Trinkplan",
+        message: "Hilf mir mit einer Trinkstrategie für mein Training.",
       },
     ],
   },
   {
     id: "recovery",
-    label: "Recovery",
-    shortLabel: "Recovery",
+    label: "Erholungscoach",
+    shortLabel: "Erholung",
     icon: "💤",
     accent: "text-teal-400",
     accentBg: "bg-teal-600 hover:bg-teal-500",
     accentBorder: "border-teal-500",
     welcome:
-      "I'm your Recovery Specialist. I analyze sleep, HRV, stress, and body battery to keep you healthy and injury-free.",
+      "Ich bin dein Erholungscoach. Ich analysiere Schlaf, HRV, Stress und Body Battery, damit du gesund und verletzungsfrei bleibst.",
     quickActions: [
       {
-        label: "Enough sleep?",
-        message: "Am I getting enough sleep? Analyze my sleep trends.",
+        label: "Genug Schlaf?",
+        message: "Bekomme ich genug Schlaf? Analysiere meine Schlaftrends.",
       },
       {
-        label: "Deload week?",
-        message: "Should I take a deload week based on my current data?",
+        label: "Deload-Woche?",
+        message: "Sollte ich basierend auf meinen aktuellen Daten eine Deload-Woche einlegen?",
       },
       {
-        label: "Injury risk",
+        label: "Verletzungsrisiko",
         message:
-          "What's my current injury risk based on training load and recovery?",
+          "Wie hoch ist mein aktuelles Verletzungsrisiko basierend auf Training Load und Erholung?",
       },
       {
-        label: "Recovery tips",
-        message: "Give me specific recovery protocols for today.",
+        label: "Erholungstipps",
+        message: "Gib mir konkrete Erholungsmaßnahmen für heute.",
       },
     ],
   },
@@ -340,7 +340,9 @@ export default function CoachPage() {
         });
       },
       onError: (err) => {
-        setSendError(err.message ?? "AI response failed. Please try again.");
+        setSendError(
+          err.message ?? "KI-Antwort fehlgeschlagen. Bitte versuch es erneut.",
+        );
       },
     }),
   );
@@ -402,14 +404,14 @@ export default function CoachPage() {
             href="/"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
-            ← Back
+            ← Zurück
           </Link>
           <div>
             <h1 className="text-foreground text-base font-semibold">
-              {agentConfig.icon} AI {agentConfig.label}
+              {agentConfig.icon} KI-{agentConfig.label}
             </h1>
             <p className="text-muted-foreground text-xs">
-              Powered by your Garmin data
+              Basierend auf deinen Garmin-Daten
             </p>
           </div>
         </div>
@@ -417,7 +419,7 @@ export default function CoachPage() {
           onClick={() => setShowClearConfirm(true)}
           className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg px-2 py-1 text-xs transition-colors"
         >
-          Clear
+          Löschen
         </button>
       </header>
 
@@ -445,20 +447,20 @@ export default function CoachPage() {
       {/* Clear confirmation dialog */}
       {showClearConfirm && (
         <div className="border-border bg-card/80 border-b px-4 py-3">
-          <p className="text-foreground text-sm">Clear all chat history?</p>
+          <p className="text-foreground text-sm">Gesamten Chatverlauf löschen?</p>
           <div className="mt-2 flex gap-2">
             <button
               onClick={() => clearMutation.mutate()}
               disabled={clearMutation.isPending}
               className="text-primary-foreground rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium hover:bg-red-500 disabled:opacity-50"
             >
-              {clearMutation.isPending ? "Clearing…" : "Yes, clear"}
+              {clearMutation.isPending ? "Wird gelöscht…" : "Ja, löschen"}
             </button>
             <button
               onClick={() => setShowClearConfirm(false)}
               className="bg-muted text-foreground hover:bg-accent rounded-lg px-3 py-1.5 text-xs"
             >
-              Cancel
+              Abbrechen
             </button>
           </div>
         </div>
@@ -527,7 +529,7 @@ export default function CoachPage() {
                     onClick={() => setSendError(null)}
                     className="text-muted-foreground hover:text-foreground text-[10px] transition-colors"
                   >
-                    Dismiss
+                    Schließen
                   </button>
                 </div>
               </div>
@@ -570,7 +572,7 @@ export default function CoachPage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`Ask the ${agentConfig.label}…`}
+            placeholder={`${agentConfig.label}: deine Nachricht…`}
             disabled={sendMutation.isPending}
             className={cn(
               "bg-muted text-foreground placeholder:text-muted-foreground flex-1 rounded-xl border px-4 py-2.5 text-sm focus:outline-none disabled:opacity-50",
@@ -586,7 +588,7 @@ export default function CoachPage() {
               agentConfig.accentBg,
             )}
           >
-            Send
+            Senden
           </button>
         </form>
       </div>

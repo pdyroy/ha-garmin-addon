@@ -16,6 +16,7 @@ import {
 import { cn } from "@acme/ui";
 
 import { PageShell } from "~/components/page-shell";
+import { fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { SectionHeader } from "../_components/info-button";
@@ -23,7 +24,7 @@ import { SectionHeader } from "../_components/info-button";
 /* ─────────────── helpers ─────────────── */
 
 function fmtDuration(min: number) {
-  if (min < 60) return `${min} min`;
+  if (min < 60) return `${min} Min`;
   const h = Math.floor(min / 60);
   const m = min % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
@@ -144,9 +145,9 @@ export default function PowerPage() {
       <div className="space-y-4">
       {/* ── Header ── */}
       <div>
-        <h1 className="pl-12 text-2xl font-bold">Power &amp; CP Analytics</h1>
+        <h1 className="pl-12 text-2xl font-bold">Power &amp; CP-Analyse</h1>
         <p className="text-muted-foreground text-sm">
-          Critical Power · W&apos; · Power-Duration Curve
+          Critical Power · W&apos; · Power-Duration-Kurve
         </p>
       </div>
 
@@ -154,17 +155,20 @@ export default function PowerPage() {
       {showNoPowerMeterHero ? (
         <div className="bg-card rounded-2xl border p-6 text-center">
           <div className="mb-3 text-4xl">⚡</div>
-          <h2 className="mb-2 text-lg font-semibold">Power meter required</h2>
+          <h2 className="mb-2 text-lg font-semibold">
+            Leistungsmesser erforderlich
+          </h2>
           <p className="text-muted-foreground mx-auto max-w-sm text-sm">
-            Power &amp; CP analytics estimate Critical Power, W&apos; and the
-            power-duration curve from workouts captured with a power-meter
-            capable device.
+            Power &amp; CP-Analyse schätzt Critical Power, W&apos; und die
+            Power-Duration-Kurve aus Workouts, die mit einem Leistungsmesser
+            aufgezeichnet wurden.
           </p>
           <p className="text-muted-foreground mx-auto mt-3 max-w-sm text-xs">
-            Compatible sources include cycling power meters (Garmin Rally,
-            Stages, Favero), smart trainers, and running-power pods (Stryd,
-            COROS POD 2, Garmin HRM-Pro). Pair one with your Garmin and complete
-            a few rides or runs &mdash; this page will fill in automatically.
+            Kompatible Quellen sind Rad-Leistungsmesser (Garmin Rally, Stages,
+            Favero), Smart-Trainer und Lauf-Power-Pods (Stryd, COROS POD 2,
+            Garmin HRM-Pro). Verbinde einen davon mit deinem Garmin und
+            absolviere ein paar Fahrten oder Läufe &mdash; diese Seite füllt
+            sich dann automatisch.
           </p>
         </div>
       ) : (
@@ -172,8 +176,8 @@ export default function PowerPage() {
           {/* ── CP Summary ── */}
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title="Critical Power Summary"
-              info="Critical Power (CP) is the highest sustainable power output. W' (W-prime) is the anaerobic work capacity above CP in kJ. mFTP ≈ 95% CP. Method: 3-parameter CP model from multi-duration best efforts."
+              title="Critical-Power-Zusammenfassung"
+              info="Critical Power (CP) ist die höchste dauerhaft haltbare Leistung. W' (W-prime) ist die anaerobe Arbeitskapazität oberhalb von CP in kJ. mFTP ≈ 95 % CP. Methode: 3-Parameter-CP-Modell aus Bestleistungen unterschiedlicher Dauer."
               className="mb-3"
             />
             {latest.isLoading ? (
@@ -197,7 +201,7 @@ export default function PowerPage() {
                 </div>
                 <div className="bg-secondary/40 rounded-xl p-3 text-center">
                   <p className="text-xl font-bold text-purple-400">
-                    {wPrime.toFixed(1)}kJ
+                    {fmtNum(wPrime, 1)}kJ
                   </p>
                   <p className="text-muted-foreground mt-0.5 text-xs">
                     W&apos;
@@ -214,8 +218,8 @@ export default function PowerPage() {
               </div>
             ) : (
               <p className="text-muted-foreground py-4 text-center text-sm">
-                Insufficient power data — complete 3+ workouts with a power
-                meter
+                Nicht genug Leistungsdaten — absolviere 3+ Workouts mit einem
+                Leistungsmesser
               </p>
             )}
           </div>
@@ -223,8 +227,8 @@ export default function PowerPage() {
           {/* ── Power-Duration Curve ── */}
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title="Power-Duration Curve"
-              info="Best power output at each duration from last 90 days. Uses Normalized Power when available. Each point is the highest power from activities matching that duration ±20%."
+              title="Power-Duration-Kurve"
+              info="Beste Leistung je Dauer aus den letzten 90 Tagen. Nutzt Normalized Power, sofern verfügbar. Jeder Punkt ist die höchste Leistung aus Aktivitäten mit passender Dauer ±20 %."
               className="mb-3"
             />
             {activities.isLoading ? (
@@ -262,7 +266,7 @@ export default function PowerPage() {
                     strokeWidth={2}
                     dot={{ fill: "#f97316", r: 4 }}
                     connectNulls
-                    name="Best Power"
+                    name="Beste Leistung"
                   />
                   {cp != null && (
                     <Line
@@ -279,7 +283,8 @@ export default function PowerPage() {
               </ResponsiveContainer>
             ) : (
               <p className="text-muted-foreground py-8 text-center text-sm">
-                No power data yet — complete rides/runs with a power meter.
+                Noch keine Leistungsdaten — absolviere Fahrten/Läufe mit einem
+                Leistungsmesser.
               </p>
             )}
           </div>
@@ -288,8 +293,8 @@ export default function PowerPage() {
           {hasCpData && wPrimeData.length > 0 && (
             <div className="bg-card rounded-2xl border p-4">
               <SectionHeader
-                title="W′ Depletion Model"
-                info="How quickly W' depletes above CP at various intensities. Formula: t_lim = W' / (Power − CP). At 150% CP, W' depletes in seconds. Use to pace intervals. Citation: Monod & Scherrer (1965), Morton (1996)."
+                title="W′-Depletion-Modell"
+                info="Wie schnell W' oberhalb von CP bei verschiedenen Intensitäten aufgebraucht wird. Formel: t_lim = W' / (Leistung − CP). Bei 150 % CP ist W' innerhalb von Sekunden aufgebraucht. Nützlich zum Pacing von Intervallen. Quelle: Monod & Scherrer (1965), Morton (1996)."
                 className="mb-3"
               />
               <ResponsiveContainer width="100%" height={200}>
@@ -298,7 +303,7 @@ export default function PowerPage() {
                   <XAxis
                     type="number"
                     dataKey="t"
-                    name="Time"
+                    name="Zeit"
                     unit="s"
                     tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                     allowDuplicatedCategory={false}
@@ -316,8 +321,8 @@ export default function PowerPage() {
                       borderRadius: 8,
                       fontSize: 12,
                     }}
-                    formatter={(v: unknown) => `${Number(v).toFixed(1)} kJ`}
-                    labelFormatter={(label) => `Time: ${label}s`}
+                    formatter={(v: unknown) => `${fmtNum(Number(v), 1)} kJ`}
+                    labelFormatter={(label) => `Zeit: ${label}s`}
                   />
                   {wPrimeData.map((series) => (
                     <Line
@@ -350,8 +355,8 @@ export default function PowerPage() {
           {/* ── Recent Power Activities ── */}
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title="Recent Power Activities"
-              info="Last 10 activities with power data. Intensity Factor (IF) = NP/FTP. TSS estimate = duration × NP × IF / (FTP × 3600) × 100."
+              title="Letzte Aktivitäten mit Leistungsdaten"
+              info="Letzte 10 Aktivitäten mit Leistungsdaten. Intensity Factor (IF) = NP/FTP. TSS-Schätzung = Dauer × NP × IF / (FTP × 3600) × 100."
               className="mb-3"
             />
             {activities.isLoading ? (
@@ -395,7 +400,7 @@ export default function PowerPage() {
                     >
                       <div>
                         <p className="text-sm font-medium capitalize">
-                          {act.sportType?.replace(/_/g, " ") ?? "Activity"}
+                          {act.sportType?.replace(/_/g, " ") ?? "Aktivität"}
                         </p>
                         <p className="text-muted-foreground text-xs">
                           {act.durationMinutes != null
@@ -410,7 +415,7 @@ export default function PowerPage() {
                         </p>
                         {IF != null && (
                           <p className="text-muted-foreground text-xs">
-                            IF {IF.toFixed(2)}
+                            IF {fmtNum(IF, 2)}
                           </p>
                         )}
                       </div>
@@ -420,7 +425,8 @@ export default function PowerPage() {
               </div>
             ) : (
               <p className="text-muted-foreground py-4 text-center text-sm">
-                No power activities found in the last 90 days.
+                Keine Aktivitäten mit Leistungsdaten in den letzten 90 Tagen
+                gefunden.
               </p>
             )}
           </div>

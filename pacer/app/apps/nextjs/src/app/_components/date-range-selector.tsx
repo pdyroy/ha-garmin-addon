@@ -3,12 +3,12 @@
 import { cn } from "@acme/ui";
 
 const PRESETS = [
-  { label: "7d", days: 7 },
-  { label: "14d", days: 14 },
-  { label: "28d", days: 28 },
-  { label: "90d", days: 90 },
-  { label: "180d", days: 180 },
-  { label: "1y", days: 365 },
+  { label: "7T", days: 7 },
+  { label: "14T", days: 14 },
+  { label: "28T", days: 28 },
+  { label: "90T", days: 90 },
+  { label: "180T", days: 180 },
+  { label: "1J", days: 365 },
 ] as const;
 
 interface DateRangeSelectorProps {

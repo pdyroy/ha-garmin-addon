@@ -22,8 +22,8 @@ export const navSections: NavSection[] = [
   {
     title: "Heute",
     items: [
-      { href: "/", label: "Today", icon: "🏠" },
-      { href: "/coach", label: "AI Coach", icon: "🤖" },
+      { href: "/", label: "Heute", icon: "🏠" },
+      { href: "/coach", label: "KI-Coach", icon: "🤖" },
       { href: "/insights", label: "Insights", icon: "💡" },
     ],
   },
@@ -32,30 +32,30 @@ export const navSections: NavSection[] = [
     items: [
       { href: "/trends", label: "Trends", icon: "📊" },
       { href: "/training", label: "Training Load", icon: "💪" },
-      { href: "/hrv", label: "HRV Analysis", icon: "💓" },
-      { href: "/zones", label: "HR Zones", icon: "📶" },
+      { href: "/hrv", label: "HRV-Analyse", icon: "💓" },
+      { href: "/zones", label: "HF-Zonen", icon: "📶" },
       { href: "/fitness", label: "Fitness", icon: "🏋️" },
       { href: "/power", label: "Power", icon: "⚡" },
-      { href: "/correlations", label: "Correlations", icon: "🔗" },
+      { href: "/correlations", label: "Korrelationen", icon: "🔗" },
     ],
   },
   {
     title: "Protokoll",
     items: [
-      { href: "/activities", label: "Activities", icon: "🏃" },
-      { href: "/sleep", label: "Sleep", icon: "🌙" },
+      { href: "/activities", label: "Aktivitäten", icon: "🏃" },
+      { href: "/sleep", label: "Schlaf", icon: "🌙" },
       { href: "/journal", label: "Journal", icon: "📓" },
-      { href: "/interventions", label: "Interventions", icon: "💊" },
+      { href: "/interventions", label: "Maßnahmen", icon: "💊" },
       { href: "/stress-board", label: "Stress Board", icon: "🚨" },
     ],
   },
   {
     title: "System",
     items: [
-      { href: "/validation", label: "Validation", icon: "📏" },
+      { href: "/validation", label: "Validierung", icon: "📏" },
       { href: "/export", label: "Export", icon: "📤" },
       { href: "/team", label: "Team", icon: "👥" },
-      { href: "/settings", label: "Settings", icon: "⚙️" },
+      { href: "/settings", label: "Einstellungen", icon: "⚙️" },
     ],
   },
 ];
@@ -81,7 +81,7 @@ export function AppNav() {
 
   return (
     <nav
-      aria-label="Main"
+      aria-label="Hauptnavigation"
       className="bg-card border-border group fixed inset-y-0 left-0 z-40 hidden flex-col overflow-x-hidden overflow-y-auto border-r transition-[width] duration-200 sm:flex sm:w-16 sm:hover:w-64 sm:focus-within:w-64 lg:w-64"
     >
       <div className="flex flex-col gap-4 px-2 py-4">

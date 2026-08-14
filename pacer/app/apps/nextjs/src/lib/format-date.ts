@@ -17,6 +17,13 @@ import { useTRPC } from "~/trpc/react";
  * off for AEST users. Resolving the user's TZ from their profile and
  * passing it into every `Intl.DateTimeFormat` call fixes that.
  */
+
+/**
+ * Locale for everything the athlete reads. The app is single-user and
+ * German; there is no language switcher and no i18n framework, so this is
+ * the one place the locale is decided.
+ */
+export const UI_LOCALE = "de-DE";
 export function useUserTimezone(): string {
   const trpc = useTRPC();
   const profile = useQuery(trpc.profile.get.queryOptions());
@@ -74,24 +81,26 @@ export function formatDateInTz(
   if (value == null) return "—";
   const d = toDate(value, timezone);
   if (!d) return "—";
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(UI_LOCALE, {
     ...options,
     timeZone: timezone,
   }).format(d);
 }
 
 export function getGreeting(date: Date, timezone: string): string {
-  const rawHour = new Intl.DateTimeFormat("en-US", {
+  // Deliberately NOT UI_LOCALE: this value is parsed back into a number,
+  // so it must come from a locale whose 24-hour output is plain digits.
+  const rawHour = new Intl.DateTimeFormat("en-GB", {
     timeZone: timezone,
     hour: "numeric",
     hour12: false,
   }).format(date);
   const hour = Number.parseInt(rawHour, 10) % 24;
 
-  if (hour >= 5 && hour <= 11) return "Good morning ☀️";
-  if (hour >= 12 && hour <= 16) return "Good afternoon 🌤️";
-  if (hour >= 17 && hour <= 21) return "Good evening 🌙";
-  return "Good night ✨";
+  if (hour >= 5 && hour <= 11) return "Guten Morgen ☀️";
+  if (hour >= 12 && hour <= 16) return "Guten Tag 🌤️";
+  if (hour >= 17 && hour <= 21) return "Guten Abend 🌙";
+  return "Gute Nacht ✨";
 }
 
 /**
@@ -109,7 +118,7 @@ export function formatTimeInTz(
   if (value == null) return "—";
   const d = toDate(value, timezone);
   if (!d) return "—";
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(UI_LOCALE, {
     ...options,
     timeZone: timezone,
   }).format(d);

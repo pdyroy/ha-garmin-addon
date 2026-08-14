@@ -19,15 +19,15 @@ import {
 } from "~/lib/format-date";
 
 function format(deltaMs: number): string {
-  if (deltaMs < 0) return "just now";
+  if (deltaMs < 0) return "gerade eben";
   const seconds = Math.floor(deltaMs / 1000);
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return "gerade eben";
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `vor ${minutes} Min.`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `vor ${hours} Std.`;
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return `vor ${days} Tagen`;
 }
 
 interface Props {
@@ -39,7 +39,7 @@ interface Props {
 export function DataFreshness({
   computedAt,
   className = "",
-  prefix = "updated",
+  prefix = "aktualisiert",
 }: Props) {
   const timezone = useUserTimezone();
   const [now, setNow] = useState(() => Date.now());
@@ -56,7 +56,7 @@ export function DataFreshness({
       : computedAt.getTime();
   if (!Number.isFinite(ts)) return null;
 
-  const absolute = `${formatDateInTz(computedAt, timezone, { month: "short", day: "numeric", year: "numeric" })} at ${formatTimeInTz(computedAt, timezone)}`;
+  const absolute = `${formatDateInTz(computedAt, timezone, { month: "short", day: "numeric", year: "numeric" })} um ${formatTimeInTz(computedAt, timezone)}`;
 
   return (
     <span

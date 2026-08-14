@@ -8,6 +8,7 @@ import { Button } from "@acme/ui/button";
 import { toast } from "@acme/ui/toast";
 
 import { PageShell } from "~/components/page-shell";
+import { fmtDelta, fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 
@@ -63,7 +64,7 @@ export default function TeamPage() {
 
   function addAthlete() {
     if (!newName.trim() || !newUrl.trim()) {
-      toast.error("Name and URL are required");
+      toast.error("Name und URL sind erforderlich");
       return;
     }
     let url = newUrl.trim();
@@ -73,7 +74,7 @@ export default function TeamPage() {
         throw new Error("Invalid protocol");
       url = parsed.href;
     } catch {
-      toast.error("Please enter a valid HTTP/HTTPS URL");
+      toast.error("Bitte gib eine gültige HTTP/HTTPS-URL ein");
       return;
     }
     const updated = [
@@ -84,7 +85,7 @@ export default function TeamPage() {
     saveAthletes(updated);
     setNewName("");
     setNewUrl("");
-    toast.success(`${newName} added`);
+    toast.success(`${newName} hinzugefügt`);
   }
 
   function removeAthlete(index: number) {
@@ -94,7 +95,7 @@ export default function TeamPage() {
   }
 
   const athleteName =
-    (profile.data as { name?: string | null } | null)?.name ?? "Athlete";
+    (profile.data as { name?: string | null } | null)?.name ?? "Athlet";
   const currentReadiness =
     (readiness.data as { score?: number | null } | null)?.score ?? null;
   const tsb = loads.data?.tsb ?? null;
@@ -106,13 +107,13 @@ export default function TeamPage() {
       {/* ── Header ── */}
       <div>
         <h1 className="pl-12 text-2xl font-bold">Team</h1>
-        <p className="text-muted-foreground text-sm">Multi-athlete dashboard</p>
+        <p className="text-muted-foreground text-sm">Dashboard für mehrere Athleten</p>
       </div>
 
       {/* ── Current Athlete ── */}
       <div className="bg-card rounded-2xl border p-4">
         <h2 className="mb-3 text-sm font-semibold tracking-wider uppercase">
-          Current Athlete
+          Aktueller Athlet
         </h2>
         {profile.isLoading ? (
           <div className="flex items-center gap-4">
@@ -175,11 +176,7 @@ export default function TeamPage() {
                 tsb != null && tsb >= 0 ? "text-green-400" : "text-red-400",
               )}
             >
-              {tsb != null
-                ? tsb >= 0
-                  ? `+${tsb.toFixed(0)}`
-                  : tsb.toFixed(0)
-                : "—"}
+              {fmtDelta(tsb, 0)}
             </p>
             <p className="text-muted-foreground text-xs">Form (TSB)</p>
           </div>
@@ -194,7 +191,7 @@ export default function TeamPage() {
                     : "text-yellow-400",
               )}
             >
-              {acwr != null ? acwr.toFixed(2) : "—"}
+              {fmtNum(acwr, 2)}
             </p>
             <p className="text-muted-foreground text-xs">ACWR</p>
           </div>
@@ -205,11 +202,12 @@ export default function TeamPage() {
       {mounted && (
         <div className="bg-card rounded-2xl border p-4">
           <h2 className="mb-3 text-sm font-semibold tracking-wider uppercase">
-            Saved Athletes
+            Gespeicherte Athleten
           </h2>
           {athletes.length === 0 ? (
             <p className="text-muted-foreground py-4 text-center text-sm">
-              No athletes added yet. Add a Pacer instance below.
+              Noch keine Athleten hinzugefügt. Füge unten eine Pacer-Instanz
+              hinzu.
             </p>
           ) : (
             <div className="space-y-2">
@@ -226,7 +224,7 @@ export default function TeamPage() {
                       <p className="font-medium">{athlete.name}</p>
                       {athlete.lastReadiness != null && (
                         <p className="text-muted-foreground text-xs">
-                          Last readiness: {athlete.lastReadiness}
+                          Letzte Readiness: {athlete.lastReadiness}
                         </p>
                       )}
                     </div>
@@ -238,7 +236,7 @@ export default function TeamPage() {
                       className="h-7 px-2 text-xs"
                       onClick={() => window.open(athlete.url, "_blank")}
                     >
-                      View →
+                      Ansehen →
                     </Button>
                     <Button
                       size="sm"
@@ -259,26 +257,26 @@ export default function TeamPage() {
       {/* ── Add Athlete ── */}
       <div className="bg-card space-y-3 rounded-2xl border p-4">
         <h2 className="text-sm font-semibold tracking-wider uppercase">
-          Add Athlete
+          Athlet hinzufügen
         </h2>
         <div className="space-y-2">
           <input
             type="text"
-            placeholder="Athlete name"
+            placeholder="Name des Athleten"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-2.5 text-sm focus:ring-2 focus:outline-none"
           />
           <input
             type="url"
-            placeholder="Pacer instance URL"
+            placeholder="URL der Pacer-Instanz"
             value={newUrl}
             onChange={(e) => setNewUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addAthlete()}
             className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-2.5 text-sm focus:ring-2 focus:outline-none"
           />
           <Button className="w-full" onClick={addAthlete}>
-            Save Athlete
+            Athlet speichern
           </Button>
         </div>
       </div>
@@ -286,12 +284,13 @@ export default function TeamPage() {
       {/* ── About Team Mode ── */}
       <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
         <h2 className="mb-2 text-sm font-semibold text-blue-400">
-          ℹ️ About Team Mode
+          ℹ️ Über den Team-Modus
         </h2>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Team mode connects multiple Pacer instances. Each athlete runs
-          their own addon — add their ingress URL here to quickly switch between
-          dashboards. Athlete data is stored locally in your browser.
+          Der Team-Modus verbindet mehrere Pacer-Instanzen. Jeder Athlet
+          betreibt sein eigenes Addon — füge hier dessen Ingress-URL hinzu, um
+          schnell zwischen den Dashboards zu wechseln. Die Athletendaten werden
+          lokal in deinem Browser gespeichert.
         </p>
       </div>
 

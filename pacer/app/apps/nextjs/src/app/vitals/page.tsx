@@ -16,7 +16,8 @@ import {
 
 import { cn } from "@acme/ui";
 
-import { useUserTimezone } from "~/lib/format-date";
+import { UI_LOCALE, useUserTimezone } from "~/lib/format-date";
+import { fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
@@ -36,25 +37,25 @@ const SPO2_STATUS: StatusConfig = {
     icon: "✅",
     label: "Normal",
     cls: "bg-green-500/20 text-green-400 border-green-500/30",
-    desc: "SpO2 is in normal range (≥95%). Adequate oxygen saturation.",
+    desc: "SpO2 liegt im Normalbereich (≥95 %). Ausreichende Sauerstoffsättigung.",
   },
   low: {
     icon: "⚠️",
-    label: "Low",
+    label: "Niedrig",
     cls: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    desc: "SpO2 is 90–94% by absolute clinical threshold — this is independent of your personal baseline. May indicate altitude, mild illness, or overtraining.",
+    desc: "SpO2 liegt bei 90–94 % nach absolutem klinischem Grenzwert — unabhängig von deiner persönlichen Baseline. Kann auf Höhenluft, eine leichte Erkrankung oder Übertraining hindeuten.",
   },
   critical: {
     icon: "🚨",
-    label: "Critical",
+    label: "Kritisch",
     cls: "bg-red-500/20 text-red-400 border-red-500/30",
-    desc: "SpO2 below 90% by absolute clinical threshold. Seek medical attention if persistent.",
+    desc: "SpO2 liegt unter 90 % nach absolutem klinischem Grenzwert. Bei anhaltenden Werten ärztlichen Rat einholen.",
   },
   no_data: {
     icon: "📊",
-    label: "No Data",
+    label: "Keine Daten",
     cls: "bg-muted text-muted-foreground border-border",
-    desc: "No SpO2 data available yet.",
+    desc: "Noch keine SpO2-Daten verfügbar.",
   },
 };
 
@@ -63,25 +64,25 @@ const RR_STATUS: StatusConfig = {
     icon: "✅",
     label: "Normal",
     cls: "bg-green-500/20 text-green-400 border-green-500/30",
-    desc: "Respiration rate is near your baseline. Good recovery sign.",
+    desc: "Atemfrequenz liegt nahe deiner Baseline. Gutes Erholungszeichen.",
   },
   elevated: {
     icon: "⚠️",
-    label: "Elevated",
+    label: "Erhöht",
     cls: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    desc: "Respiration rate is 3-7% above baseline. May indicate stress or early illness.",
+    desc: "Atemfrequenz liegt 3-7 % über der Baseline. Kann auf Stress oder eine beginnende Erkrankung hindeuten.",
   },
   high: {
     icon: "🔴",
-    label: "High",
+    label: "Hoch",
     cls: "bg-red-500/20 text-red-400 border-red-500/30",
-    desc: "Respiration rate is >7% above baseline. Strong illness/overreaching signal.",
+    desc: "Atemfrequenz liegt >7 % über der Baseline. Starkes Signal für Erkrankung/Übertraining.",
   },
   no_data: {
     icon: "📊",
-    label: "No Data",
+    label: "Keine Daten",
     cls: "bg-muted text-muted-foreground border-border",
-    desc: "No respiration rate data available yet.",
+    desc: "Noch keine Atemfrequenz-Daten verfügbar.",
   },
 };
 
@@ -90,25 +91,25 @@ const TEMP_STATUS: StatusConfig = {
     icon: "✅",
     label: "Normal",
     cls: "bg-green-500/20 text-green-400 border-green-500/30",
-    desc: "Skin temperature is within ±0.3°C of baseline.",
+    desc: "Hauttemperatur liegt innerhalb von ±0,3 °C der Baseline.",
   },
   elevated: {
     icon: "⚠️",
-    label: "Elevated",
+    label: "Erhöht",
     cls: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    desc: "Skin temp deviation 0.3-0.8°C. May indicate early illness or hormonal shift.",
+    desc: "Abweichung der Hauttemperatur 0,3-0,8 °C. Kann auf eine beginnende Erkrankung oder hormonelle Schwankung hindeuten.",
   },
   high: {
     icon: "🔴",
-    label: "High",
+    label: "Hoch",
     cls: "bg-red-500/20 text-red-400 border-red-500/30",
-    desc: "Skin temp deviation >0.8°C above baseline. Strong illness signal.",
+    desc: "Abweichung der Hauttemperatur >0,8 °C über der Baseline. Starkes Krankheitssignal.",
   },
   no_data: {
     icon: "📊",
-    label: "No Data",
+    label: "Keine Daten",
     cls: "bg-muted text-muted-foreground border-border",
-    desc: "No skin temperature data available yet.",
+    desc: "Noch keine Hauttemperatur-Daten verfügbar.",
   },
 };
 
@@ -117,79 +118,79 @@ const RHR_STATUS: StatusConfig = {
     icon: "✅",
     label: "Normal",
     cls: "bg-green-500/20 text-green-400 border-green-500/30",
-    desc: "Resting heart rate is at or below your 30-day baseline.",
+    desc: "Ruhepuls liegt auf oder unter deiner 30-Tage-Baseline.",
   },
   elevated: {
     icon: "⚠️",
-    label: "Elevated",
+    label: "Erhöht",
     cls: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    desc: "RHR is 3-7% above baseline. Watch recovery and illness signals.",
+    desc: "Ruhepuls liegt 3-7 % über der Baseline. Erholung und Krankheitszeichen im Blick behalten.",
   },
   high: {
     icon: "🔴",
-    label: "High",
+    label: "Hoch",
     cls: "bg-red-500/20 text-red-400 border-red-500/30",
-    desc: "RHR is >7% above baseline. Consider rest or easy training.",
+    desc: "Ruhepuls liegt >7 % über der Baseline. Erwäge Ruhe oder ein lockeres Training.",
   },
   no_data: {
     icon: "📊",
-    label: "No Data",
+    label: "Keine Daten",
     cls: "bg-muted text-muted-foreground border-border",
-    desc: "No resting heart rate data available yet.",
+    desc: "Noch keine Ruhepuls-Daten verfügbar.",
   },
 };
 
 const BODY_BATTERY_STATUS: StatusConfig = {
   normal: {
     icon: "✅",
-    label: "Charged",
+    label: "Aufgeladen",
     cls: "bg-green-500/20 text-green-400 border-green-500/30",
-    desc: "Daily Body Battery peak is near or above your 30-day baseline.",
+    desc: "Der tägliche Body-Battery-Höchstwert liegt nahe oder über deiner 30-Tage-Baseline.",
   },
   low: {
     icon: "⚠️",
-    label: "Low",
+    label: "Niedrig",
     cls: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    desc: "Daily peak is 3-7% below baseline. Recovery may be lagging.",
+    desc: "Täglicher Höchstwert liegt 3-7 % unter der Baseline. Die Erholung könnte hinterherhinken.",
   },
   depleted: {
     icon: "🔴",
-    label: "Depleted",
+    label: "Erschöpft",
     cls: "bg-red-500/20 text-red-400 border-red-500/30",
-    desc: "Daily peak is >7% below baseline. Prioritize recovery.",
+    desc: "Täglicher Höchstwert liegt >7 % unter der Baseline. Priorisiere Erholung.",
   },
   no_data: {
     icon: "📊",
-    label: "No Data",
+    label: "Keine Daten",
     cls: "bg-muted text-muted-foreground border-border",
-    desc: "No Body Battery data available yet.",
+    desc: "Noch keine Body-Battery-Daten verfügbar.",
   },
 };
 
 const STRESS_STATUS: StatusConfig = {
   normal: {
     icon: "✅",
-    label: "Low",
+    label: "Niedrig",
     cls: "bg-green-500/20 text-green-400 border-green-500/30",
-    desc: "Stress score is at or below your 30-day baseline.",
+    desc: "Stresswert liegt auf oder unter deiner 30-Tage-Baseline.",
   },
   elevated: {
     icon: "⚠️",
-    label: "Elevated",
+    label: "Erhöht",
     cls: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    desc: "Stress is 3-7% above baseline. Recovery load is rising.",
+    desc: "Stress liegt 3-7 % über der Baseline. Die Erholungslast steigt.",
   },
   high: {
     icon: "🔴",
-    label: "High",
+    label: "Hoch",
     cls: "bg-red-500/20 text-red-400 border-red-500/30",
-    desc: "Stress is >7% above baseline. Consider reducing training load.",
+    desc: "Stress liegt >7 % über der Baseline. Erwäge, den Trainingsumfang zu reduzieren.",
   },
   no_data: {
     icon: "📊",
-    label: "No Data",
+    label: "Keine Daten",
     cls: "bg-muted text-muted-foreground border-border",
-    desc: "No stress score data available yet.",
+    desc: "Noch keine Stresswert-Daten verfügbar.",
   },
 };
 
@@ -214,7 +215,7 @@ const COMPACT_UNITS = new Set(["%", "°C"]);
 function formatDate(d: string) {
   // Note: chart axis labels — noon-UTC anchor is acceptable here since
   // we only render month/day on the axis, not the full timestamp.
-  return new Date(d + "T12:00:00Z").toLocaleDateString("en-US", {
+  return new Date(d + "T12:00:00Z").toLocaleDateString(UI_LOCALE, {
     month: "short",
     day: "numeric",
   });
@@ -225,8 +226,7 @@ function round1(value: number): number {
 }
 
 function formatNumber(value: number): string {
-  const rounded = round1(value);
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return fmtNum(round1(value), 1);
 }
 
 function formatWithUnit(value: number, unit?: string): string {
@@ -267,7 +267,7 @@ function deviationClass(
 
 function baselineSubtext(metric: VitalMetric): string | undefined {
   if (metric.baseline !== null || metric.baselineDays >= 30) return undefined;
-  return `Still warming up (${metric.baselineDays} days)`;
+  return `Baseline wird noch aufgebaut (${metric.baselineDays} Tage)`;
 }
 
 function Unit({ unit, className }: { unit: string; className: string }) {
@@ -317,7 +317,7 @@ function VitalMetricSection({
   chartName,
   emptyMessage,
   preference,
-  latestLabel = "Latest",
+  latestLabel = "Aktuell",
   deviationUnit = "%",
   yDomain,
   referenceLines = [],
@@ -373,7 +373,7 @@ function VitalMetricSection({
             subtext={baselineSubtext(metric)}
           />
           <StatCard
-            label="Deviation"
+            label="Abweichung"
             value={formatDeviation(metric.deviation, deviationUnit)}
             valueClassName={deviationClass(metric.deviation, preference)}
           />
@@ -427,7 +427,7 @@ function VitalMetricSection({
                   stroke="var(--muted-foreground)"
                   strokeDasharray="4 4"
                   label={{
-                    value: "baseline",
+                    value: "Baseline",
                     fill: "var(--muted-foreground)",
                     fontSize: 10,
                     position: "insideTopRight",
@@ -463,12 +463,12 @@ function VitalMetricSection({
                 strokeWidth={2}
                 strokeDasharray="4 2"
                 dot={false}
-                name="7d Avg"
+                name="7-Tage-Ø"
               />
             </ComposedChart>
           </ResponsiveContainer>
           <p className="text-muted-foreground mt-1 text-center text-[10px]">
-            {metric.daysWithData} days with data · 7d rolling avg in amber
+            {metric.daysWithData} Tage mit Daten · 7-Tage-Ø in Orange
           </p>
         </div>
       ) : (
@@ -497,11 +497,11 @@ export default function VitalsPage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-bold">🫁 Vitals</h1>
+            <h1 className="text-xl font-bold">🫁 Vitalwerte</h1>
             <p className="text-muted-foreground text-xs">
-              Blood oxygen, respiration, temperature, heart rate, Body Battery,
-              stress, and body composition — key recovery biomarkers from
-              Garmin.
+              Blutsauerstoff, Atmung, Temperatur, Herzfrequenz, Body Battery,
+              Stress und Körperzusammensetzung — die wichtigsten
+              Erholungs-Biomarker von Garmin.
             </p>
           </div>
           <Link
@@ -525,92 +525,92 @@ export default function VitalsPage() {
 
         {isLoading && (
           <div className="text-muted-foreground py-12 text-center text-sm">
-            Loading vitals data...
+            Vitaldaten werden geladen …
           </div>
         )}
 
         {!isLoading && data && (
           <>
             <VitalMetricSection
-              title="Blood Oxygen (SpO2)"
-              info="Pulse oximeter reading from your Garmin. Normal range is 95-100%. Drops below baseline may indicate altitude exposure, illness onset, sleep apnea, or overtraining. Each 1% below your baseline reduces readiness by ~20 points."
+              title="Blutsauerstoff (SpO2)"
+              info="Pulsoximeter-Messung von deinem Garmin. Normalbereich ist 95-100 %. Werte unter der Baseline können auf Höhenluft, eine beginnende Erkrankung, Schlafapnoe oder Übertraining hindeuten. Jedes 1 % unter deiner Baseline senkt die Readiness um ~20 Punkte."
               metric={data.spo2}
               statusConfig={SPO2_STATUS}
               unit="%"
               color="#3b82f6"
               chartName="SpO2"
-              emptyMessage="No SpO2 data in this period. Ensure pulse ox is enabled on your Garmin."
+              emptyMessage="Keine SpO2-Daten in diesem Zeitraum. Stelle sicher, dass Pulsoximetrie auf deinem Garmin aktiviert ist."
               preference="higher"
               yDomain={[88, 100]}
-              referenceLines={[{ y: 95, label: "95%", color: "#ef4444" }]}
+              referenceLines={[{ y: 95, label: "95 %", color: "#ef4444" }]}
             />
 
             <VitalMetricSection
-              title="Resting Heart Rate"
-              info="Lowest resting heart rate measured by Garmin. Lower values versus your 30-day baseline generally indicate better recovery; sustained elevation can signal fatigue, heat stress, alcohol, or early illness."
+              title="Ruhepuls"
+              info="Niedrigster von Garmin gemessener Ruhepuls. Niedrigere Werte gegenüber deiner 30-Tage-Baseline deuten meist auf bessere Erholung hin; anhaltend erhöhte Werte können Ermüdung, Hitzestress, Alkohol oder eine beginnende Erkrankung signalisieren."
               metric={data.restingHr}
               statusConfig={RHR_STATUS}
               unit="bpm"
               color="#f97316"
               chartName="RHR"
-              emptyMessage="No resting heart rate data in this period."
+              emptyMessage="Keine Ruhepuls-Daten in diesem Zeitraum."
               preference="lower"
             />
 
             <VitalMetricSection
               title="Body Battery"
-              info="Garmin Body Battery estimates available energy from heart-rate variability, stress, and sleep. This card uses the daily peak (body_battery_high, falling back to end-of-day) on a 0-100 scale. Higher is better."
+              info="Garmin Body Battery schätzt die verfügbare Energie aus Herzfrequenzvariabilität, Stress und Schlaf. Diese Karte nutzt den täglichen Höchstwert (body_battery_high, ersatzweise den Tagesendwert) auf einer Skala von 0-100. Höher ist besser."
               metric={data.bodyBattery}
               statusConfig={BODY_BATTERY_STATUS}
               color="#22c55e"
               chartName="Body Battery"
-              emptyMessage="No Body Battery data in this period."
+              emptyMessage="Keine Body-Battery-Daten in diesem Zeitraum."
               preference="higher"
-              latestLabel="Daily Peak"
+              latestLabel="Tageshöchstwert"
               yDomain={[0, 100]}
             />
 
             <VitalMetricSection
               title="Stress"
-              info="Garmin all-day stress score estimates sympathetic load from HRV. Lower stress versus your 30-day baseline is better; sustained elevation can reduce recovery capacity."
+              info="Garmins ganztägiger Stresswert schätzt die sympathische Belastung anhand der HRV. Niedrigerer Stress gegenüber deiner 30-Tage-Baseline ist besser; anhaltend erhöhte Werte können die Erholungsfähigkeit verringern."
               metric={data.stress}
               statusConfig={STRESS_STATUS}
               color="#a855f7"
               chartName="Stress"
-              emptyMessage="No stress score data in this period."
+              emptyMessage="Keine Stresswert-Daten in diesem Zeitraum."
               preference="lower"
               yDomain={[0, 100]}
             />
 
             <VitalMetricSection
-              title="Respiration Rate"
-              info="Average breathing rate during sleep (breaths per minute). Normal: 12-20 brpm. Elevated RR (>2 brpm above your baseline) is an early marker of illness, overreaching, or stress (Buchheit 2014). Used in WHOOP's recovery algorithm."
+              title="Atemfrequenz"
+              info="Durchschnittliche Atemfrequenz während des Schlafs (Atemzüge pro Minute). Normal: 12-20 Atemzüge/min. Eine erhöhte Atemfrequenz (>2 Atemzüge/min über deiner Baseline) ist ein früher Marker für Erkrankung, Übertraining oder Stress (Buchheit 2014). Wird auch in WHOOPs Recovery-Algorithmus verwendet."
               metric={data.respirationRate}
               statusConfig={RR_STATUS}
               unit="brpm"
               color="#10b981"
               chartName="RR"
-              emptyMessage="No respiration data in this period."
+              emptyMessage="Keine Atemfrequenz-Daten in diesem Zeitraum."
               preference="lower"
             />
 
             <VitalMetricSection
-              title="Skin Temperature"
-              info="Wrist skin temperature deviation from your personal baseline. Elevated skin temp (+0.5°C or more) is a strong early indicator of illness — this is one of WHOOP's key recovery signals. Hormonal cycles can also cause regular fluctuations."
+              title="Hauttemperatur"
+              info="Abweichung der Handgelenk-Hauttemperatur von deiner persönlichen Baseline. Eine erhöhte Hauttemperatur (+0,5 °C oder mehr) ist ein starkes Frühwarnzeichen für eine Erkrankung — eines von WHOOPs wichtigsten Recovery-Signalen. Auch hormonelle Zyklen können regelmäßige Schwankungen verursachen."
               metric={data.skinTemp}
               statusConfig={TEMP_STATUS}
               unit="°C"
               color="#f43f5e"
               chartName="Skin Temp"
-              emptyMessage="No skin temperature data in this period."
+              emptyMessage="Keine Hauttemperatur-Daten in diesem Zeitraum."
               preference={null}
               deviationUnit="°C"
             />
 
             <section className="space-y-3">
               <SectionHeader
-                title="Body Composition"
-                info="Weight and body-fat trends require a compatible Garmin Index scale or body-composition source. The current daily_metric schema does not include weight/body-fat columns, so this card degrades gracefully until those fields are available."
+                title="Körperzusammensetzung"
+                info="Gewichts- und Körperfett-Trends benötigen eine kompatible Garmin-Index-Waage oder eine andere Quelle für Körperzusammensetzung. Das aktuelle daily_metric-Schema enthält keine Gewicht/Körperfett-Spalten, daher zeigt diese Karte bis dahin nur einen Platzhalter."
               />
               <div className="bg-card rounded-lg border p-4 text-center">
                 <div className="mb-2 text-3xl">⚖️</div>
@@ -618,8 +618,8 @@ export default function VitalsPage() {
                   {data.bodyComposition.message}
                 </p>
                 <p className="text-muted-foreground mt-1 text-xs">
-                  Weight and body-fat metrics will appear here when body
-                  composition columns are available in daily_metric.
+                  Gewichts- und Körperfettwerte erscheinen hier, sobald die
+                  entsprechenden Spalten in daily_metric verfügbar sind.
                 </p>
               </div>
             </section>
@@ -627,36 +627,40 @@ export default function VitalsPage() {
             {/* ────── Science / WHOOP Context ────── */}
             <section className="bg-card rounded-lg border p-4">
               <h3 className="text-foreground mb-2 text-sm font-semibold">
-                🔬 How These Vitals Affect Recovery
+                🔬 Wie diese Vitalwerte die Erholung beeinflussen
               </h3>
               <div className="text-muted-foreground space-y-2 text-xs leading-relaxed">
                 <p>
-                  <strong className="text-foreground">RHR + Stress</strong> —
-                  Elevated resting HR and stress versus a personal 30-day
-                  baseline indicate higher autonomic load and reduced readiness.
+                  <strong className="text-foreground">Ruhepuls + Stress</strong>{" "}
+                  — Erhöhter Ruhepuls und Stress gegenüber einer persönlichen
+                  30-Tage-Baseline deuten auf höhere autonome Belastung und
+                  geringere Readiness hin.
                 </p>
                 <p>
-                  <strong className="text-foreground">Body Battery</strong> — A
-                  lower daily peak suggests incomplete overnight recharge or
-                  elevated stress load, even when training volume is unchanged.
+                  <strong className="text-foreground">Body Battery</strong> — Ein
+                  niedrigerer Tageshöchstwert deutet auf unvollständige
+                  nächtliche Erholung oder erhöhte Stressbelastung hin, selbst
+                  wenn der Trainingsumfang unverändert bleibt.
                 </p>
                 <p>
-                  <strong className="text-foreground">SpO2</strong> — Nocturnal
-                  oxygen saturation dips below baseline correlate with altitude
-                  acclimatization stress, sleep apnea, and overtraining syndrome
-                  (Millet et al., 2016).
+                  <strong className="text-foreground">SpO2</strong> —
+                  Nächtliche Abfälle der Sauerstoffsättigung unter die Baseline
+                  korrelieren mit Höhenanpassungsstress, Schlafapnoe und
+                  Übertrainingssyndrom (Millet et al., 2016).
                 </p>
                 <p>
-                  <strong className="text-foreground">Respiration Rate</strong>{" "}
-                  — Elevated sleep RR (&gt;2 brpm above baseline) is one of the
-                  earliest biomarkers of illness onset and autonomic stress,
-                  used in Buchheit&apos;s (2014) monitoring framework.
+                  <strong className="text-foreground">Atemfrequenz</strong>{" "}
+                  — Eine erhöhte Atemfrequenz im Schlaf (&gt;2 Atemzüge/min über
+                  der Baseline) ist einer der frühesten Biomarker für eine
+                  beginnende Erkrankung und autonomen Stress, verwendet in
+                  Buchheits (2014) Monitoring-Framework.
                 </p>
                 <p>
-                  <strong className="text-foreground">Skin Temperature</strong>{" "}
-                  — WHOOP&apos;s recovery model heavily weights wrist skin temp
-                  deviation. A +0.5°C shift predicts illness 1-2 days before
-                  symptoms appear (Miller et al., 2018).
+                  <strong className="text-foreground">Hauttemperatur</strong>{" "}
+                  — WHOOPs Recovery-Modell gewichtet die Abweichung der
+                  Handgelenk-Hauttemperatur stark. Eine Verschiebung um +0,5 °C
+                  sagt eine Erkrankung 1-2 Tage vor Symptombeginn voraus
+                  (Miller et al., 2018).
                 </p>
               </div>
             </section>

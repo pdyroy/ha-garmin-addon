@@ -17,17 +17,17 @@ import { BottomNav } from "../_components/bottom-nav";
 // ---------------------------------------------------------------------------
 
 const INTERVENTION_TYPES = [
-  { key: "reduced_load", emoji: "😴", label: "Reduced Load" },
-  { key: "extra_sleep", emoji: "🛌", label: "Extra Sleep" },
+  { key: "reduced_load", emoji: "😴", label: "Reduziertes Pensum" },
+  { key: "extra_sleep", emoji: "🛌", label: "Extra Schlaf" },
   { key: "physio", emoji: "🏥", label: "Physio" },
-  { key: "nutrition_change", emoji: "🥗", label: "Nutrition" },
-  { key: "deload_week", emoji: "📉", label: "Deload Week" },
-  { key: "travel_recovery", emoji: "✈️", label: "Travel Recovery" },
-  { key: "ice_bath", emoji: "🧊", label: "Ice Bath" },
-  { key: "compression", emoji: "🧦", label: "Compression" },
+  { key: "nutrition_change", emoji: "🥗", label: "Ernährung" },
+  { key: "deload_week", emoji: "📉", label: "Deload-Woche" },
+  { key: "travel_recovery", emoji: "✈️", label: "Reise-Erholung" },
+  { key: "ice_bath", emoji: "🧊", label: "Eisbad" },
+  { key: "compression", emoji: "🧦", label: "Kompression" },
   { key: "massage", emoji: "💆", label: "Massage" },
   { key: "meditation", emoji: "🧘", label: "Meditation" },
-  { key: "other", emoji: "➕", label: "Other" },
+  { key: "other", emoji: "➕", label: "Sonstiges" },
 ] as const;
 
 type InterventionType = (typeof INTERVENTION_TYPES)[number]["key"];
@@ -86,7 +86,7 @@ export default function InterventionsPage() {
   const createMutation = useMutation(
     trpc.intervention.create.mutationOptions({
       onSuccess: () => {
-        toast.success("Intervention logged");
+        toast.success("Maßnahme protokolliert");
         setSelectedType(null);
         setDescription("");
         void queryClient.invalidateQueries(trpc.intervention.pathFilter());
@@ -98,7 +98,7 @@ export default function InterventionsPage() {
   const updateMutation = useMutation(
     trpc.intervention.update.mutationOptions({
       onSuccess: () => {
-        toast.success("Updated");
+        toast.success("Aktualisiert");
         setEditingOutcome(null);
         void queryClient.invalidateQueries(trpc.intervention.pathFilter());
       },
@@ -109,7 +109,7 @@ export default function InterventionsPage() {
   const deleteMutation = useMutation(
     trpc.intervention.delete.mutationOptions({
       onSuccess: () => {
-        toast.success("Deleted");
+        toast.success("Gelöscht");
         setDeleteConfirm(null);
         void queryClient.invalidateQueries(trpc.intervention.pathFilter());
       },
@@ -119,7 +119,7 @@ export default function InterventionsPage() {
 
   function handleSave() {
     if (!selectedType) {
-      toast.error("Please select an intervention type");
+      toast.error("Bitte wähle eine Art von Maßnahme aus");
       return;
     }
     createMutation.mutate({
@@ -146,9 +146,9 @@ export default function InterventionsPage() {
     <PageShell density="reading">
       {/* ---- Header ---- */}
       <div className="mb-6">
-        <h1 className="text-xl font-bold">Interventions</h1>
+        <h1 className="text-xl font-bold">Maßnahmen</h1>
         <p className="text-muted-foreground text-sm">
-          Track what you try and what works
+          Erfasse, was du ausprobierst und was wirkt
         </p>
       </div>
 
@@ -156,13 +156,13 @@ export default function InterventionsPage() {
       {/* ---- Log Form ---- */}
       <div className="bg-card space-y-4 rounded-2xl border p-4">
         <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-          Log Intervention
+          Maßnahme protokollieren
         </h2>
 
         {/* Date */}
         <div className="space-y-1.5">
           <label className="text-muted-foreground text-xs font-medium">
-            Date
+            Datum
           </label>
           <input
             type="date"
@@ -175,7 +175,7 @@ export default function InterventionsPage() {
 
         {/* Type grid */}
         <div className="space-y-2">
-          <p className="text-muted-foreground text-xs font-medium">Type</p>
+          <p className="text-muted-foreground text-xs font-medium">Art</p>
           <div className="grid-metrics">
             {INTERVENTION_TYPES.map((t) => (
               <button
@@ -200,11 +200,11 @@ export default function InterventionsPage() {
         {/* Description */}
         <div className="space-y-1.5">
           <label className="text-muted-foreground text-xs font-medium">
-            Description (optional)
+            Beschreibung (optional)
           </label>
           <textarea
             rows={2}
-            placeholder="e.g. 10 min ice bath after long run..."
+            placeholder="z. B. 10 Min. Eisbad nach dem langen Lauf …"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-2.5 text-sm placeholder:text-muted-foreground focus:ring-2 focus:outline-none"
@@ -216,14 +216,14 @@ export default function InterventionsPage() {
           onClick={handleSave}
           disabled={createMutation.isPending || !selectedType}
         >
-          {createMutation.isPending ? "Saving…" : "Log Intervention"}
+          {createMutation.isPending ? "Wird gespeichert…" : "Maßnahme protokollieren"}
         </Button>
       </div>
 
       {/* ---- History ---- */}
       <div>
         <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
-          History
+          Verlauf
         </h2>
 
         {listQuery.isLoading ? (
@@ -238,7 +238,7 @@ export default function InterventionsPage() {
         ) : !listQuery.data?.length ? (
           <div className="bg-card rounded-xl border p-4">
             <p className="text-muted-foreground text-sm">
-              No interventions logged yet.
+              Noch keine Maßnahmen protokolliert.
             </p>
           </div>
         ) : (
@@ -276,7 +276,7 @@ export default function InterventionsPage() {
                           onClick={() => deleteMutation.mutate({ id: item.id })}
                           disabled={deleteMutation.isPending}
                         >
-                          Confirm
+                          Bestätigen
                         </Button>
                         <Button
                           variant="outline"
@@ -309,7 +309,7 @@ export default function InterventionsPage() {
                   {/* Effectiveness stars */}
                   <div className="flex items-center gap-1">
                     <span className="text-muted-foreground mr-1 text-xs">
-                      Effectiveness:
+                      Wirksamkeit:
                     </span>
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -340,7 +340,7 @@ export default function InterventionsPage() {
                         autoFocus
                         value={outcomeText}
                         onChange={(e) => setOutcomeText(e.target.value)}
-                        placeholder="Did it help? What changed?"
+                        placeholder="Hat es geholfen? Was hat sich verändert?"
                         className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-2.5 text-xs focus:ring-2 focus:outline-none"
                       />
                       <div className="flex gap-2">
@@ -350,7 +350,7 @@ export default function InterventionsPage() {
                           onClick={() => saveOutcome(item.id)}
                           disabled={updateMutation.isPending}
                         >
-                          Save
+                          Speichern
                         </Button>
                         <Button
                           variant="ghost"
@@ -358,7 +358,7 @@ export default function InterventionsPage() {
                           className="h-7 px-2 text-xs"
                           onClick={() => setEditingOutcome(null)}
                         >
-                          Cancel
+                          Abbrechen
                         </Button>
                       </div>
                     </div>
@@ -375,7 +375,7 @@ export default function InterventionsPage() {
                         </p>
                       ) : (
                         <p className="text-muted-foreground/50 text-xs italic">
-                          + Add outcome notes
+                          + Ergebnisnotizen hinzufügen
                         </p>
                       )}
                     </button>

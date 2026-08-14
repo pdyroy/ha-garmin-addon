@@ -20,6 +20,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { PageShell } from "~/components/page-shell";
+import { fmtDelta, fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { DataFreshness } from "../_components/data-freshness";
@@ -33,8 +34,7 @@ interface PmcEntry {
 }
 
 function fmt(v: number | null | undefined, digits = 2): string {
-  if (v == null || Number.isNaN(v)) return "—";
-  return v.toFixed(digits);
+  return fmtNum(v, digits);
 }
 
 function delta(
@@ -49,7 +49,7 @@ function statusBadge(d: number | null, tolerance: number): React.ReactNode {
   if (d == null) {
     return (
       <span className="bg-muted text-foreground rounded-full px-2 py-0.5 text-xs font-medium">
-        ⚪ N/A
+        ⚪ N/V
       </span>
     );
   }
@@ -57,23 +57,20 @@ function statusBadge(d: number | null, tolerance: number): React.ReactNode {
   if (abs <= tolerance) {
     return (
       <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-        🟢 OK ({d >= 0 ? "+" : ""}
-        {d.toFixed(3)})
+        🟢 OK ({fmtDelta(d, 3)})
       </span>
     );
   }
   if (abs <= tolerance * 3) {
     return (
       <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
-        🟡 Drift ({d >= 0 ? "+" : ""}
-        {d.toFixed(3)})
+        🟡 Abweichung ({fmtDelta(d, 3)})
       </span>
     );
   }
   return (
     <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-      🔴 Mismatch ({d >= 0 ? "+" : ""}
-      {d.toFixed(3)})
+      🔴 Unstimmigkeit ({fmtDelta(d, 3)})
     </span>
   );
 }
@@ -106,29 +103,30 @@ export default function DebugPage() {
       <div className="space-y-4">
       <div>
         <h1 className="pl-12 text-2xl font-bold">
-          🔧 Debug — Data Consistency
+          🔧 Debug — Datenkonsistenz
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Side-by-side comparison of the same metric from different sources.
-          Anything other than 🟢 means the dashboard cards may disagree.
+          Direkter Vergleich derselben Metrik aus unterschiedlichen Quellen.
+          Alles außer 🟢 bedeutet, dass die Dashboard-Karten voneinander
+          abweichen können.
         </p>
         <div className="mt-1">
           <DataFreshness
             computedAt={loads.data?.computedAt}
-            prefix="live values computed"
+            prefix="Live-Werte berechnet"
           />
         </div>
       </div>
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-          Loading…
+          Lädt…
         </div>
       )}
 
       {error && (
         <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700">
-          Error loading data: {error.message}
+          Fehler beim Laden der Daten: {error.message}
         </div>
       )}
 
@@ -140,26 +138,27 @@ export default function DebugPage() {
               ACWR (Acute:Chronic Workload Ratio)
             </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              Tolerance: ±0.05. Larger drift = gauge and chart will disagree.
+              Toleranz: ±0,05. Größere Abweichung = Anzeige und Diagramm
+              stimmen nicht überein.
             </p>
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-muted-foreground">
                 <tr>
-                  <th className="py-1">Source</th>
-                  <th className="py-1">Endpoint</th>
-                  <th className="py-1 text-right">Value</th>
+                  <th className="py-1">Quelle</th>
+                  <th className="py-1">Endpunkt</th>
+                  <th className="py-1 text-right">Wert</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-t">
-                  <td className="py-1">Live compute</td>
+                  <td className="py-1">Live-Berechnung</td>
                   <td className="py-1 font-mono text-xs">
                     analytics.getTrainingLoads
                   </td>
                   <td className="py-1 text-right font-mono">{fmt(liveAcwr)}</td>
                 </tr>
                 <tr className="border-t">
-                  <td className="py-1">Cached (latest day)</td>
+                  <td className="py-1">Zwischengespeichert (letzter Tag)</td>
                   <td className="py-1 font-mono text-xs">
                     advancedMetrics.list[0]
                   </td>
@@ -183,18 +182,18 @@ export default function DebugPage() {
               CTL (Chronic Training Load)
             </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              Tolerance: ±1.0 TSS-equivalent units.
+              Toleranz: ±1,0 TSS-äquivalente Einheiten.
             </p>
             <table className="w-full text-sm">
               <tbody>
                 <tr className="border-t">
-                  <td className="py-1">Live compute</td>
+                  <td className="py-1">Live-Berechnung</td>
                   <td className="py-1 text-right font-mono">
                     {fmt(liveCtl, 1)}
                   </td>
                 </tr>
                 <tr className="border-t">
-                  <td className="py-1">Cached (latest day)</td>
+                  <td className="py-1">Zwischengespeichert (letzter Tag)</td>
                   <td className="py-1 text-right font-mono">
                     {fmt(cachedCtl, 1)}
                   </td>
@@ -212,18 +211,18 @@ export default function DebugPage() {
           <section className="rounded-lg border bg-card p-4">
             <h2 className="text-lg font-semibold">ATL (Acute Training Load)</h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              Tolerance: ±1.0 TSS-equivalent units.
+              Toleranz: ±1,0 TSS-äquivalente Einheiten.
             </p>
             <table className="w-full text-sm">
               <tbody>
                 <tr className="border-t">
-                  <td className="py-1">Live compute</td>
+                  <td className="py-1">Live-Berechnung</td>
                   <td className="py-1 text-right font-mono">
                     {fmt(liveAtl, 1)}
                   </td>
                 </tr>
                 <tr className="border-t">
-                  <td className="py-1">Cached (latest day)</td>
+                  <td className="py-1">Zwischengespeichert (letzter Tag)</td>
                   <td className="py-1 text-right font-mono">
                     {fmt(cachedAtl, 1)}
                   </td>
@@ -240,25 +239,27 @@ export default function DebugPage() {
           </div>
 
           <section className="rounded-lg border bg-primary/10 p-4 text-sm">
-            <h2 className="mb-2 font-semibold">📖 How to interpret</h2>
+            <h2 className="mb-2 font-semibold">📖 So liest du das</h2>
             <ul className="list-inside list-disc space-y-1 text-foreground">
               <li>
-                <strong>🟢 OK</strong> — sources agree within tolerance,
-                dashboard should be consistent.
+                <strong>🟢 OK</strong> — Quellen stimmen innerhalb der Toleranz
+                überein, das Dashboard sollte konsistent sein.
               </li>
               <li>
-                <strong>🟡 Drift</strong> — small mismatch (likely rounding /
-                async snapshot timing). Usually safe but worth tracking.
+                <strong>🟡 Abweichung</strong> — kleine Diskrepanz (vermutlich
+                Rundung / asynchrones Snapshot-Timing). Meist unbedenklich,
+                aber beobachtenswert.
               </li>
               <li>
-                <strong>🔴 Mismatch</strong> — significant disagreement. The
-                fitness page gauge and chart will visibly disagree. Investigate
-                cache staleness or compute differences.
+                <strong>🔴 Unstimmigkeit</strong> — deutliche Abweichung. Die
+                Anzeige und das Diagramm auf der Fitness-Seite werden sichtbar
+                nicht übereinstimmen. Cache-Alter oder Berechnungsunterschiede
+                prüfen.
               </li>
             </ul>
             <p className="mt-2 text-xs text-muted-foreground">
-              Related: see issues #86 (audit), #87 (validation tooling), and #88
-              (refactor) in this repo.
+              Siehe dazu Issues #86 (Audit), #87 (Validierungs-Tooling) und #88
+              (Refactor) in diesem Repo.
             </p>
           </section>
         </>

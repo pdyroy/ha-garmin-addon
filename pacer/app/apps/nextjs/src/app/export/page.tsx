@@ -15,7 +15,7 @@ import { BottomNav } from "../_components/bottom-nav";
 
 function exportToCSV(data: Record<string, unknown>[], filename: string) {
   if (data.length === 0) {
-    toast.error("No data to export");
+    toast.error("Keine Daten zum Exportieren");
     return;
   }
   const headers = Object.keys(data[0]!);
@@ -96,7 +96,7 @@ export default function ExportPage() {
 
   /* ── Export handlers ── */
   function handleExportActivities() {
-    if (!activities.data) return toast.error("Activities data not loaded");
+    if (!activities.data) return toast.error("Aktivitätsdaten noch nicht geladen");
     exportToCSV(
       activities.data as Record<string, unknown>[],
       `pacer-activities-${formatDateForFilename()}.csv`,
@@ -105,13 +105,13 @@ export default function ExportPage() {
 
   function handleExportMetrics() {
     const summary = trendsSummary.data;
-    if (!summary) return toast.error("Metrics data not loaded");
+    if (!summary) return toast.error("Metrikdaten noch nicht geladen");
     const rows = [summary as Record<string, unknown>];
     exportToCSV(rows, `pacer-metrics-${formatDateForFilename()}.csv`);
   }
 
   function handleExportJournal() {
-    if (!journalQuery.data) return toast.error("Journal data not loaded");
+    if (!journalQuery.data) return toast.error("Journaldaten noch nicht geladen");
     exportToCSV(
       journalQuery.data as Record<string, unknown>[],
       `pacer-journal-${formatDateForFilename()}.csv`,
@@ -120,7 +120,7 @@ export default function ExportPage() {
 
   function handleExportAdvancedMetrics() {
     if (!advancedMetrics.data || !Array.isArray(advancedMetrics.data))
-      return toast.error("Advanced metrics not loaded");
+      return toast.error("Erweiterte Metriken noch nicht geladen");
     exportToCSV(
       advancedMetrics.data as Record<string, unknown>[],
       `pacer-advanced-metrics-${formatDateForFilename()}.csv`,
@@ -129,7 +129,7 @@ export default function ExportPage() {
 
   function handleExportHrv() {
     const d = hrvData.data;
-    if (!d?.daily?.length) return toast.error("HRV data not loaded");
+    if (!d?.daily?.length) return toast.error("HRV-Daten noch nicht geladen");
 
     const rolling7dByDate = new Map(d.rolling7d.map((r) => [r.date, r.value]));
     const rolling14dByDate = new Map(
@@ -168,16 +168,16 @@ export default function ExportPage() {
       <div className="space-y-4">
       {/* ── Header ── */}
       <div>
-        <h1 className="pl-12 text-2xl font-bold">Data Export</h1>
+        <h1 className="pl-12 text-2xl font-bold">Datenexport</h1>
         <p className="text-muted-foreground text-sm">
-          Download your training data · Import backups
+          Trainingsdaten herunterladen · Backups importieren
         </p>
       </div>
 
       {/* ── Data Summary ── */}
       <div className="bg-card rounded-2xl border p-4">
         <h2 className="mb-3 text-sm font-semibold tracking-wider uppercase">
-          Your Data
+          Deine Daten
         </h2>
         {activities.isLoading ? (
           <div className="bg-muted h-12 animate-pulse rounded-lg" />
@@ -185,11 +185,11 @@ export default function ExportPage() {
           <div className="grid-metrics text-center">
             <div className="bg-secondary/40 rounded-xl p-3">
               <p className="text-xl font-bold">{activityCount}</p>
-              <p className="text-muted-foreground text-xs">Activities</p>
+              <p className="text-muted-foreground text-xs">Aktivitäten</p>
             </div>
             <div className="bg-secondary/40 rounded-xl p-3">
               <p className="text-xl font-bold">{journalCount}</p>
-              <p className="text-muted-foreground text-xs">Journal entries</p>
+              <p className="text-muted-foreground text-xs">Journaleinträge</p>
             </div>
             <div className="bg-secondary/40 rounded-xl p-3">
               <p className="truncate text-sm font-bold">
@@ -200,7 +200,7 @@ export default function ExportPage() {
                     })
                   : "—"}
               </p>
-              <p className="text-muted-foreground text-xs">Earliest data</p>
+              <p className="text-muted-foreground text-xs">Älteste Daten</p>
             </div>
           </div>
         )}
@@ -210,8 +210,8 @@ export default function ExportPage() {
       <div className="grid-panels">
         <div className="bg-card space-y-3 rounded-2xl border p-4">
           <div>
-            <p className="font-semibold">Daily Metrics</p>
-            <p className="text-muted-foreground mt-0.5 text-xs">CSV export</p>
+            <p className="font-semibold">Tägliche Metriken</p>
+            <p className="text-muted-foreground mt-0.5 text-xs">CSV-Export</p>
           </div>
           <Button
             size="sm"
@@ -220,15 +220,15 @@ export default function ExportPage() {
             disabled={trendsSummary.isLoading}
             onClick={handleExportMetrics}
           >
-            Download CSV
+            CSV herunterladen
           </Button>
         </div>
 
         <div className="bg-card space-y-3 rounded-2xl border p-4">
           <div>
-            <p className="font-semibold">Activities</p>
+            <p className="font-semibold">Aktivitäten</p>
             <p className="text-muted-foreground mt-0.5 text-xs">
-              {activityCount} records · CSV
+              {activityCount} Einträge · CSV
             </p>
           </div>
           <Button
@@ -238,7 +238,7 @@ export default function ExportPage() {
             disabled={activities.isLoading}
             onClick={handleExportActivities}
           >
-            Download CSV
+            CSV herunterladen
           </Button>
         </div>
 
@@ -246,7 +246,7 @@ export default function ExportPage() {
           <div>
             <p className="font-semibold">Journal</p>
             <p className="text-muted-foreground mt-0.5 text-xs">
-              {journalCount} entries · CSV
+              {journalCount} Einträge · CSV
             </p>
           </div>
           <Button
@@ -256,15 +256,15 @@ export default function ExportPage() {
             disabled={journalQuery.isLoading}
             onClick={handleExportJournal}
           >
-            Download CSV
+            CSV herunterladen
           </Button>
         </div>
 
         <div className="bg-card space-y-3 rounded-2xl border p-4">
           <div>
-            <p className="font-semibold">Advanced Metrics</p>
+            <p className="font-semibold">Erweiterte Metriken</p>
             <p className="text-muted-foreground mt-0.5 text-xs">
-              {advMetricCount} days · CTL/ATL/TSB/ACWR · CSV
+              {advMetricCount} Tage · CTL/ATL/TSB/ACWR · CSV
             </p>
           </div>
           <Button
@@ -274,15 +274,15 @@ export default function ExportPage() {
             disabled={advancedMetrics.isLoading}
             onClick={handleExportAdvancedMetrics}
           >
-            Download CSV
+            CSV herunterladen
           </Button>
         </div>
 
         <div className="bg-card space-y-3 rounded-2xl border p-4">
           <div>
-            <p className="font-semibold">HRV Analysis</p>
+            <p className="font-semibold">HRV-Analyse</p>
             <p className="text-muted-foreground mt-0.5 text-xs">
-              {hrvDayCount} days · Rolling avg + CV% · CSV
+              {hrvDayCount} Tage · Gleitender Durchschnitt + CV% · CSV
             </p>
           </div>
           <Button
@@ -292,7 +292,7 @@ export default function ExportPage() {
             disabled={hrvData.isLoading}
             onClick={handleExportHrv}
           >
-            Download CSV
+            CSV herunterladen
           </Button>
         </div>
       </div>
@@ -300,10 +300,10 @@ export default function ExportPage() {
       {/* ── Full JSON Backup ── */}
       <div className="bg-card space-y-3 rounded-2xl border p-4">
         <div>
-          <h2 className="font-semibold">Full Data Export (JSON)</h2>
+          <h2 className="font-semibold">Vollständiger Datenexport (JSON)</h2>
           <p className="text-muted-foreground mt-0.5 text-sm">
-            Activities + journal + metrics in a single backup file with schema
-            version and timestamp.
+            Aktivitäten, Journal und Metriken in einer einzigen Backup-Datei
+            mit Schemaversion und Zeitstempel.
           </p>
         </div>
         <Button
@@ -311,21 +311,22 @@ export default function ExportPage() {
           disabled={activities.isLoading || journalQuery.isLoading}
           onClick={handleFullExport}
         >
-          Download JSON Backup
+          JSON-Backup herunterladen
         </Button>
       </div>
 
       {/* ── Import (Coming Soon) ── */}
       <div className="bg-card space-y-3 rounded-2xl border p-4 opacity-75">
         <div className="flex items-center gap-2">
-          <h2 className="font-semibold">Import from File</h2>
+          <h2 className="font-semibold">Aus Datei importieren</h2>
           <span className="rounded-full bg-yellow-500/20 px-2 py-0.5 text-[10px] font-semibold text-yellow-600 dark:text-yellow-400">
-            Coming Soon
+            Demnächst
           </span>
         </div>
         <p className="text-muted-foreground mt-0.5 text-xs">
-          Import coming in a future update. You&apos;ll be able to restore JSON
-          backups exported from this app.
+          Der Import folgt in einem zukünftigen Update. Du wirst damit
+          JSON-Backups wiederherstellen können, die aus dieser App exportiert
+          wurden.
         </p>
       </div>
       </div>

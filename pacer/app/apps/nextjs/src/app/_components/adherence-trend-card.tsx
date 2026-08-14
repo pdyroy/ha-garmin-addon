@@ -10,6 +10,7 @@ import { cn } from "@acme/ui";
 import { Button } from "@acme/ui/button";
 
 import { useUserTimezone } from "~/lib/format-date";
+import { fmtPct } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 
 type TrendPayload = RouterOutputs["coach"]["adherenceTrend"];
@@ -33,12 +34,12 @@ const POSITIVE_STATUSES = new Set<TrendStatus>([
 const NEGATIVE_STATUSES = new Set<TrendStatus>(["missed"]);
 
 const STATUS_LABEL: Record<TrendStatus, string> = {
-  completed: "Completed",
-  partial: "Partial",
+  completed: "Abgeschlossen",
+  partial: "Teilweise",
   extra: "Extra",
-  missed: "Missed",
-  "no-plan": "No plan",
-  "no-data": "No data",
+  missed: "Verpasst",
+  "no-plan": "Kein Plan",
+  "no-data": "Keine Daten",
 };
 
 const STATUS_STYLE: Record<TrendStatus, string> = {
@@ -147,18 +148,18 @@ function currentStreak(points: TrendPoint[]): number {
 }
 
 function formatDeviation(point: TrendPoint | null): string {
-  if (!point) return "No adherence data recorded";
+  if (!point) return "Keine Plantreue-Daten erfasst";
 
   const planned = point.plannedDurationMin;
   const actual = point.actualDurationMin;
   if (planned == null) {
-    return actual > 0 ? `Actual ${actual} min` : "No planned workout";
+    return actual > 0 ? `Tatsächlich ${actual} Min.` : "Kein geplantes Workout";
   }
 
   const delta = actual - planned;
   const deltaLabel =
-    delta === 0 ? "on target" : `${delta > 0 ? "+" : ""}${delta} min`;
-  return `Planned ${planned} min, actual ${actual} min (${deltaLabel})`;
+    delta === 0 ? "im Ziel" : `${delta > 0 ? "+" : ""}${delta} Min.`;
+  return `Geplant ${planned} Min., tatsächlich ${actual} Min. (${deltaLabel})`;
 }
 
 function cellLabel(cell: Cell): string {
@@ -170,7 +171,7 @@ function AdherenceSkeleton({ days }: { days: WindowDays }) {
   return (
     <section
       aria-busy="true"
-      aria-label="Loading adherence trend"
+      aria-label="Plantreue-Trend wird geladen"
       className="bg-card animate-pulse rounded-2xl border p-5"
     >
       <div className="flex items-center justify-between gap-3">
@@ -205,11 +206,11 @@ export function AdherenceTrendCard({ userId }: { userId: string }) {
   const source = Array.isArray(query.data)
     ? "audit"
     : (query.data?.source ?? "audit");
-  const title = source === "activity" ? "Training streak" : "Plan adherence";
+  const title = source === "activity" ? "Trainingsserie" : "Plantreue";
   const sourceLabel =
     source === "activity"
-      ? "Based on Garmin activities"
-      : "Based on coach plans";
+      ? "Basierend auf Garmin-Aktivitäten"
+      : "Basierend auf Coach-Plänen";
   const cells = useMemo(
     () => buildCells(points, days, timezone),
     [days, points, timezone],
@@ -224,15 +225,16 @@ export function AdherenceTrendCard({ userId }: { userId: string }) {
   if (query.isError) {
     return (
       <section className="bg-card rounded-2xl border p-5 text-center">
-        <h2 className="text-lg font-semibold">Adherence trend unavailable</h2>
+        <h2 className="text-lg font-semibold">Plantreue-Trend nicht verfügbar</h2>
         <p className="text-muted-foreground mt-2 text-sm">
-          Pacer could not load your adherence trend. Please try again.
+          Pacer konnte deinen Plantreue-Trend nicht laden. Bitte versuche es
+          erneut.
         </p>
         <Button
           className="mt-4 w-full sm:w-auto"
           onClick={() => void query.refetch()}
         >
-          Try again
+          Erneut versuchen
         </Button>
       </section>
     );
@@ -252,7 +254,7 @@ export function AdherenceTrendCard({ userId }: { userId: string }) {
         </div>
         <div
           className="bg-muted inline-flex w-fit rounded-full p-1"
-          aria-label="Adherence window"
+          aria-label="Plantreue-Zeitraum"
         >
           {WINDOWS.map((windowDays) => (
             <Button
@@ -264,7 +266,7 @@ export function AdherenceTrendCard({ userId }: { userId: string }) {
               aria-pressed={days === windowDays}
               onClick={() => setDays(windowDays)}
             >
-              {windowDays}d
+              {windowDays} T
             </Button>
           ))}
         </div>
@@ -272,28 +274,29 @@ export function AdherenceTrendCard({ userId }: { userId: string }) {
 
       {points.length === 0 ? (
         <p className="text-muted-foreground mt-5 rounded-xl border border-dashed p-4 text-sm">
-          Adherence tracking starts after your first coach recommendation. Open
-          today&apos;s recommendation above to begin.
+          Die Plantreue-Verfolgung beginnt nach deiner ersten
+          Coach-Empfehlung. Öffne die heutige Empfehlung oben, um
+          loszulegen.
         </p>
       ) : (
         <>
           <div className="mt-5 flex items-end gap-3">
             <div
               className="text-4xl font-bold tabular-nums"
-              aria-label={`Adherence rate ${rate} percent`}
+              aria-label={`Plantreue-Rate ${rate} Prozent`}
               data-testid="adherence-rate"
             >
-              {rate}%
+              {fmtPct(rate, 0)}
             </div>
             <p className="text-muted-foreground pb-1 text-sm">
-              adherence rate · {streak} day{streak === 1 ? "" : "s"} current
-              streak
+              Plantreue-Rate · {streak} {streak === 1 ? "Tag" : "Tage"}{" "}
+              aktuelle Serie
             </p>
           </div>
 
           <div
             className="mt-5 flex gap-1"
-            aria-label={`${days} day adherence strip`}
+            aria-label={`${days}-Tage-Plantreue-Übersicht`}
             data-testid="adherence-strip"
           >
             {cells.map((cell) => {
@@ -330,19 +333,19 @@ export function AdherenceTrendCard({ userId }: { userId: string }) {
           <div className="text-muted-foreground mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
             <span>
               <span className="mr-1 inline-block h-2 w-2 rounded-sm bg-green-500" />
-              Positive
+              Positiv
             </span>
             <span>
               <span className="mr-1 inline-block h-2 w-2 rounded-sm bg-red-500" />
-              Missed
+              Verpasst
             </span>
             <span>
               <span className="mr-1 inline-block h-2 w-2 rounded-sm bg-gray-400" />
-              No plan
+              Kein Plan
             </span>
             <span>
               <span className="bg-muted mr-1 inline-block h-2 w-2 rounded-sm" />
-              No data
+              Keine Daten
             </span>
           </div>
         </>

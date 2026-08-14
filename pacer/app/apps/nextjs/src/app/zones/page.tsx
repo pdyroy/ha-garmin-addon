@@ -21,6 +21,7 @@ import {
 import { cn } from "@acme/ui";
 
 import { PageShell } from "~/components/page-shell";
+import { fmtDelta, fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { SectionHeader } from "../_components/info-button";
@@ -30,9 +31,9 @@ import { SectionHeader } from "../_components/info-button";
 type Period = "90d" | "180d" | "365d";
 
 const PERIODS: { value: Period; label: string; days: number }[] = [
-  { value: "90d", label: "90 D", days: 90 },
-  { value: "180d", label: "180 D", days: 180 },
-  { value: "365d", label: "1 Y", days: 365 },
+  { value: "90d", label: "90 T", days: 90 },
+  { value: "180d", label: "180 T", days: 180 },
+  { value: "365d", label: "1 J", days: 365 },
 ];
 
 // Title-case a raw Garmin sportType string for display:
@@ -56,8 +57,8 @@ const ZONE_COLORS: Record<string, string> = {
 };
 
 const ZONE_LABELS: Record<string, string> = {
-  z1: "Zone 1 — Recovery",
-  z2: "Zone 2 — Aerobic",
+  z1: "Zone 1 — Erholung",
+  z2: "Zone 2 — Aerob",
   z3: "Zone 3 — Tempo",
   z4: "Zone 4 — Threshold",
   z5: "Zone 5 — VO2max",
@@ -70,6 +71,17 @@ const SPORT_COLORS: Record<string, string> = {
   yoga: "#ec4899",
   tennis: "#f59e0b",
   other: "#6b7280",
+};
+
+// Display-only translations for the SPORT_COLORS enum keys — the keys
+// themselves stay untouched (they're dataKeys the chart branches on).
+const SPORT_DISPLAY_LABELS: Record<string, string> = {
+  running: "Laufen",
+  walking: "Gehen",
+  strength: "Kraft",
+  yoga: "Yoga",
+  tennis: "Tennis",
+  other: "Sonstiges",
 };
 
 const TOOLTIP_STYLE = {
@@ -85,16 +97,16 @@ const TOOLTIP_STYLE = {
 const MONTHS_SHORT = [
   "Jan",
   "Feb",
-  "Mar",
+  "Mär",
   "Apr",
-  "May",
+  "Mai",
   "Jun",
   "Jul",
   "Aug",
   "Sep",
-  "Oct",
+  "Okt",
   "Nov",
-  "Dec",
+  "Dez",
 ];
 
 function formatWeek(iso: string): string {
@@ -185,9 +197,12 @@ function heatColor(minutes: number): string {
 }
 
 function piLabel(pi: number): { text: string; color: string } {
-  if (pi >= 2.0) return { text: "Well Polarized ✓", color: "text-green-400" };
+  if (pi >= 2.0) return { text: "Gut polarisiert ✓", color: "text-green-400" };
   if (pi >= 1.5) return { text: "Pyramidal — OK", color: "text-yellow-400" };
-  return { text: "Threshold-Heavy — Add Easy Days", color: "text-red-400" };
+  return {
+    text: "Threshold-lastig — mehr lockere Tage einbauen",
+    color: "text-red-400",
+  };
 }
 
 /* ─────────────── skeleton ─────────────── */
@@ -234,7 +249,7 @@ export default function ZoneAnalysisPage() {
       value: s.sportType,
       label: `${formatSportLabel(s.sportType)} (${s.count})`,
     }));
-    return [{ value: "all", label: "All sports" }, ...fromDb];
+    return [{ value: "all", label: "Alle Sportarten" }, ...fromDb];
   }, [sportTypes.data]);
 
   /* ── queries ── */
@@ -382,7 +397,7 @@ export default function ZoneAnalysisPage() {
         if (Math.abs(lastZ2 - firstZ2) >= 2) {
           items.push({
             icon: lastZ2 > firstZ2 ? "📈" : "📉",
-            text: `Zone 2 time ${lastZ2 > firstZ2 ? "increased" : "decreased"} from ${firstZ2.toFixed(0)}% to ${lastZ2.toFixed(0)}% over the period`,
+            text: `Zone-2-Zeit hat sich im Zeitraum von ${fmtNum(firstZ2, 0)} % auf ${fmtNum(lastZ2, 0)} % ${lastZ2 > firstZ2 ? "erhöht" : "verringert"}`,
             color:
               lastZ2 > firstZ2
                 ? "border-green-500/40 bg-green-500/10"
@@ -399,7 +414,7 @@ export default function ZoneAnalysisPage() {
         const info = piLabel(pi);
         items.push({
           icon: "🎯",
-          text: `Polarization index is ${pi.toFixed(2)} — ${info.text}`,
+          text: `Polarisationsindex liegt bei ${fmtNum(pi, 2)} — ${info.text}`,
           color:
             pi >= 2.0
               ? "border-green-500/40 bg-green-500/10"
@@ -427,7 +442,7 @@ export default function ZoneAnalysisPage() {
         const pctChange = ((lastY - firstY) / firstY) * 100;
         items.push({
           icon: pctChange >= 0 ? "⚡" : "🔻",
-          text: `Efficiency ${pctChange >= 0 ? "improved" : "declined"} by ${Math.abs(pctChange).toFixed(1)}% — ${pctChange >= 0 ? "you're getting faster at the same HR" : "review recovery & easy volume"}`,
+          text: `Effizienz hat sich um ${fmtNum(Math.abs(pctChange), 1)} % ${pctChange >= 0 ? "verbessert" : "verschlechtert"} — ${pctChange >= 0 ? "du wirst bei gleicher Herzfrequenz schneller" : "prüfe Erholung und lockeres Volumen"}`,
           color:
             pctChange >= 0
               ? "border-blue-500/40 bg-blue-500/10"
@@ -467,7 +482,7 @@ export default function ZoneAnalysisPage() {
       if (best.count > 0) {
         items.push({
           icon: "🏆",
-          text: `Most consistent week: ${formatWeek(best.weekLabel)} (${best.count} activities, ${best.minutes.toFixed(0)} min)`,
+          text: `Konsistenteste Woche: ${formatWeek(best.weekLabel)} (${best.count} Aktivitäten, ${fmtNum(best.minutes, 0)} Min.)`,
           color: "border-purple-500/40 bg-purple-500/10",
         });
       }
@@ -519,9 +534,9 @@ export default function ZoneAnalysisPage() {
     <PageShell density="data">
       {/* ── Header ── */}
       <div className="mb-8">
-        <h1 className="pl-12 text-2xl font-bold">Zone Analysis</h1>
+        <h1 className="pl-12 text-2xl font-bold">Zonen-Analyse</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          HR zone distribution, polarization tracking, and efficiency trends
+          HF-Zonenverteilung, Polarisationsverlauf und Effizienztrends
         </p>
       </div>
 
@@ -552,7 +567,7 @@ export default function ZoneAnalysisPage() {
                 "border-border bg-background text-foreground appearance-none rounded-md border px-3 py-1 text-xs font-medium",
                 "focus:ring-ring focus:ring-2 focus:outline-none",
               )}
-              aria-label="Filter by sport"
+              aria-label="Nach Sportart filtern"
             >
               {sportOptions.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -567,12 +582,12 @@ export default function ZoneAnalysisPage() {
         {allEmpty && !allLoading && (
           <div className="bg-card rounded-2xl border p-8 text-center">
             <p className="text-foreground text-lg font-medium">
-              No zone data available
+              Keine Zonendaten verfügbar
             </p>
             <p className="text-muted-foreground mt-2 text-sm">
-              Record activities with a heart rate monitor to see zone
-              analysis. Garmin, Apple Watch, and Polar devices all provide HR
-              zone data.
+              Zeichne Aktivitäten mit einem Herzfrequenzmesser auf, um die
+              Zonenanalyse zu sehen. Garmin-, Apple-Watch- und Polar-Geräte
+              liefern alle HF-Zonendaten.
             </p>
           </div>
         )}
@@ -580,8 +595,8 @@ export default function ZoneAnalysisPage() {
         {/* ═══════════ Section 1: Weekly Zone Distribution ═══════════ */}
         <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
-          title="Weekly Time in Zones"
-          info="Shows minutes spent in each heart rate zone per week. Zones are from Garmin's Firstbeat HR zone classification. Zone 1 (Recovery) and Zone 2 (Aerobic) build your base — aim for 80% here. Zone 3 (Tempo) improves lactate threshold. Zones 4-5 boost VO2max. Method: Sum of hrZoneMinutes JSON field per activity, grouped by ISO week."
+          title="Wöchentliche Zeit in den Zonen"
+          info="Zeigt die Minuten pro Woche in jeder Herzfrequenzzone. Die Zonen stammen aus Garmins Firstbeat-HF-Zonenklassifikation. Zone 1 (Erholung) und Zone 2 (Aerob) bauen deine Basis auf — hier sind 80 % das Ziel. Zone 3 (Tempo) verbessert die Laktatschwelle. Zone 4–5 steigern den VO2max. Methode: Summe des hrZoneMinutes-JSON-Felds pro Aktivität, gruppiert nach ISO-Woche."
           className="mb-3"
         />
         {weeklyZones.isLoading ? (
@@ -613,7 +628,7 @@ export default function ZoneAnalysisPage() {
                   typeof label === "string" ? formatWeek(label) : String(label)
                 }
                 formatter={(value: unknown, name: unknown) => [
-                  `${typeof value === "number" ? value.toFixed(0) : String(value)} min`,
+                  `${typeof value === "number" ? fmtNum(value, 0) : String(value)} min`,
                   typeof name === "string"
                     ? (ZONE_LABELS[name] ?? name)
                     : String(name),
@@ -641,7 +656,7 @@ export default function ZoneAnalysisPage() {
           </ResponsiveContainer>
         ) : (
           <p className="text-muted-foreground py-8 text-center text-sm">
-            No weekly zone data available
+            Keine wöchentlichen Zonendaten verfügbar
           </p>
         )}
       </div>
@@ -649,9 +664,9 @@ export default function ZoneAnalysisPage() {
       {/* ═══════════ Section 2: Polarization Index ═══════════ */}
       <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
-          title="Training Polarization (Seiler 80/20 Model)"
-          info="Measures how well your training follows the 80/20 rule. Formula: PI = ln(1/Σpi²) where pi = fraction of time in each zone bucket (easy/moderate/hard). PI > 2.0 = well polarized, 1.5-2.0 = pyramidal, < 1.5 = threshold-heavy (higher injury risk). Citation: Seiler S, Polarized Training Distribution."
-          subtitle="PI > 2.0 = well polarized · 1.5–2.0 = pyramidal · < 1.5 = threshold-heavy"
+          title="Trainingspolarisation (Seiler 80/20-Modell)"
+          info="Misst, wie gut dein Training der 80/20-Regel folgt. Formel: PI = ln(1/Σpi²), wobei pi = Zeitanteil in jedem Zonenbereich (leicht/moderat/hart). PI > 2,0 = gut polarisiert, 1,5–2,0 = pyramidal, < 1,5 = threshold-lastig (höheres Verletzungsrisiko). Quelle: Seiler S, Polarized Training Distribution."
+          subtitle="PI > 2,0 = gut polarisiert · 1,5–2,0 = pyramidal · < 1,5 = threshold-lastig"
           className="mb-3"
         />
         {polarization.isLoading ? (
@@ -710,9 +725,7 @@ export default function ZoneAnalysisPage() {
                 }
                 formatter={(value: unknown, name: unknown) => {
                   const v =
-                    typeof value === "number"
-                      ? value.toFixed(1)
-                      : String(value);
+                    typeof value === "number" ? fmtNum(value, 1) : String(value);
                   const n = String(name);
                   if (n === "polarizationIndex") return [`${v}`, "PI"];
                   return [`${v}%`, n];
@@ -725,7 +738,7 @@ export default function ZoneAnalysisPage() {
                 stroke="#22c55e"
                 strokeDasharray="6 3"
                 label={{
-                  value: "PI = 2.0",
+                  value: "PI = 2,0",
                   fill: "#22c55e",
                   fontSize: 10,
                   position: "right",
@@ -739,7 +752,7 @@ export default function ZoneAnalysisPage() {
                 stackId="pct"
                 stroke="#22c55e"
                 fill="url(#easyGrad)"
-                name="Easy %"
+                name="Leicht %"
               />
               <Area
                 isAnimationActive={false}
@@ -749,7 +762,7 @@ export default function ZoneAnalysisPage() {
                 stackId="pct"
                 stroke="#eab308"
                 fill="url(#modGrad)"
-                name="Moderate %"
+                name="Moderat %"
               />
               <Area
                 isAnimationActive={false}
@@ -759,7 +772,7 @@ export default function ZoneAnalysisPage() {
                 stackId="pct"
                 stroke="#ef4444"
                 fill="url(#hardGrad)"
-                name="Hard %"
+                name="Hart %"
               />
               <Line
                 yAxisId="pi"
@@ -775,7 +788,7 @@ export default function ZoneAnalysisPage() {
           </ResponsiveContainer>
         ) : (
           <p className="text-muted-foreground py-8 text-center text-sm">
-            No polarization data available
+            Keine Polarisationsdaten verfügbar
           </p>
         )}
       </div>
@@ -783,8 +796,8 @@ export default function ZoneAnalysisPage() {
       {/* ═══════════ Section 3: Monthly Zone Trend ═══════════ */}
       <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
-          title="Monthly Zone Distribution Shift"
-          info="Tracks zone distribution evolution month-over-month as a stacked area chart showing percentage of time in each zone. A healthy progression shows increasing Zone 2 percentage over time with periodic high-intensity blocks. Method: Monthly aggregation of zone minutes converted to percentages. Citation: Long-term training structure analysis."
+          title="Monatliche Verschiebung der Zonenverteilung"
+          info="Verfolgt die monatliche Entwicklung der Zonenverteilung als gestapeltes Flächendiagramm mit dem prozentualen Zeitanteil je Zone. Eine gesunde Entwicklung zeigt einen steigenden Zone-2-Anteil über die Zeit, ergänzt durch periodische hochintensive Blöcke. Methode: Monatliche Aggregation der Zonenminuten, umgerechnet in Prozent. Quelle: Analyse der langfristigen Trainingsstruktur."
           className="mb-3"
         />
         {zoneTrends.isLoading ? (
@@ -832,7 +845,7 @@ export default function ZoneAnalysisPage() {
               <Tooltip
                 contentStyle={TOOLTIP_STYLE}
                 formatter={(value: unknown, name: unknown) => [
-                  `${typeof value === "number" ? value.toFixed(1) : String(value)}%`,
+                  `${typeof value === "number" ? fmtNum(value, 1) : String(value)}%`,
                   typeof name === "string"
                     ? (ZONE_LABELS[name.replace("Pct", "")] ?? name)
                     : String(name),
@@ -866,7 +879,7 @@ export default function ZoneAnalysisPage() {
           </ResponsiveContainer>
         ) : (
           <p className="text-muted-foreground py-8 text-center text-sm">
-            No monthly zone trend data available
+            Keine monatlichen Zonentrend-Daten verfügbar
           </p>
         )}
       </div>
@@ -874,18 +887,17 @@ export default function ZoneAnalysisPage() {
       {/* ═══════════ Section 4: Efficiency Trend ═══════════ */}
       <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
-          title="Pace / HR Efficiency (higher = fitter)"
-          info="Cardiac efficiency index measures aerobic fitness improvement over time. Formula: Efficiency = (speed in m/s ÷ avgHR) × 1000. Higher values = more ground covered per heartbeat. Trend line uses linear regression (y = mx + b) to show improvement percentage. Citation: Running economy as speed per unit HR cost."
+          title="Pace/HF-Effizienz (höher = fitter)"
+          info="Der kardiale Effizienzindex misst die Verbesserung der aeroben Fitness über die Zeit. Formel: Effizienz = (Geschwindigkeit in m/s ÷ ØHF) × 1000. Höhere Werte = mehr zurückgelegte Strecke pro Herzschlag. Die Trendlinie nutzt lineare Regression (y = mx + b), um die prozentuale Verbesserung darzustellen. Quelle: Laufökonomie als Geschwindigkeit pro HF-Einheit."
           className="mb-1"
         />
         {efficiencyTrendLine && (
           <p className="text-muted-foreground mb-3 text-[11px]">
-            {efficiencyTrendLine.pctImprovement >= 0 ? "+" : ""}
-            {efficiencyTrendLine.pctImprovement.toFixed(1)}%{" "}
+            {fmtDelta(efficiencyTrendLine.pctImprovement, 1)} %{" "}
             {efficiencyTrendLine.pctImprovement >= 0
-              ? "improvement"
-              : "decline"}{" "}
-            over this period
+              ? "Verbesserung"
+              : "Rückgang"}{" "}
+            in diesem Zeitraum
           </p>
         )}
         {efficiency.isLoading ? (
@@ -899,15 +911,15 @@ export default function ZoneAnalysisPage() {
                 tickFormatter={formatWeek}
                 tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 interval="preserveStartEnd"
-                name="Date"
+                name="Datum"
               />
               <YAxis
                 dataKey="efficiencyIndex"
                 tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={48}
-                name="Efficiency"
+                name="Effizienz"
                 label={{
-                  value: "Efficiency Index (m·bpm⁻¹ × 1000)",
+                  value: "Effizienzindex (m·bpm⁻¹ × 1000)",
                   angle: -90,
                   position: "insideLeft",
                   fill: "var(--muted-foreground)",
@@ -919,7 +931,7 @@ export default function ZoneAnalysisPage() {
               <Tooltip
                 contentStyle={TOOLTIP_STYLE}
                 formatter={(value: unknown, name: unknown) => [
-                  typeof value === "number" ? value.toFixed(3) : String(value),
+                  typeof value === "number" ? fmtNum(value, 3) : String(value),
                   String(name),
                 ]}
                 labelFormatter={(label: unknown) =>
@@ -947,7 +959,7 @@ export default function ZoneAnalysisPage() {
                     />
                   );
                 }}
-                name="Efficiency"
+                name="Effizienz"
               />
               {efficiencyTrendLine && (
                 <Line
@@ -974,7 +986,8 @@ export default function ZoneAnalysisPage() {
           </ResponsiveContainer>
         ) : (
           <p className="text-muted-foreground py-8 text-center text-sm">
-            No efficiency data — record runs or walks with HR to see trends
+            Noch keine Effizienzdaten — zeichne Läufe oder Spaziergänge mit
+            Herzfrequenzmessung auf, um Trends zu sehen
           </p>
         )}
       </div>
@@ -982,8 +995,8 @@ export default function ZoneAnalysisPage() {
       {/* ═══════════ Section 5: Activity Calendar ═══════════ */}
       <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
-          title="Training Consistency"
-          info="GitHub-style heatmap showing daily training activity. Color intensity = total training minutes that day. Consistency is the #1 predictor of fitness gains. Gaps >7 days lead to measurable detraining. Method: Daily aggregation of activity duration with sport type classification. Data: activityCalendar query grouped by date."
+          title="Trainingskonsistenz"
+          info="GitHub-artige Heatmap der täglichen Trainingsaktivität. Farbintensität = gesamte Trainingsminuten an diesem Tag. Konsistenz ist der wichtigste Prädiktor für Fitnessfortschritte. Pausen von mehr als 7 Tagen führen zu messbarem Trainingsrückgang. Methode: Tägliche Aggregation der Aktivitätsdauer mit Sportart-Klassifikation. Daten: activityCalendar-Abfrage, gruppiert nach Datum."
           className="mb-3"
         />
         {calendar.isLoading ? (
@@ -992,7 +1005,7 @@ export default function ZoneAnalysisPage() {
           <CalendarHeatmap data={calendar.data} />
         ) : (
           <p className="text-muted-foreground py-8 text-center text-sm">
-            No activity data available
+            Keine Aktivitätsdaten verfügbar
           </p>
         )}
       </div>
@@ -1000,8 +1013,8 @@ export default function ZoneAnalysisPage() {
       {/* ═══════════ Section 6: Weekly Volume by Sport ═══════════ */}
       <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
-          title="Weekly Training Volume by Sport"
-          info="Stacked bar chart of total training minutes per week, broken down by sport type (running, walking, strength, yoga, tennis, other). Method: Sum of duration minutes per activity grouped by ISO week and sport type. Gradual weekly increases of 5-10% recommended to avoid overuse injuries. Citation: Progressive overload principle."
+          title="Wöchentliches Trainingsvolumen nach Sportart"
+          info="Gestapeltes Balkendiagramm der gesamten Trainingsminuten pro Woche, aufgeschlüsselt nach Sportart (Laufen, Gehen, Kraft, Yoga, Tennis, Sonstiges). Methode: Summe der Dauer in Minuten pro Aktivität, gruppiert nach ISO-Woche und Sportart. Ein schrittweiser wöchentlicher Anstieg von 5–10 % wird empfohlen, um Überlastungsschäden zu vermeiden. Quelle: Prinzip der progressiven Belastungssteigerung."
           className="mb-3"
         />
         {volume.isLoading ? (
@@ -1033,15 +1046,14 @@ export default function ZoneAnalysisPage() {
                   typeof label === "string" ? formatWeek(label) : String(label)
                 }
                 formatter={(value: unknown, name: unknown) => [
-                  `${typeof value === "number" ? value.toFixed(0) : String(value)} min`,
-                  String(name).charAt(0).toUpperCase() + String(name).slice(1),
+                  `${typeof value === "number" ? fmtNum(value, 0) : String(value)} min`,
+                  SPORT_DISPLAY_LABELS[String(name)] ?? String(name),
                 ]}
               />
               <Legend
-                formatter={(value: unknown) => {
-                  const v = String(value);
-                  return v.charAt(0).toUpperCase() + v.slice(1);
-                }}
+                formatter={(value: unknown) =>
+                  SPORT_DISPLAY_LABELS[String(value)] ?? String(value)
+                }
                 wrapperStyle={{ fontSize: 11, flexWrap: "wrap" }}
               />
               {Object.entries(SPORT_COLORS).map(([key, color]) => (
@@ -1058,7 +1070,7 @@ export default function ZoneAnalysisPage() {
           </ResponsiveContainer>
         ) : (
           <p className="text-muted-foreground py-8 text-center text-sm">
-            No volume data available
+            Keine Volumendaten verfügbar
           </p>
         )}
       </div>
@@ -1067,8 +1079,8 @@ export default function ZoneAnalysisPage() {
       {insights.length > 0 && (
         <div className="space-y-3">
           <SectionHeader
-            title="Key Insights"
-            info="Auto-generated insights from your training patterns. Checks include: zone distribution balance, consistency streaks, efficiency trends, polarization status, and volume changes. Method: Rule-based analysis comparing current metrics against sport science thresholds (e.g., PI > 2.0, efficiency trend slope, active day ratio)."
+            title="Wichtige Insights"
+            info="Automatisch generierte Insights aus deinen Trainingsmustern. Geprüft werden: Balance der Zonenverteilung, Konsistenz-Streaks, Effizienztrends, Polarisationsstatus und Volumenänderungen. Methode: Regelbasierte Analyse, die aktuelle Kennzahlen mit sportwissenschaftlichen Schwellenwerten vergleicht (z. B. PI > 2,0, Steigung des Effizienztrends, Anteil aktiver Tage)."
           />
           <div className="grid gap-3 sm:grid-cols-2">
             {insights.map((item, i) => (
@@ -1172,7 +1184,7 @@ function CalendarHeatmap({ data }: { data: CalendarDay[] }) {
     date: string;
   } | null>(null);
 
-  const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const DAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
   return (
     <div className="relative overflow-x-clip">
@@ -1249,13 +1261,13 @@ function CalendarHeatmap({ data }: { data: CalendarDay[] }) {
 
       {/* Legend */}
       <div className="text-muted-foreground mt-2 flex items-center justify-end gap-1 text-[9px]">
-        <span>Less</span>
+        <span>Weniger</span>
         <div className="bg-muted h-[10px] w-[10px] rounded-[2px]" />
         <div className="h-[10px] w-[10px] rounded-[2px] bg-green-900" />
         <div className="h-[10px] w-[10px] rounded-[2px] bg-green-700" />
         <div className="h-[10px] w-[10px] rounded-[2px] bg-green-600" />
         <div className="h-[10px] w-[10px] rounded-[2px] bg-green-400" />
-        <span>More</span>
+        <span>Mehr</span>
       </div>
 
       {/* Tooltip */}
@@ -1274,19 +1286,19 @@ function CalendarHeatmap({ data }: { data: CalendarDay[] }) {
           {tooltip.day ? (
             <>
               <p className="text-muted-foreground">
-                {tooltip.day.totalMinutes.toFixed(0)} min
+                {fmtNum(tooltip.day.totalMinutes, 0)} min
                 {tooltip.day.primarySport
                   ? ` · ${tooltip.day.primarySport}`
                   : ""}
               </p>
               {tooltip.day.maxStrain > 0 && (
                 <p className="text-muted-foreground">
-                  Strain: {tooltip.day.maxStrain.toFixed(1)}
+                  Strain: {fmtNum(tooltip.day.maxStrain, 1)}
                 </p>
               )}
             </>
           ) : (
-            <p className="text-muted-foreground">No activity</p>
+            <p className="text-muted-foreground">Keine Aktivität</p>
           )}
         </div>
       )}

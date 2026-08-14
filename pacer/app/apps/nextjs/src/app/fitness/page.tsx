@@ -17,6 +17,7 @@ import { cn } from "@acme/ui";
 
 import { PageShell } from "~/components/page-shell";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
+import { fmtDelta, fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { DateRangeSelector } from "../_components/date-range-selector";
@@ -31,17 +32,17 @@ const TREND_BADGE: Record<
 > = {
   improving: {
     icon: "↑",
-    label: "Improving",
+    label: "Steigend",
     cls: "bg-green-500/20 text-green-400",
   },
   stable: {
     icon: "→",
-    label: "Stable",
+    label: "Stabil",
     cls: "bg-yellow-500/20 text-yellow-400",
   },
   declining: {
     icon: "↓",
-    label: "Declining",
+    label: "Sinkend",
     cls: "bg-red-500/20 text-red-400",
   },
 };
@@ -59,7 +60,7 @@ const STATUS_COLORS: Record<string, string> = {
 const DISTANCE_LABELS: Record<string, string> = {
   "5K": "5K",
   "10K": "10K",
-  half_marathon: "Half Marathon",
+  half_marathon: "Halbmarathon",
   marathon: "Marathon",
 };
 
@@ -76,24 +77,24 @@ const VO2MAX_NORMS_MALE: Record<string, [number, number, number, number]> = {
 
 function classifyVO2max(vo2max: number, ageGroup = "30-39"): string {
   const thresholds = VO2MAX_NORMS_MALE[ageGroup] ?? VO2MAX_NORMS_MALE["30-39"]!;
-  if (vo2max < thresholds[0]) return "Poor";
-  if (vo2max < thresholds[1]) return "Fair";
-  if (vo2max < thresholds[2]) return "Good";
-  if (vo2max < thresholds[3]) return "Excellent";
-  return "Superior";
+  if (vo2max < thresholds[0]) return "Schwach";
+  if (vo2max < thresholds[1]) return "Mittelmäßig";
+  if (vo2max < thresholds[2]) return "Gut";
+  if (vo2max < thresholds[3]) return "Sehr gut";
+  return "Hervorragend";
 }
 
 function classificationColor(classification: string): string {
   switch (classification) {
-    case "Superior":
+    case "Hervorragend":
       return "text-blue-400";
-    case "Excellent":
+    case "Sehr gut":
       return "text-green-400";
-    case "Good":
+    case "Gut":
       return "text-emerald-400";
-    case "Fair":
+    case "Mittelmäßig":
       return "text-yellow-400";
-    case "Poor":
+    case "Schwach":
       return "text-red-400";
     default:
       return "text-muted-foreground";
@@ -316,7 +317,7 @@ export default function FitnessPage() {
   const DISTANCE_LABEL: Record<string, string> = {
     "5K": "5K",
     "10K": "10K",
-    half_marathon: "Half Marathon",
+    half_marathon: "Halbmarathon",
     marathon: "Marathon",
   };
 
@@ -383,10 +384,10 @@ export default function FitnessPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="pl-12 text-2xl font-bold">
-            Fitness &amp; Performance
+            Fitness &amp; Leistung
           </h1>
           <p className="text-muted-foreground text-sm">
-            VO2max &amp; Race Predictions
+            VO2max &amp; Rennprognosen
           </p>
         </div>
         {trendInfo && (
@@ -413,10 +414,10 @@ export default function FitnessPage() {
       ) : latestVO2max ? (
         <div className="bg-card rounded-2xl border p-6 text-center">
           <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-            Current VO2max
+            Aktueller VO2max
           </p>
           <p className="mt-1 text-5xl font-bold text-blue-400">
-            {latestVO2max.value.toFixed(1)}
+            {fmtNum(latestVO2max.value, 1)}
           </p>
           <p className="text-muted-foreground mt-1 text-sm">ml/kg/min</p>
           <p className="text-muted-foreground mt-1 text-[10px] tracking-wider uppercase">
@@ -424,12 +425,12 @@ export default function FitnessPage() {
             {latestVO2max.source === "garmin_official"
               ? "Garmin Firstbeat"
               : latestVO2max.source === "running_pace_hr"
-                ? "Pace+HR model"
+                ? "Pace+HF-Modell"
                 : latestVO2max.source === "cooper"
-                  ? "Cooper test"
+                  ? "Cooper-Test"
                   : latestVO2max.source === "uth_method" ||
                       latestVO2max.source === "uth_ratio"
-                    ? "UTH ratio"
+                    ? "UTH-Methode"
                     : latestVO2max.source}
           </p>
           {classification && (
@@ -442,21 +443,20 @@ export default function FitnessPage() {
               >
                 {classification}
               </span>
-              <span className="text-muted-foreground"> fitness level</span>
+              <span className="text-muted-foreground"> Fitnesslevel</span>
             </p>
           )}
           {trend && (
             <p className="text-muted-foreground mt-1 text-xs">
-              {trend.slopePerWeek >= 0 ? "+" : ""}
-              {trend.slopePerWeek.toFixed(2)} /week
+              {fmtDelta(trend.slopePerWeek, 2)} /Woche
             </p>
           )}
         </div>
       ) : (
         <div className="bg-card rounded-2xl border p-6 text-center">
           <p className="text-muted-foreground text-sm">
-            No VO2max data available yet. Complete some runs with heart rate
-            monitoring to see your estimates.
+            Noch keine VO2max-Daten verfügbar. Absolviere ein paar Läufe mit
+            Herzfrequenzmessung, um deine Werte zu sehen.
           </p>
         </div>
       )}
@@ -470,24 +470,25 @@ export default function FitnessPage() {
           <SectionHeader
             title={
               garminUsingFallback
-                ? `Garmin VO2 Max — last ${garminChartData.length} reading${garminChartData.length === 1 ? "" : "s"}`
-                : `Garmin VO2 Max — ${garminChartData.length} reading${garminChartData.length === 1 ? "" : "s"} in ${chartDays}d`
+                ? `Garmin VO2 Max — letzte ${garminChartData.length} Messung${garminChartData.length === 1 ? "" : "en"}`
+                : `Garmin VO2 Max — ${garminChartData.length} Messung${garminChartData.length === 1 ? "" : "en"} in ${chartDays}d`
             }
-            info="Official VO2max from your Garmin device, calculated by Firstbeat Analytics using GPS pace and heart rate data during runs. This is the most accurate wearable-based estimate available. Values update after qualifying runs (12+ min, outdoor, with HR). Citation: Firstbeat Technologies. (2014). VO2max Estimation from Wrist-Based Heart Rate and Speed. Firstbeat White Paper."
+            info="Offizieller VO2max-Wert von deinem Garmin-Gerät, berechnet von Firstbeat Analytics anhand von GPS-Tempo und Herzfrequenzdaten während Läufen. Dies ist die genaueste verfügbare wearable-basierte Schätzung. Werte werden nach qualifizierenden Läufen aktualisiert (12+ Min, im Freien, mit Herzfrequenz). Quelle: Firstbeat Technologies. (2014). VO2max Estimation from Wrist-Based Heart Rate and Speed. Firstbeat White Paper."
             className="mb-3"
           />
           {garminUsingFallback && (
             <p className="text-muted-foreground mb-3 text-xs">
-              ℹ️ No Garmin VO2max updates in the last {chartDays} days — Garmin
-              only records after qualifying outdoor runs (12+ min with heart
-              rate). Showing your most recent readings instead.
+              ℹ️ Keine Garmin-VO2max-Aktualisierung in den letzten {chartDays}{" "}
+              Tagen — Garmin erfasst nur nach qualifizierenden Läufen im
+              Freien (12+ Min mit Herzfrequenz). Es werden stattdessen deine
+              letzten Messungen angezeigt.
             </p>
           )}
           {!garminUsingFallback && garminChartData.length < 3 && (
             <p className="text-muted-foreground mb-3 text-xs">
-              ℹ️ Garmin only records VO2max after qualifying outdoor runs (12+
-              min with heart rate). Sparse data is expected — keep running to
-              see more points.
+              ℹ️ Garmin erfasst VO2max nur nach qualifizierenden Läufen im
+              Freien (12+ Min mit Herzfrequenz). Wenige Datenpunkte sind
+              normal — lauf weiter, um mehr Werte zu sehen.
             </p>
           )}
           <ResponsiveContainer width="100%" height={220}>
@@ -557,13 +558,14 @@ export default function FitnessPage() {
         <div className="bg-card rounded-2xl border p-4">
           <SectionHeader
             title="Garmin VO2 Max"
-            info="Official VO2max from your Garmin device. Garmin only records VO2max after qualifying outdoor runs (12+ min with heart rate)."
+            info="Offizieller VO2max-Wert von deinem Garmin-Gerät. Garmin erfasst VO2max nur nach qualifizierenden Läufen im Freien (12+ Min mit Herzfrequenz)."
             className="mb-3"
           />
           <p className="text-muted-foreground text-sm">
-            No Garmin VO2max readings yet. Garmin records this only after a
-            qualifying outdoor run (12+ minutes with heart rate). Once you
-            complete one, the value will sync from Garmin Connect.
+            Noch keine Garmin-VO2max-Messungen. Garmin erfasst diese nur nach
+            einem qualifizierenden Lauf im Freien (12+ Minuten mit
+            Herzfrequenz). Sobald du einen absolvierst, wird der Wert von
+            Garmin Connect synchronisiert.
           </p>
         </div>
       )}
@@ -572,8 +574,8 @@ export default function FitnessPage() {
       {uthChartData.length > 0 && (
         <div className="bg-card rounded-2xl border p-4">
           <SectionHeader
-            title={`Estimated VO2 Max (UTH Formula) — ${uthChartData.length} estimate${uthChartData.length === 1 ? "" : "s"} in ${chartDays}d`}
-            info="VO2max estimated using the Uth method: VO2max = 15.3 × (HRmax / HRrest). This formula uses only resting and max heart rate, so it can vary significantly day-to-day with resting HR fluctuations. Accuracy is ±5 mL/kg/min — useful as a rough baseline but not as reliable as Garmin's Firstbeat-based value. Citation: Uth N et al. (2004) Eur J Appl Physiol 91:111-115."
+            title={`Geschätzter VO2 Max (UTH-Methode) — ${uthChartData.length} Schätzung${uthChartData.length === 1 ? "" : "en"} in ${chartDays}d`}
+            info="VO2max geschätzt mit der Uth-Methode: VO2max = 15,3 × (HFmax / HFruhe). Diese Formel nutzt nur Ruhe- und Maximalpuls und kann daher durch Schwankungen des Ruhepulses stark tagesabhängig variieren. Genauigkeit ±5 ml/kg/min — nützlich als grobe Orientierung, aber weniger zuverlässig als Garmins Firstbeat-basierter Wert. Quelle: Uth N et al. (2004) Eur J Appl Physiol 91:111-115."
             className="mb-3"
           />
           <ResponsiveContainer width="100%" height={220}>
@@ -620,7 +622,7 @@ export default function FitnessPage() {
                 stroke="#f59e0b"
                 fill="url(#uthFill)"
                 strokeWidth={2}
-                name="UTH Estimate"
+                name="UTH-Schätzung"
                 dot={{ fill: "#f59e0b", r: 3 }}
               />
               {uthTrendlineData.length > 0 && (
@@ -645,8 +647,8 @@ export default function FitnessPage() {
         chartData.length > 0 && (
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title={`VO2max Trend — ${chartData.length} estimate${chartData.length === 1 ? "" : "s"} in ${chartDays}d`}
-              info="VO2max = maximum oxygen uptake, gold standard of cardiorespiratory fitness (mL/kg/min). Estimation methods: (1) Running: VO2 = 3.5 + 0.2×speed, VO2max = VO2/%HRR. (2) Uth ratio: 15.3 × maxHR/RHR. Trend uses linear regression. A 3.5 mL/kg/min gain reduces mortality risk ~15%. Citation: ACSM (2021), Uth et al. (2004)."
+              title={`VO2max-Trend — ${chartData.length} Schätzung${chartData.length === 1 ? "" : "en"} in ${chartDays}d`}
+              info="VO2max = maximale Sauerstoffaufnahme, der Goldstandard der kardiorespiratorischen Fitness (ml/kg/min). Schätzmethoden: (1) Laufen: VO2 = 3,5 + 0,2×Geschwindigkeit, VO2max = VO2/%HFR. (2) Uth-Verhältnis: 15,3 × maxHF/Ruhepuls. Der Trend nutzt lineare Regression. Ein Zugewinn von 3,5 ml/kg/min senkt das Mortalitätsrisiko um ~15 %. Quelle: ACSM (2021), Uth et al. (2004)."
               className="mb-3"
             />
             <ResponsiveContainer width="100%" height={220}>
@@ -674,7 +676,7 @@ export default function FitnessPage() {
                   tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                   width={44}
                   domain={["dataMin - 2", "dataMax + 2"]}
-                  tickFormatter={(v: number) => v.toFixed(1)}
+                  tickFormatter={(v: number) => fmtNum(v, 1)}
                 />
                 <Tooltip
                   contentStyle={{
@@ -723,35 +725,35 @@ export default function FitnessPage() {
       {latestVO2max && topPercent !== null && (
         <div className="bg-card rounded-2xl border p-4">
           <SectionHeader
-            title="Performance Comparison"
-            info="Compares your VO2max against age/sex population percentiles from ACSM normative data. Categories: Superior (top 5%), Excellent (top 20%), Good (top 40%), Fair (top 60%), Poor (bottom 40%). Method: Lookup in ACSM percentile tables by age bracket and sex. Citation: ACSM Guidelines for Exercise Testing (2021)."
+            title="Leistungsvergleich"
+            info="Vergleicht deinen VO2max mit alters-/geschlechtsspezifischen Bevölkerungsperzentilen aus ACSM-Normdaten. Kategorien: Hervorragend (Top 5 %), Sehr gut (Top 20 %), Gut (Top 40 %), Mittelmäßig (Top 60 %), Schwach (unterste 40 %). Methode: Abgleich mit ACSM-Perzentiltabellen nach Altersgruppe und Geschlecht. Quelle: ACSM Guidelines for Exercise Testing (2021)."
             className="mb-2"
           />
           <p className="text-sm">
-            Your VO2max of{" "}
+            Dein VO2max von{" "}
             <span className="font-bold text-blue-400">
-              {latestVO2max.value.toFixed(1)}
+              {fmtNum(latestVO2max.value, 1)}
             </span>{" "}
-            puts you in the{" "}
+            bringt dich in die{" "}
             {topPercent <= 50 ? (
               <span className="font-bold text-green-400">
-                top {topPercent}%
+                besten {topPercent} %
               </span>
             ) : (
               <span className="font-bold text-amber-400">
-                bottom {100 - topPercent}%
+                schlechtesten {100 - topPercent} %
               </span>
             )}{" "}
-            for your age group.
+            deiner Altersgruppe.
           </p>
           {/* Reference scale */}
           <div className="mt-3 flex gap-1">
             {[
-              { label: "Poor", cls: "bg-red-500/30", range: "<33" },
-              { label: "Fair", cls: "bg-yellow-500/30", range: "33-36" },
-              { label: "Good", cls: "bg-emerald-500/30", range: "37-41" },
-              { label: "Excellent", cls: "bg-green-500/30", range: "42-46" },
-              { label: "Superior", cls: "bg-blue-500/30", range: ">46" },
+              { label: "Schwach", cls: "bg-red-500/30", range: "<33" },
+              { label: "Mittelmäßig", cls: "bg-yellow-500/30", range: "33-36" },
+              { label: "Gut", cls: "bg-emerald-500/30", range: "37-41" },
+              { label: "Sehr gut", cls: "bg-green-500/30", range: "42-46" },
+              { label: "Hervorragend", cls: "bg-blue-500/30", range: ">46" },
             ].map((tier) => (
               <div
                 key={tier.label}
@@ -769,7 +771,7 @@ export default function FitnessPage() {
             ))}
           </div>
           <p className="text-muted-foreground mt-2 text-[10px]">
-            Reference: ACSM norms for males 30-39 (ml/kg/min)
+            Referenz: ACSM-Normwerte für Männer 30-39 (ml/kg/min)
           </p>
         </div>
       )}
@@ -777,8 +779,8 @@ export default function FitnessPage() {
       {/* ── Race Predictions ── */}
       <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
-          title="Race Predictions"
-          info="Estimated race times using simplified VDOT method. Formula: raceVO2 = VO2max × distance factor (5K: 95%, 10K: 90%, Half: 83%, Marathon: 78%). Time = distance / ((raceVO2 - 3.5) / 0.2). Assumes proper taper, pacing, and conditions. Citation: Daniels J (2013) Daniels' Running Formula."
+          title="Rennprognosen"
+          info="Geschätzte Rennzeiten nach vereinfachter VDOT-Methode. Formel: raceVO2 = VO2max × Distanzfaktor (5K: 95 %, 10K: 90 %, Halbmarathon: 83 %, Marathon: 78 %). Zeit = Distanz / ((raceVO2 - 3,5) / 0,2). Setzt geeignetes Tapering, Pacing und Bedingungen voraus. Quelle: Daniels J (2013) Daniels' Running Formula."
           className="mb-1"
         />
         {racePredictions.isLoading ? (
@@ -790,12 +792,12 @@ export default function FitnessPage() {
         ) : racePredictions.data && racePredictions.data.length > 0 ? (
           <>
             <p className="text-muted-foreground mb-3 text-xs">
-              Based on VO2max:{" "}
+              Basierend auf VO2max:{" "}
               <span className="font-semibold text-blue-400">
-                {racePredictions.data[0]?.vo2maxUsed?.toFixed(1) ?? "—"}
+                {fmtNum(racePredictions.data[0]?.vo2maxUsed, 1)}
               </span>
               <span className="text-muted-foreground ml-2">
-                · ±{ciPct}% confidence ({workoutCount90d} workouts/90d)
+                · ±{ciPct} % Konfidenz ({workoutCount90d} Workouts/90 Tage)
               </span>
             </p>
             <div className="space-y-2">
@@ -823,7 +825,7 @@ export default function FitnessPage() {
           </>
         ) : (
           <p className="text-muted-foreground py-4 text-center text-sm">
-            No race predictions available. Run data needed.
+            Keine Rennprognosen verfügbar. Laufdaten werden benötigt.
           </p>
         )}
       </div>
@@ -832,8 +834,8 @@ export default function FitnessPage() {
       {raceHistory.length > 0 && (
         <div className="bg-card rounded-2xl border p-4">
           <SectionHeader
-            title="Race History Comparison"
-            info="Actual times from recent running activities matched against predicted times. Positive deviation = slower than predicted. Negative = faster."
+            title="Rennhistorie im Vergleich"
+            info="Tatsächliche Zeiten aus letzten Laufaktivitäten, abgeglichen mit den prognostizierten Zeiten. Positive Abweichung = langsamer als prognostiziert. Negativ = schneller."
             className="mb-3"
           />
           <div className="space-y-2">
@@ -853,10 +855,10 @@ export default function FitnessPage() {
                       "text-xs font-medium",
                       r.diff > 0 ? "text-red-400" : "text-green-400",
                     )}
-                    title="Difference between your actual finish time and the VO2max-based predicted time. Positive means slower than predicted; negative means faster."
-                    aria-label={`${r.diffFmt} versus predicted ${r.predicted}. Positive means slower than predicted; negative means faster.`}
+                    title="Differenz zwischen deiner tatsächlichen Zielzeit und der VO2max-basierten Prognose. Positiv bedeutet langsamer als prognostiziert; negativ bedeutet schneller."
+                    aria-label={`${r.diffFmt} gegenüber Prognose ${r.predicted}. Positiv bedeutet langsamer als prognostiziert; negativ bedeutet schneller.`}
                   >
-                    {r.diffFmt} vs predicted {r.predicted}
+                    {r.diffFmt} vs. Prognose {r.predicted}
                   </p>
                 </div>
               </div>
@@ -869,8 +871,8 @@ export default function FitnessPage() {
       {latestVO2max && (
         <div className="bg-card rounded-2xl border p-4">
           <SectionHeader
-            title="Training Pace Recommendations"
-            info="Daniels VDOT-based pace zones derived from current VO2max. Simplified model: speed (m/min) = (VO2 - 3.5) / 0.2. Easy = 60-65% VO2max, Marathon = 83%, Threshold = 88-92%, Interval = 95-100%. Citation: Daniels J (2013) Daniels' Running Formula."
+            title="Trainingstempo-Empfehlungen"
+            info="Daniels-VDOT-basierte Tempozonen, abgeleitet vom aktuellen VO2max. Vereinfachtes Modell: Geschwindigkeit (m/min) = (VO2 - 3,5) / 0,2. Easy = 60-65 % VO2max, Marathon = 83 %, Threshold = 88-92 %, Intervall = 95-100 %. Quelle: Daniels J (2013) Daniels' Running Formula."
             className="mb-3"
           />
           <div className="space-y-2">
@@ -879,25 +881,25 @@ export default function FitnessPage() {
                 label: "Easy",
                 emoji: "🟦",
                 fraction: 0.63,
-                info: "60-65% VO2max",
+                info: "60-65 % VO2max",
               },
               {
                 label: "Marathon",
                 emoji: "🟩",
                 fraction: 0.83,
-                info: "83% VO2max",
+                info: "83 % VO2max",
               },
               {
                 label: "Threshold",
                 emoji: "🟨",
                 fraction: 0.9,
-                info: "88-92% VO2max",
+                info: "88-92 % VO2max",
               },
               {
-                label: "Interval",
+                label: "Intervall",
                 emoji: "🟥",
                 fraction: 0.975,
-                info: "95-100% VO2max",
+                info: "95-100 % VO2max",
               },
             ].map((zone) => (
               <div
@@ -923,8 +925,8 @@ export default function FitnessPage() {
       {latestVO2max && (
         <div className="bg-card rounded-2xl border p-4">
           <SectionHeader
-            title="Running Shape"
-            info="Composite score (0–100) based on: VO2max trend (+20 improving, -10 declining), training volume (up to +20), ACWR health (±10-20). Base: 50."
+            title="Laufform"
+            info="Zusammengesetzter Score (0–100), basierend auf: VO2max-Trend (+20 steigend, -10 sinkend), Trainingsumfang (bis zu +20), ACWR-Gesundheit (±10-20). Basis: 50."
             className="mb-3"
           />
           <div className="space-y-2">
@@ -955,12 +957,12 @@ export default function FitnessPage() {
               )}
             >
               {runningShape >= 80
-                ? "Peak Shape"
+                ? "Top-Form"
                 : runningShape >= 65
-                  ? "Good Shape"
+                  ? "Gute Form"
                   : runningShape >= 50
-                    ? "Building"
-                    : "Off-form"}
+                    ? "Im Aufbau"
+                    : "Außer Form"}
             </p>
           </div>
         </div>
@@ -971,7 +973,7 @@ export default function FitnessPage() {
         <div className="flex items-center justify-between">
           <SectionHeader
             title="Training Status"
-            info="Current training state from load trends + fitness trajectory. Categories: Productive (high load + VO2max improving), Maintaining (balanced), Overreaching (high load + declining), Peaking (reduced volume + stable), Detraining (low load + declining), Recovery (low load + improving). Method: CTL/ATL slopes + VO2max trend. Citation: Meeusen et al. (2013) ECSS Overtraining Consensus."
+            info="Aktueller Trainingszustand aus Belastungstrends + Fitnessverlauf. Kategorien: Productive (hohe Belastung + steigender VO2max), Maintaining (ausgeglichen), Overreaching (hohe Belastung + sinkend), Peaking (reduzierter Umfang + stabil), Detraining (niedrige Belastung + sinkend), Recovery (niedrige Belastung + steigend). Methode: CTL/ATL-Verlauf + VO2max-Trend. Quelle: Meeusen et al. (2013) ECSS Overtraining Consensus."
           />
           {trainingStatus.data ? (
             <span
@@ -1003,7 +1005,7 @@ export default function FitnessPage() {
           </div>
         ) : (
           <p className="text-muted-foreground mt-3 text-sm">
-            Not enough training data to determine status.
+            Nicht genug Trainingsdaten, um den Status zu bestimmen.
           </p>
         )}
       </div>

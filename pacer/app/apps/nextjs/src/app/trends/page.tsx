@@ -17,6 +17,7 @@ import { cn } from "@acme/ui";
 
 import { IngressLink as Link } from "~/app/_components/ingress-link";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
+import { fmtDelta, fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
@@ -29,11 +30,11 @@ import { SectionHeader } from "../_components/info-button";
 type Period = "7d" | "28d" | "90d" | "180d" | "365d";
 
 const PERIODS: { value: Period; label: string; days: number }[] = [
-  { value: "7d", label: "7 D", days: 7 },
-  { value: "28d", label: "28 D", days: 28 },
-  { value: "90d", label: "90 D", days: 90 },
-  { value: "180d", label: "180 D", days: 180 },
-  { value: "365d", label: "1 Y", days: 365 },
+  { value: "7d", label: "7 T", days: 7 },
+  { value: "28d", label: "28 T", days: 28 },
+  { value: "90d", label: "90 T", days: 90 },
+  { value: "180d", label: "180 T", days: 180 },
+  { value: "365d", label: "1 J", days: 365 },
 ];
 
 const METRIC_COLORS: Record<string, string> = {
@@ -47,34 +48,54 @@ const METRIC_COLORS: Record<string, string> = {
 
 const METRIC_LABELS: Record<string, string> = {
   readiness: "Readiness",
-  sleep: "Sleep",
-  sleep_duration: "Sleep Duration",
+  sleep: "Schlaf",
+  sleep_duration: "Schlafdauer",
   sleep_score: "Sleep Score",
   hrv: "HRV",
-  next_day_hrv: "Next-Day HRV",
+  next_day_hrv: "HRV am Folgetag",
   strain: "Strain",
-  restingHr: "Resting HR",
-  resting_hr: "Resting HR",
+  restingHr: "Ruhepuls",
+  resting_hr: "Ruhepuls",
   stress: "Stress",
-  avg_stress: "Avg Stress",
-  steps: "Steps",
+  avg_stress: "Ø Stress",
+  steps: "Schritte",
   body_battery: "Body Battery",
   spo2: "SpO₂",
-  respiration_rate: "Respiration",
+  respiration_rate: "Atemfrequenz",
   training_load: "Training Load",
   tsb: "Form (TSB)",
   ctl: "Fitness (CTL)",
-  atl: "Fatigue (ATL)",
+  atl: "Ermüdung (ATL)",
   acwr: "ACWR",
 };
 
 const TREND_CATEGORY_LABELS: Record<string, string> = {
-  "🔥": "Load",
-  "📊": "Data",
+  "🔥": "Last",
+  "📊": "Daten",
   "💪": "Training",
-  "🩺": "Health",
-  "🌙": "Sleep",
-  "😴": "Recovery",
+  "🩺": "Gesundheit",
+  "🌙": "Schlaf",
+  "😴": "Erholung",
+};
+
+// Display-only translations for API enum values. Never used for
+// comparisons — the underlying English enum values (t.significance,
+// c.strength, c.direction) stay untouched everywhere else.
+const SIGNIFICANCE_LABELS: Record<string, string> = {
+  high: "hohe",
+  medium: "mittlere",
+  low: "geringe",
+};
+
+const STRENGTH_LABELS: Record<string, string> = {
+  strong: "stark",
+  moderate: "moderat",
+  weak: "schwach",
+};
+
+const CORRELATION_DIRECTION_LABELS: Record<string, string> = {
+  positive: "positiv",
+  negative: "negativ",
 };
 
 function prettyMetric(key: string): string {
@@ -371,10 +392,10 @@ export default function TrendsPage() {
     <PageShell density="data">
       {/* Header (custom: pl-12 clears the fixed mobile hamburger button) */}
       <div className="mb-8">
-        <h1 className="pl-12 text-2xl font-bold">Trends &amp; Analytics</h1>
+        <h1 className="pl-12 text-2xl font-bold">Trends &amp; Analysen</h1>
         <p className="text-muted-foreground text-sm">
-          {PERIODS.find((x) => x.value === period)?.label ?? period} overview
-          {useSmoothed ? " · 7-day rolling avg" : ""}
+          Übersicht – {PERIODS.find((x) => x.value === period)?.label ?? period}
+          {useSmoothed ? " · 7-Tage gleitender Durchschnitt" : ""}
         </p>
       </div>
 
@@ -413,26 +434,26 @@ export default function TrendsPage() {
       ) : s ? (
         <div className="grid-metrics">
           <SummaryCard
-            label="Avg Readiness"
+            label="Ø Readiness"
             value={s.avgReadiness != null ? String(s.avgReadiness) : "—"}
             trend={trendReadiness.data}
             color={METRIC_COLORS.readiness!}
           />
           <SummaryCard
-            label="Avg Sleep"
+            label="Ø Schlaf"
             value={formatSleep(s.avgSleepMinutes)}
             trend={trendSleep.data}
             color={METRIC_COLORS.sleep!}
           />
           <SummaryCard
-            label="Avg HRV"
+            label="Ø HRV"
             value={s.avgHrv != null ? String(s.avgHrv) : "—"}
             suffix="ms"
             trend={trendHrv.data}
             color={METRIC_COLORS.hrv!}
           />
           <SummaryCard
-            label="Avg Stress"
+            label="Ø Stress"
             value={s.avgStress != null ? String(s.avgStress) : "—"}
             trend={trendStrain.data}
             color={METRIC_COLORS.strain!}
@@ -444,15 +465,15 @@ export default function TrendsPage() {
       <div className="grid-panels">
       <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
-          title="Multi-Metric Trend"
-          info="Overlay chart of multiple health metrics on a shared timeline. Toggle metrics to spot correlations — e.g., does RHR drop when sleep improves? Method: Daily values from dailyMetrics table with configurable 7-day or 14-day rolling averages. Normalized to common scale for visual comparison."
+          title="Multi-Metrik-Trend"
+          info="Overlay-Diagramm mehrerer Gesundheitskennzahlen auf einer gemeinsamen Zeitachse. Blende Kennzahlen ein oder aus, um Zusammenhänge zu erkennen — sinkt z. B. der Ruhepuls, wenn sich der Schlaf verbessert? Methode: Tageswerte aus der dailyMetrics-Tabelle mit einstellbarem 7- oder 14-Tage gleitendem Durchschnitt. Normalisiert auf eine gemeinsame Skala zum visuellen Vergleich."
           className="mb-4"
         />
         {chartLoading ? (
           <div className="bg-muted h-64 animate-pulse rounded-lg" />
         ) : chartData.length === 0 ? (
           <p className="text-muted-foreground py-12 text-center text-sm">
-            No data yet
+            Noch keine Daten
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={280}>
@@ -542,7 +563,7 @@ export default function TrendsPage() {
                   const v = value as number;
                   const n = name as string;
                   if (n === "sleep" && v != null)
-                    return [formatSleep(v), "Sleep"];
+                    return [formatSleep(v), "Schlaf"];
                   if (n === "hrv" && v != null)
                     return [`${Math.round(v)} ms`, "HRV"];
                   if (n === "readiness" && v != null)
@@ -609,8 +630,8 @@ export default function TrendsPage() {
       {/* ---- Trend Analysis Cards ---- */}
       <div>
         <SectionHeader
-          title="Trend Analysis"
-          info="Statistical direction and strength of change for each metric. Method: Linear regression (y = mx + b) over selected period. R² indicates trend reliability. Arrows show direction; percentage shows magnitude. Longer periods give more reliable trends. Citation: Standard statistical regression analysis."
+          title="Trend-Analyse"
+          info="Statistische Richtung und Stärke der Veränderung je Kennzahl. Methode: Lineare Regression (y = mx + b) über den gewählten Zeitraum. R² gibt die Zuverlässigkeit des Trends an. Pfeile zeigen die Richtung, der Prozentwert die Stärke. Längere Zeiträume liefern zuverlässigere Trends. Quelle: Standardmäßige statistische Regressionsanalyse."
           className="mb-3"
         />
         <div className="grid-metrics">
@@ -644,11 +665,10 @@ export default function TrendsPage() {
                       )}
                     >
                       {directionArrow(t.direction)}{" "}
-                      {t.rateOfChange >= 0 ? "+" : ""}
-                      {t.rateOfChange.toFixed(1)}/wk
+                      {fmtDelta(t.rateOfChange, 1)}/Wo.
                     </p>
                     <p className="text-muted-foreground mt-1 text-xs">
-                      {Math.abs(t.percentChange).toFixed(1)}% change ·{" "}
+                      {fmtNum(Math.abs(t.percentChange), 1)} % Veränderung ·{" "}
                       <span
                         className={cn(
                           t.significance === "high"
@@ -658,13 +678,15 @@ export default function TrendsPage() {
                               : "text-muted-foreground",
                         )}
                       >
-                        {t.significance} significance
+                        {SIGNIFICANCE_LABELS[t.significance] ??
+                          t.significance}{" "}
+                        Signifikanz
                       </span>
                     </p>
                   </>
                 ) : (
                   <p className="text-muted-foreground mt-2 text-xs">
-                    Not enough data
+                    Nicht genug Daten
                   </p>
                 )}
               </div>
@@ -676,8 +698,8 @@ export default function TrendsPage() {
       {/* ---- Notable Changes ---- */}
       <div>
         <SectionHeader
-          title="Notable Changes"
-          info="Highlights significant metric changes exceeding normal variation. Method: Z-score analysis — flags values where |z| > 2 standard deviations from your 30-day personal baseline. Not day-to-day noise but statistically meaningful shifts. Citation: Buchheit M (2014) Individual z-score monitoring."
+          title="Auffällige Veränderungen"
+          info="Hebt signifikante Veränderungen hervor, die über die normale Schwankung hinausgehen. Methode: Z-Score-Analyse — markiert Werte, bei denen |z| > 2 Standardabweichungen von deiner persönlichen 30-Tage-Baseline liegt. Kein Tagesrauschen, sondern statistisch bedeutsame Verschiebungen. Quelle: Buchheit M (2014), individuelles Z-Score-Monitoring."
           className="mb-3"
         />
         {notableChanges.isLoading ? (
@@ -692,7 +714,8 @@ export default function TrendsPage() {
         ) : (notableChanges.data ?? []).length === 0 ? (
           <div className="bg-card rounded-xl border p-4">
             <p className="text-muted-foreground text-sm">
-              No significant shifts detected in this period.
+              In diesem Zeitraum wurden keine signifikanten Verschiebungen
+              festgestellt.
             </p>
           </div>
         ) : (
@@ -713,11 +736,11 @@ export default function TrendsPage() {
                   <div className="text-muted-foreground mt-0.5 w-16 shrink-0 text-xs font-medium">
                     <div>
                       {isToday(nc.date)
-                        ? "Today"
+                        ? "Heute"
                         : formatDate(nc.date, timezone)}
                     </div>
                     <div className="text-[10px] font-normal">
-                      week-over-week
+                      im Wochenvergleich
                     </div>
                   </div>
                   <div className="min-w-0 flex-1">
@@ -725,8 +748,8 @@ export default function TrendsPage() {
                       {category && (
                         <span
                           className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px]"
-                          title={`${category.label} category`}
-                          aria-label={`${category.label} category`}
+                          title={`Kategorie: ${category.label}`}
+                          aria-label={`Kategorie: ${category.label}`}
                         >
                           <span aria-hidden="true">{category.emoji}</span>{" "}
                           {category.label}
@@ -741,10 +764,9 @@ export default function TrendsPage() {
                         "text-xs font-medium",
                         nc.change > 0 ? "text-green-400" : "text-red-400",
                       )}
-                      title="Week-over-week percent change (current 7-day avg vs previous 7-day avg)."
+                      title="Prozentuale Veränderung im Wochenvergleich (aktueller 7-Tage-Schnitt gegenüber vorherigem 7-Tage-Schnitt)."
                     >
-                      {nc.change > 0 ? "+" : ""}
-                      {nc.change.toFixed(1)}% vs prev week
+                      {fmtDelta(nc.change, 1)} % ggü. Vorwoche
                     </p>
                   </div>
                 </div>
@@ -758,8 +780,8 @@ export default function TrendsPage() {
       {days >= 28 && (
         <div>
           <SectionHeader
-            title="Correlation Insights"
-            info="Shows which metrics move together (positive r) or inversely (negative r). Method: Pearson correlation coefficient between metric pairs over the selected period. Strong correlations (|r| > 0.5) suggest meaningful relationships. Correlation ≠ causation, but consistent patterns are informative. Citation: Cohen J (1988) Statistical Power Analysis."
+            title="Korrelations-Insights"
+            info="Zeigt, welche Kennzahlen sich gleichläufig (positives r) oder gegenläufig (negatives r) entwickeln. Methode: Pearson-Korrelationskoeffizient zwischen Kennzahlenpaaren über den gewählten Zeitraum. Starke Korrelationen (|r| > 0,5) deuten auf bedeutsame Zusammenhänge hin. Korrelation ≠ Kausalität, aber konsistente Muster liefern nützliche Hinweise. Quelle: Cohen J (1988), Statistical Power Analysis."
             className="mb-3"
           />
           {correlations.isLoading ? (
@@ -774,8 +796,9 @@ export default function TrendsPage() {
           ) : topCorrelations.length === 0 ? (
             <div className="bg-card rounded-xl border p-4">
               <p className="text-muted-foreground text-sm">
-                No statistically significant correlations yet (p &lt; 0.05).
-                More data will surface relationships as patterns emerge.
+                Noch keine statistisch signifikanten Korrelationen (p &lt;
+                0,05). Mit mehr Daten werden sich Zusammenhänge zeigen, sobald
+                sich Muster abzeichnen.
               </p>
             </div>
           ) : (
@@ -802,11 +825,13 @@ export default function TrendsPage() {
                             : "bg-muted text-muted-foreground",
                       )}
                     >
-                      {c.strength}
+                      {STRENGTH_LABELS[c.strength] ?? c.strength}
                     </span>
                   </div>
                   <p className="text-muted-foreground mt-1 text-xs">
-                    r = {c.rValue.toFixed(2)} · {c.direction} · n={c.sampleSize}
+                    r = {fmtNum(c.rValue, 2)} ·{" "}
+                    {CORRELATION_DIRECTION_LABELS[c.direction] ?? c.direction}{" "}
+                    · n={c.sampleSize}
                   </p>
                   {c.insight && (
                     <p className="text-foreground mt-1 text-xs">
@@ -823,7 +848,7 @@ export default function TrendsPage() {
       {/* ---- Bottom nav link ---- */}
       <div className="pt-2 text-center">
         <Link href="/" className="text-primary text-sm hover:underline">
-          ← Back to Home
+          ← Zurück zur Startseite
         </Link>
       </div>
 

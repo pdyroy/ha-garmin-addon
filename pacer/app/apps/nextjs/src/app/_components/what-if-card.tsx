@@ -21,9 +21,9 @@ interface Outcome {
 
 const FLAG_STYLE: Record<Outcome["acwrFlag"], { label: string; cls: string }> =
   {
-    safe: { label: "Safe load", cls: "text-emerald-400" },
-    caution: { label: "Watch load", cls: "text-amber-400" },
-    high: { label: "High risk", cls: "text-rose-400" },
+    safe: { label: "Unbedenkliche Last", cls: "text-emerald-400" },
+    caution: { label: "Last beobachten", cls: "text-amber-400" },
+    high: { label: "Hohes Risiko", cls: "text-rose-400" },
   };
 
 function tsbSign(tsb: number): string {
@@ -57,11 +57,13 @@ export function WhatIfCard() {
     <section className="bg-card rounded-2xl border p-5 shadow-sm">
       <div>
         <p className="text-muted-foreground text-sm font-medium">
-          Plan your day
+          Plane deinen Tag
         </p>
-        <h2 className="mt-1 text-xl font-semibold">What if I train today?</h2>
+        <h2 className="mt-1 text-xl font-semibold">
+          Was, wenn ich heute trainiere?
+        </h2>
         <p className="text-muted-foreground mt-1 text-xs">
-          Form &amp; injury-risk seven days out for each choice.
+          Form &amp; Verletzungsrisiko sieben Tage voraus für jede Wahl.
         </p>
       </div>
 
@@ -85,7 +87,7 @@ export function WhatIfCard() {
                   {o.label}
                   {isSafest ? (
                     <span className="ml-2 text-[10px] font-semibold tracking-wider text-emerald-400 uppercase">
-                      best form
+                      beste Form
                     </span>
                   ) : null}
                 </span>
@@ -95,13 +97,13 @@ export function WhatIfCard() {
               </div>
               <div className="text-muted-foreground mt-1 flex items-center gap-4 text-[11px] tabular-nums">
                 <span>
-                  Tomorrow form{" "}
+                  Form morgen{" "}
                   <span className="text-foreground font-semibold">
                     {tsbSign(o.tomorrow.tsb)}
                   </span>
                 </span>
                 <span>
-                  In 7d{" "}
+                  In 7 T.{" "}
                   <span className="text-foreground font-semibold">
                     {tsbSign(o.endOfHorizon.tsb)}
                   </span>
@@ -119,8 +121,8 @@ export function WhatIfCard() {
       </ul>
 
       <p className="text-muted-foreground mt-3 text-[11px]">
-        Higher form (TSB) means fresher; ACWR above 1.3–1.5 raises injury risk.
-        A planning aid, not medical advice.
+        Höhere Form (TSB) bedeutet frischer; ACWR über 1,3–1,5 erhöht das
+        Verletzungsrisiko. Eine Planungshilfe, kein medizinischer Rat.
       </p>
     </section>
   );

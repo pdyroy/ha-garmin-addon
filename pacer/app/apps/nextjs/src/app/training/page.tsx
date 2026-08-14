@@ -23,6 +23,7 @@ import {
 import { cn } from "@acme/ui";
 
 import { PageShell } from "~/components/page-shell";
+import { fmtDelta, fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { DataFreshness } from "../_components/data-freshness";
@@ -181,7 +182,7 @@ export default function TrainingLoadPage() {
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <SectionHeader
               title="Performance Management Chart"
-              info="CTL (Chronic Training Load) = fitness built over 42 days. ATL (Acute Training Load) = fatigue over 7 days. TSB (Training Stress Balance) = CTL - ATL = form. ACWR (Acute:Chronic Workload Ratio) = diese Woche gegen die 21 Tage davor, beschreibend ohne Risikoschwelle. Citation: Banister (1991)."
+              info="CTL (Chronic Training Load) = über 42 Tage aufgebaute Fitness. ATL (Acute Training Load) = Ermüdung über 7 Tage. TSB (Training Stress Balance) = CTL - ATL = Form. ACWR (Acute:Chronic Workload Ratio) = diese Woche gegen die 21 Tage davor, beschreibend ohne Risikoschwelle. Quelle: Banister (1991)."
             />
             <DateRangeSelector
               value={pmcDays}
@@ -247,9 +248,9 @@ export default function TrainingLoadPage() {
                     const n = String(name);
                     if (n === "ACWR") {
                       const s = acwrStatus(v);
-                      return `${v.toFixed(2)} (${s.label})`;
+                      return `${fmtNum(v, 2)} (${s.label})`;
                     }
-                    return !isNaN(v) ? v.toFixed(1) : String(value);
+                    return !isNaN(v) ? fmtNum(v, 1) : String(value);
                   }}
                   labelFormatter={(label, payload) => {
                     const p = payload?.[0]?.payload as
@@ -323,7 +324,8 @@ export default function TrainingLoadPage() {
             </ResponsiveContainer>
           ) : (
             <p className="text-muted-foreground py-8 text-center text-sm">
-              No PMC data yet. Complete some workouts to see your chart.
+              Noch keine PMC-Daten. Schließe ein paar Workouts ab, um dein
+              Diagramm zu sehen.
             </p>
           )}
 
@@ -331,9 +333,9 @@ export default function TrainingLoadPage() {
           <div className="mt-2 flex flex-wrap gap-3 text-[10px]">
             {[
               { color: "#60a5fa", label: "CTL (Fitness)" },
-              { color: "#c084fc", label: "ATL (Fatigue)" },
+              { color: "#c084fc", label: "ATL (Ermüdung)" },
               { color: "#4ade80", label: "TSB (Form)" },
-              { color: "#fb923c", label: "ACWR (right)" },
+              { color: "#fb923c", label: "ACWR (rechts)" },
             ].map((l) => (
               <span key={l.label} className="flex items-center gap-1">
                 <span
@@ -362,18 +364,18 @@ export default function TrainingLoadPage() {
               <div className="bg-muted h-12 animate-pulse rounded-lg" />
             ) : (
               <p className="text-muted-foreground py-4 text-center text-sm">
-                No data yet
+                Noch keine Daten
               </p>
             )}
           </div>
 
           <div className="bg-card rounded-2xl border p-4">
-            <h3 className="mb-3 text-sm font-semibold">Risk Zone Legend</h3>
+            <h3 className="mb-3 text-sm font-semibold">ACWR-Bereiche</h3>
             <div className="flex flex-wrap gap-3 text-xs">
               <span className="flex items-center gap-1.5">
                 <span className="text-base">⚫</span>
                 <span className="text-muted-foreground">
-                  &lt;0.8 — Under-training
+                  &lt;0,8 — unter dem Durchschnitt
                 </span>
               </span>
               <span className="text-muted-foreground">
@@ -389,8 +391,8 @@ export default function TrainingLoadPage() {
         <div className="grid-panels">
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title="Training Strain — 42 Day Trend"
-              info="Activity-based training strain (0–21 scale) computed from TRIMP (Training Impulse). Measures cardiovascular load per workout using HR zones. Higher = harder session. Based on Banister (1991) exponential HR model. Different from Garmin Stress — this tracks workout intensity, not body stress."
+              title="Training Strain — 42-Tage-Trend"
+              info="Aktivitätsbasierter Trainings-Strain (Skala 0–21), berechnet aus TRIMP (Training Impulse). Misst die kardiovaskuläre Belastung pro Workout anhand der HF-Zonen. Höher = härtere Einheit. Basiert auf dem exponentiellen HF-Modell von Banister (1991). Unterscheidet sich von Garmin Stress — hier wird die Workout-Intensität erfasst, nicht der Körperstress."
               className="mb-3"
             />
             {strainChart.isLoading ? (
@@ -437,15 +439,16 @@ export default function TrainingLoadPage() {
               </ResponsiveContainer>
             ) : (
               <p className="text-muted-foreground py-8 text-center text-sm">
-                No training strain data — complete a workout with HR to populate
+                Noch keine Trainings-Strain-Daten — absolviere ein Workout mit
+                Herzfrequenzmessung, um sie zu befüllen
               </p>
             )}
           </div>
 
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title="Body Stress — 42 Day Trend"
-              info="Garmin daily stress score (0–100) derived from heart rate variability. Lower = calmer, higher = more stressed. Shows how your body handles training + life stress over 6 weeks. Useful for detecting accumulated fatigue before it becomes overtraining."
+              title="Body Stress — 42-Tage-Trend"
+              info="Garmins täglicher Stress-Score (0–100), abgeleitet aus der Herzfrequenzvariabilität (HRV). Niedriger = ruhiger, höher = gestresster. Zeigt über 6 Wochen, wie dein Körper mit Training und Alltagsstress umgeht. Nützlich, um angesammelte Ermüdung zu erkennen, bevor daraus Übertraining wird."
               className="mb-3"
             />
             {stressChart.isLoading ? (
@@ -487,7 +490,7 @@ export default function TrainingLoadPage() {
               </ResponsiveContainer>
             ) : (
               <p className="text-muted-foreground py-8 text-center text-sm">
-                No stress data yet
+                Noch keine Stressdaten
               </p>
             )}
           </div>
@@ -511,26 +514,26 @@ export default function TrainingLoadPage() {
             {/* CTL */}
             <div className="bg-card rounded-xl border p-4 text-center">
               <p className="text-2xl font-bold text-blue-500">
-                {loads.data.ctl.toFixed(1)}
+                {fmtNum(loads.data.ctl, 1)}
               </p>
               <p className="text-muted-foreground mt-1 text-xs">
                 CTL — Fitness
               </p>
               <p className="text-muted-foreground mt-0.5 text-[10px]">
-                42-day chronic load
+                42 Tage chronische Last
               </p>
             </div>
 
             {/* ATL */}
             <div className="bg-card rounded-xl border p-4 text-center">
               <p className="text-2xl font-bold text-red-500">
-                {loads.data.atl.toFixed(1)}
+                {fmtNum(loads.data.atl, 1)}
               </p>
               <p className="text-muted-foreground mt-1 text-xs">
-                ATL — Fatigue
+                ATL — Ermüdung
               </p>
               <p className="text-muted-foreground mt-0.5 text-[10px]">
-                7-day acute load
+                7 Tage akute Last
               </p>
             </div>
 
@@ -542,12 +545,11 @@ export default function TrainingLoadPage() {
                   loads.data.tsb >= 0 ? "text-green-500" : "text-red-500",
                 )}
               >
-                {loads.data.tsb >= 0 ? "+" : ""}
-                {loads.data.tsb.toFixed(1)}
+                {fmtDelta(loads.data.tsb, 1)}
               </p>
               <p className="text-muted-foreground mt-1 text-xs">TSB — Form</p>
               <p className="text-muted-foreground mt-0.5 text-[10px]">
-                {loads.data.tsb >= 0 ? "Fresh" : "Fatigued"}
+                {loads.data.tsb >= 0 ? "Frisch" : "Ermüdet"}
               </p>
             </div>
 
@@ -561,11 +563,11 @@ export default function TrainingLoadPage() {
                     : "text-foreground",
                 )}
               >
-                {loads.data.rampRate.toFixed(1)}
+                {fmtNum(loads.data.rampRate, 1)}
               </p>
               <p className="text-muted-foreground mt-1 text-xs">Ramp Rate</p>
               <p className="text-muted-foreground mt-0.5 text-[10px]">
-                {loads.data.rampRate > 8 ? "⚠ steiler Aufbau" : "pts/week"}
+                {loads.data.rampRate > 8 ? "⚠ steiler Aufbau" : "Pkt./Woche"}
               </p>
             </div>
           </div>
@@ -576,7 +578,7 @@ export default function TrainingLoadPage() {
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
               title="Load Focus"
-              info="Balance between training intensities derived from zone distribution of recent activities. Shows percentage split between aerobic (Z1-2), threshold (Z3), and high-intensity (Z4-5) work. Endurance athletes should see >70% aerobic. Method: Zone minute aggregation over selected period."
+              info="Balance zwischen den Trainingsintensitäten, abgeleitet aus der Zonenverteilung der letzten Aktivitäten. Zeigt die prozentuale Aufteilung zwischen aerob (Z1–2), Threshold (Z3) und hochintensiv (Z4–5). Ausdauersportler sollten >70 % aerob liegen. Methode: Aggregation der Zonenminuten über den gewählten Zeitraum."
               className="mb-3"
             />
             {loads.isLoading ? (
@@ -587,15 +589,15 @@ export default function TrainingLoadPage() {
               <LoadFocusChart focus={loads.data.loadFocus} />
             ) : (
               <p className="text-muted-foreground py-4 text-center text-sm">
-                No data yet
+                Noch keine Daten
               </p>
             )}
           </div>
 
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title="Recovery Estimate"
-              info="Estimated hours until full recovery based on recent strain, sleep quality, HRV trend, and resting heart rate. Higher strain + poor sleep = longer recovery. Light Zone 1 activity during recovery promotes blood flow and speeds adaptation. Method: Composite of TRIMP decay + recovery markers."
+              title="Erholungsschätzung"
+              info="Geschätzte Stunden bis zur vollständigen Erholung, basierend auf aktuellem Strain, Schlafqualität, HRV-Trend und Ruhepuls. Höherer Strain + schlechter Schlaf = längere Erholung. Leichte Zone-1-Aktivität während der Erholung fördert die Durchblutung und beschleunigt die Anpassung. Methode: Kombination aus TRIMP-Abklingrate und Erholungsmarkern."
               className="mb-3"
             />
             {recovery.isLoading ? (
@@ -608,7 +610,7 @@ export default function TrainingLoadPage() {
                 <p className="text-center text-3xl font-bold">
                   {recovery.data.hoursUntilRecovered}
                   <span className="text-muted-foreground ml-1 text-base font-normal">
-                    hours
+                    Stunden
                   </span>
                 </p>
                 {recovery.data.factors.length > 0 && (
@@ -626,7 +628,7 @@ export default function TrainingLoadPage() {
               </div>
             ) : (
               <p className="text-muted-foreground py-4 text-center text-sm">
-                No data yet
+                Noch keine Daten
               </p>
             )}
           </div>
@@ -636,8 +638,8 @@ export default function TrainingLoadPage() {
         <div className="grid-panels">
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title="Daily Strain — Last 14 Days"
-              info="Activity training strain (0–21) per day over the past 2 weeks. Computed from TRIMP (HR zone intensity × duration). Shows max strain per day. Days without workouts won't appear. Compare with Body Stress below to see how training load affects recovery."
+              title="Täglicher Strain — Letzte 14 Tage"
+              info="Trainings-Strain (0–21) pro Tag über die letzten 2 Wochen. Berechnet aus TRIMP (HF-Zonen-Intensität × Dauer). Zeigt den maximalen Strain pro Tag. Tage ohne Workouts erscheinen nicht. Vergleiche mit Body Stress unten, um zu sehen, wie sich die Trainingsbelastung auf die Erholung auswirkt."
               className="mb-3"
             />
             {recentStrain.isLoading ? (
@@ -675,15 +677,16 @@ export default function TrainingLoadPage() {
               </ResponsiveContainer>
             ) : (
               <p className="text-muted-foreground py-8 text-center text-sm">
-                No training strain data — workouts with HR needed
+                Noch keine Trainings-Strain-Daten — Workouts mit
+                Herzfrequenzmessung nötig
               </p>
             )}
           </div>
 
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title="Daily Stress — Last 14 Days"
-              info="Garmin daily stress score (0–100) over the past 2 weeks. Derived from HRV analysis. High values on rest days may indicate incomplete recovery, illness, or life stress. Look for a downward trend after deload weeks."
+              title="Täglicher Stress — Letzte 14 Tage"
+              info="Garmins täglicher Stress-Score (0–100) über die letzten 2 Wochen. Abgeleitet aus der HRV-Analyse. Hohe Werte an Ruhetagen können auf unvollständige Erholung, Krankheit oder Alltagsstress hindeuten. Achte auf einen Abwärtstrend nach Deload-Wochen."
               className="mb-3"
             />
             {recentStress.isLoading ? (
@@ -715,7 +718,7 @@ export default function TrainingLoadPage() {
               </ResponsiveContainer>
             ) : (
               <p className="text-muted-foreground py-8 text-center text-sm">
-                No stress data yet
+                Noch keine Stressdaten
               </p>
             )}
           </div>
@@ -725,8 +728,8 @@ export default function TrainingLoadPage() {
         {status.data?.recommendation && (
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title="Recommendation"
-              info="AI-generated training recommendation combining: ACWR (Lastverhältnis), TSB (freshness = CTL - ATL), sleep quality score, and recent strain pattern. Suggests push/maintain/rest based on composite readiness. Method: Rule-based engine with sport science thresholds."
+              title="Empfehlung"
+              info="KI-generierte Trainingsempfehlung, kombiniert aus: ACWR (Lastverhältnis), TSB (Frische = CTL - ATL), Schlafqualitäts-Score und aktuellem Strain-Muster. Schlägt intensivieren/halten/ruhen vor, basierend auf der zusammengesetzten Readiness. Methode: Regelbasierte Engine mit sportwissenschaftlichen Schwellenwerten."
               className="mb-2"
             />
             <p className="text-sm leading-relaxed">
@@ -777,7 +780,7 @@ function ACWRGaugeEnhanced({ value }: { value: number }) {
         <span>2.0</span>
       </div>
       <p className="text-center">
-        <span className="text-xl font-bold">{value.toFixed(2)}</span>
+        <span className="text-xl font-bold">{fmtNum(value, 2)}</span>
         <span className={cn("ml-2 text-sm font-semibold", color)}>{label}</span>
       </p>
     </div>
@@ -793,13 +796,13 @@ function ACWRGauge({ value }: { value: number }) {
   let label: string;
   let labelColor: string;
   if (value < 0.8) {
-    label = "Undertrained";
+    label = "Untertrainiert";
     labelColor = "text-red-400";
   } else if (value <= 1.3) {
-    label = "Sweet Spot";
+    label = "Optimalbereich";
     labelColor = "text-green-400";
   } else {
-    label = "Spike Risk";
+    label = "Lastspitze";
     labelColor = "text-red-400";
   }
 
@@ -832,7 +835,7 @@ function ACWRGauge({ value }: { value: number }) {
       </div>
 
       <p className="text-center">
-        <span className="text-lg font-bold">{value.toFixed(2)}</span>
+        <span className="text-lg font-bold">{fmtNum(value, 2)}</span>
         <span className={cn("ml-2 text-sm font-medium", labelColor)}>
           {label}
         </span>
@@ -888,18 +891,18 @@ function getFocusPieData(focus: string) {
   switch (focus) {
     case "aerobic":
       return [
-        { name: "Aerobic", value: 70, color: LOAD_FOCUS_COLORS.aerobic },
-        { name: "Anaerobic", value: 30, color: LOAD_FOCUS_COLORS.anaerobic },
+        { name: "Aerob", value: 70, color: LOAD_FOCUS_COLORS.aerobic },
+        { name: "Anaerob", value: 30, color: LOAD_FOCUS_COLORS.anaerobic },
       ];
     case "anaerobic":
       return [
-        { name: "Aerobic", value: 30, color: LOAD_FOCUS_COLORS.aerobic },
-        { name: "Anaerobic", value: 70, color: LOAD_FOCUS_COLORS.anaerobic },
+        { name: "Aerob", value: 30, color: LOAD_FOCUS_COLORS.aerobic },
+        { name: "Anaerob", value: 70, color: LOAD_FOCUS_COLORS.anaerobic },
       ];
     default:
       return [
-        { name: "Aerobic", value: 50, color: LOAD_FOCUS_COLORS.aerobic },
-        { name: "Anaerobic", value: 50, color: LOAD_FOCUS_COLORS.anaerobic },
+        { name: "Aerob", value: 50, color: LOAD_FOCUS_COLORS.aerobic },
+        { name: "Anaerob", value: 50, color: LOAD_FOCUS_COLORS.anaerobic },
       ];
   }
 }

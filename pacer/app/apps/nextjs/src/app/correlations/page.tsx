@@ -7,6 +7,7 @@ import { cn } from "@acme/ui";
 import { Button } from "@acme/ui/button";
 
 import { PageShell } from "~/components/page-shell";
+import { fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { SectionHeader } from "../_components/info-button";
@@ -18,9 +19,9 @@ import { SectionHeader } from "../_components/info-button";
 type Period = "30d" | "90d" | "180d";
 
 const PERIODS: { value: Period; label: string }[] = [
-  { value: "30d", label: "30 D" },
-  { value: "90d", label: "90 D" },
-  { value: "180d", label: "180 D" },
+  { value: "30d", label: "30 T" },
+  { value: "90d", label: "90 T" },
+  { value: "180d", label: "180 T" },
 ];
 
 const METRICS = [
@@ -35,9 +36,9 @@ const METRICS = [
 type Metric = (typeof METRICS)[number];
 
 const METRIC_LABELS: Record<string, string> = {
-  sleep: "Sleep",
+  sleep: "Schlaf",
   hrv: "HRV",
-  restingHr: "Resting HR",
+  restingHr: "Ruhepuls",
   stress: "Stress",
   strain: "Strain",
   readiness: "Readiness",
@@ -67,6 +68,20 @@ function rValueBorder(r: number): string {
   if (abs >= 0.7) return r > 0 ? "border-green-500/60" : "border-red-500/60";
   if (abs >= 0.4) return r > 0 ? "border-green-500/30" : "border-red-500/30";
   return "border-border";
+}
+
+// c.strength — "strong" | "moderate" | "weak" | "none" (packages/engine/src/
+// types.ts). Display only: strengthBadge()'s color logic below still
+// switches on the raw English value.
+const STRENGTH_LABELS_DE: Record<string, string> = {
+  strong: "Stark",
+  moderate: "Mäßig",
+  weak: "Schwach",
+  none: "Keine",
+};
+
+function strengthLabel(strength: string): string {
+  return STRENGTH_LABELS_DE[strength] ?? strength;
 }
 
 function strengthBadge(strength: string): { bg: string; text: string } {
@@ -140,8 +155,8 @@ export default function CorrelationsPage() {
   return (
     <PageShell
       density="data"
-      title="Correlation Insights"
-      description="How your metrics relate to each other"
+      title="Korrelations-Insights"
+      description="Wie deine Werte miteinander zusammenhängen"
     >
       <div className="space-y-6">
       {/* ---- Period Selector ---- */}
@@ -165,8 +180,8 @@ export default function CorrelationsPage() {
       {/* ---- Correlation Heatmap ---- */}
       <div>
         <SectionHeader
-          title="Correlation Matrix"
-          info="Heatmap of Pearson correlation coefficients (r) between all health metrics. Blue = positive correlation (metrics rise together), red = negative (inverse). Values range -1.0 to +1.0. Focus on |r| > 0.5 for actionable insights. Method: Pearson r with p-value significance testing. Citation: Cohen J (1988) — |r| 0.1=small, 0.3=medium, 0.5=large effect."
+          title="Korrelationsmatrix"
+          info="Heatmap der Pearson-Korrelationskoeffizienten (r) zwischen allen Gesundheitswerten. Grün = positive Korrelation (Werte steigen gemeinsam), Rot = negativ (gegenläufig). Werte reichen von -1,0 bis +1,0. Fokussiere dich auf |r| > 0,5 für verwertbare Erkenntnisse. Methode: Pearson r mit Signifikanztest via p-Wert. Quelle: Cohen J (1988) — |r| 0,1=klein, 0,3=mittel, 0,5=großer Effekt."
           className="mb-3"
         />
 
@@ -175,7 +190,8 @@ export default function CorrelationsPage() {
         ) : pairs.length === 0 ? (
           <div className="bg-card rounded-2xl border p-6 text-center">
             <p className="text-muted-foreground text-sm">
-              Not enough data for the selected period. Try a longer window.
+              Nicht genug Daten für den gewählten Zeitraum. Versuche einen
+              längeren Zeitraum.
             </p>
           </div>
         ) : (
@@ -236,9 +252,9 @@ export default function CorrelationsPage() {
                           rValueColor(r),
                           rValueBorder(r),
                         )}
-                        title={`${METRIC_LABELS[row]} ↔ ${METRIC_LABELS[col]}: r=${r.toFixed(3)}`}
+                        title={`${METRIC_LABELS[row]} ↔ ${METRIC_LABELS[col]}: r=${fmtNum(r, 3)}`}
                       >
-                        {r.toFixed(2)}
+                        {fmtNum(r, 2)}
                       </div>
                     );
                   })}
@@ -250,23 +266,23 @@ export default function CorrelationsPage() {
             <div className="mt-3 flex items-center justify-center gap-3 text-[10px]">
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2.5 w-2.5 rounded bg-red-600" />
-                Strong −
+                Stark −
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2.5 w-2.5 rounded bg-red-500/40" />
-                Moderate −
+                Mäßig −
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2.5 w-2.5 rounded bg-muted" />
-                Weak
+                Schwach
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2.5 w-2.5 rounded bg-green-500/40" />
-                Moderate +
+                Mäßig +
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2.5 w-2.5 rounded bg-green-600" />
-                Strong +
+                Stark +
               </span>
             </div>
           </div>
@@ -277,8 +293,8 @@ export default function CorrelationsPage() {
       {pairs.length > 0 && (
         <div>
           <SectionHeader
-            title="Key Insights"
-            info="Auto-generated interpretations of strongest correlations in your data. Each insight explains the relationship and suggests practical actions. Method: Filters correlation pairs by |r| > 0.3 and p < 0.05 (statistically significant). Ranked by absolute correlation strength. Correlation ≠ causation but consistent patterns across months are highly informative."
+            title="Wichtigste Insights"
+            info="Automatisch generierte Interpretationen der stärksten Korrelationen in deinen Daten. Jeder Insight erklärt den Zusammenhang und schlägt praktische Maßnahmen vor. Methode: Filtert Korrelationspaare nach |r| > 0,3 und p < 0,05 (statistisch signifikant). Sortiert nach absoluter Korrelationsstärke. Korrelation ≠ Kausalität, aber konsistente Muster über mehrere Monate sind sehr aufschlussreich."
             className="mb-3"
           />
 
@@ -312,18 +328,18 @@ export default function CorrelationsPage() {
                         badge.text,
                       )}
                     >
-                      {c.strength}
+                      {strengthLabel(c.strength)}
                     </span>
                   </div>
 
                   <div className="mt-2 flex items-center gap-3 text-xs">
                     <span className="text-muted-foreground">
                       r ={" "}
-                      <span className="font-mono">{c.rValue.toFixed(3)}</span>
+                      <span className="font-mono">{fmtNum(c.rValue, 3)}</span>
                     </span>
                     <span className="text-muted-foreground">
                       p ={" "}
-                      <span className="font-mono">{c.pValue.toFixed(4)}</span>
+                      <span className="font-mono">{fmtNum(c.pValue, 4)}</span>
                     </span>
                     <span className="text-muted-foreground">
                       n = {c.sampleSize}
@@ -339,10 +355,10 @@ export default function CorrelationsPage() {
                       )}
                     >
                       {c.direction === "positive"
-                        ? "↑ Positive"
+                        ? "↑ Positiv"
                         : c.direction === "negative"
-                          ? "↓ Negative"
-                          : "→ None"}
+                          ? "↓ Negativ"
+                          : "→ Keine"}
                     </span>
                   </div>
 
@@ -365,7 +381,7 @@ export default function CorrelationsPage() {
           className="flex w-full items-center justify-between p-4"
         >
           <span className="text-sm font-medium">
-            What do these numbers mean?
+            Was bedeuten diese Zahlen?
           </span>
           <span
             className={cn(
@@ -381,49 +397,50 @@ export default function CorrelationsPage() {
           <div className="space-y-3 border-t px-4 pt-3 pb-4 text-xs leading-relaxed">
             <div>
               <h3 className="mb-1 font-semibold">
-                Correlation Coefficient (r)
+                Korrelationskoeffizient (r)
               </h3>
               <p className="text-muted-foreground">
-                Measures linear relationship between two metrics, from −1 to +1.
-                Positive means they move together; negative means they move
-                oppositely.
+                Misst den linearen Zusammenhang zwischen zwei Werten, von −1
+                bis +1. Positiv bedeutet, sie bewegen sich gemeinsam; negativ
+                bedeutet, sie bewegen sich gegenläufig.
               </p>
             </div>
 
             <div className="space-y-1.5">
-              <h3 className="font-semibold">Strength Guide</h3>
+              <h3 className="font-semibold">Stärke-Übersicht</h3>
               <div className="grid-metrics">
                 <div className="rounded-lg bg-green-500/10 p-2 text-center">
-                  <p className="font-mono text-green-400">|r| &gt; 0.7</p>
-                  <p className="text-muted-foreground text-[10px]">Strong</p>
+                  <p className="font-mono text-green-400">|r| &gt; 0,7</p>
+                  <p className="text-muted-foreground text-[10px]">Stark</p>
                 </div>
                 <div className="rounded-lg bg-yellow-500/10 p-2 text-center">
-                  <p className="font-mono text-yellow-400">0.4 – 0.7</p>
-                  <p className="text-muted-foreground text-[10px]">Moderate</p>
+                  <p className="font-mono text-yellow-400">0,4 – 0,7</p>
+                  <p className="text-muted-foreground text-[10px]">Mäßig</p>
                 </div>
                 <div className="rounded-lg bg-muted p-2 text-center">
-                  <p className="font-mono text-muted-foreground">|r| &lt; 0.4</p>
-                  <p className="text-muted-foreground text-[10px]">Weak</p>
+                  <p className="font-mono text-muted-foreground">|r| &lt; 0,4</p>
+                  <p className="text-muted-foreground text-[10px]">Schwach</p>
                 </div>
               </div>
             </div>
 
             <div>
               <h3 className="mb-1 font-semibold">
-                Statistical Significance (p-value)
+                Statistische Signifikanz (p-Wert)
               </h3>
               <p className="text-muted-foreground">
-                A p-value below <span className="font-mono">0.05</span> means
-                the correlation is statistically significant — unlikely to be
-                due to chance. Lower is stronger evidence.
+                Ein p-Wert unter <span className="font-mono">0,05</span>{" "}
+                bedeutet, dass die Korrelation statistisch signifikant ist —
+                unwahrscheinlich durch Zufall. Je niedriger, desto stärker der
+                Beweis.
               </p>
             </div>
 
             <div>
-              <h3 className="mb-1 font-semibold">Sample Size (n)</h3>
+              <h3 className="mb-1 font-semibold">Stichprobengröße (n)</h3>
               <p className="text-muted-foreground">
-                The number of days with data for both metrics. More data
-                generally means more reliable correlations.
+                Die Anzahl der Tage mit Daten für beide Werte. Mehr Daten
+                bedeuten in der Regel zuverlässigere Korrelationen.
               </p>
             </div>
           </div>

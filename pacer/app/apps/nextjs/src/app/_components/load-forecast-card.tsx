@@ -12,25 +12,33 @@ import { useTRPC } from "~/trpc/react";
 type Scenario = "maintain" | "rest" | "rampUp" | "rampDown";
 
 const SCENARIO_LABELS: Record<Scenario, string> = {
-  maintain: "Maintain",
-  rampUp: "Build",
+  maintain: "Halten",
+  rampUp: "Aufbauen",
   rampDown: "Taper",
-  rest: "Rest",
+  rest: "Ruhen",
 };
 
 const SCENARIO_HINTS: Record<Scenario, string> = {
-  maintain: "Hold your recent weekly load steady.",
-  rampUp: "Add ~8%/week — an aggressive build block.",
-  rampDown: "Cut ~10%/week — a deliberate taper.",
-  rest: "Full rest — no training load at all.",
+  maintain: "Deine aktuelle wöchentliche Last halten.",
+  rampUp: "Ca. 8 %/Woche steigern — ein aggressiver Aufbaublock.",
+  rampDown: "Ca. 10 %/Woche reduzieren — ein gezielter Taper.",
+  rest: "Volle Ruhe — keinerlei Trainingsbelastung.",
+};
+
+// Display-only translation for the API's confidence enum — never compared,
+// only rendered.
+const CONFIDENCE_LABELS: Record<string, string> = {
+  high: "hoch",
+  medium: "mittel",
+  low: "gering",
 };
 
 function tsbTone(tsb: number): { label: string; cls: string } {
-  if (tsb >= 25) return { label: "Very fresh", cls: "text-sky-400" };
-  if (tsb >= 5) return { label: "Fresh", cls: "text-emerald-400" };
+  if (tsb >= 25) return { label: "Sehr frisch", cls: "text-sky-400" };
+  if (tsb >= 5) return { label: "Frisch", cls: "text-emerald-400" };
   if (tsb > -10) return { label: "Neutral", cls: "text-muted-foreground" };
-  if (tsb > -30) return { label: "Fatigued", cls: "text-amber-400" };
-  return { label: "Very fatigued", cls: "text-rose-400" };
+  if (tsb > -30) return { label: "Ermüdet", cls: "text-amber-400" };
+  return { label: "Sehr ermüdet", cls: "text-rose-400" };
 }
 
 /**
@@ -69,11 +77,13 @@ export function LoadForecastCard() {
     <section className="bg-card rounded-2xl border p-5 shadow-sm">
       <div>
         <p className="text-muted-foreground text-sm font-medium">
-          Looking ahead
+          Blick nach vorn
         </p>
-        <h2 className="mt-1 text-xl font-semibold">{horizon}-day forecast</h2>
+        <h2 className="mt-1 text-xl font-semibold">
+          {horizon}-Tage-Prognose
+        </h2>
         <p className="text-muted-foreground mt-1 text-xs">
-          Where your form is headed under different training choices.
+          Wohin sich deine Form je nach Trainingswahl entwickelt.
         </p>
       </div>
 
@@ -103,7 +113,7 @@ export function LoadForecastCard() {
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         <Stat label="Fitness (CTL)" value={last.ctl} />
-        <Stat label="Fatigue (ATL)" value={last.atl} />
+        <Stat label="Ermüdung (ATL)" value={last.atl} />
         <Stat
           label="Form (TSB)"
           value={last.tsb}
@@ -114,13 +124,14 @@ export function LoadForecastCard() {
 
       {data.raceWindow ? (
         <div className="bg-muted/40 mt-4 rounded-xl px-3 py-2">
-          <p className="text-sm font-medium">Race-ready window</p>
+          <p className="text-sm font-medium">Wettkampfbereites Fenster</p>
           <p className="text-muted-foreground mt-0.5 text-xs">
-            If you taper now, your form peaks around day{" "}
+            Wenn du jetzt taperst, erreicht deine Form ihren Höhepunkt etwa an
+            Tag{" "}
             <span className="text-foreground font-semibold tabular-nums">
               {data.raceWindow.startDayOffset}–{data.raceWindow.endDayOffset}
             </span>{" "}
-            (peak TSB{" "}
+            (Spitzen-TSB{" "}
             <span className="font-semibold text-emerald-400 tabular-nums">
               +{data.raceWindow.peakTsb}
             </span>
@@ -132,25 +143,25 @@ export function LoadForecastCard() {
       {vo2 && vo2Last ? (
         <div className="bg-muted/40 mt-3 rounded-xl px-3 py-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium">VO₂max trajectory</p>
+            <p className="text-sm font-medium">VO₂max-Entwicklung</p>
             <span className="text-muted-foreground text-[11px] capitalize">
-              {vo2.confidence} confidence
+              {CONFIDENCE_LABELS[vo2.confidence] ?? vo2.confidence} Konfidenz
             </span>
           </div>
           <p className="text-muted-foreground mt-0.5 text-xs">
-            Projected to{" "}
+            Projiziert auf{" "}
             <span className="text-foreground font-semibold tabular-nums">
               {vo2Last.value}
             </span>{" "}
-            in {horizon} days ({vo2.slopePerWeek >= 0 ? "+" : ""}
-            {vo2.slopePerWeek}/wk, range {vo2Last.lower}–{vo2Last.upper}).
+            in {horizon} Tagen ({vo2.slopePerWeek >= 0 ? "+" : ""}
+            {vo2.slopePerWeek}/Woche, Bereich {vo2Last.lower}–{vo2Last.upper}).
           </p>
         </div>
       ) : null}
 
       <p className="text-muted-foreground mt-3 text-[11px]">
-        Projections assume the chosen load pattern continues — a planning aid,
-        not a guarantee.
+        Die Projektion geht davon aus, dass das gewählte Belastungsmuster
+        fortgesetzt wird — eine Planungshilfe, keine Garantie.
       </p>
     </section>
   );

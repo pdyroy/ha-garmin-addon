@@ -9,6 +9,7 @@ import {
   getGreeting,
   useUserTimezone,
 } from "~/lib/format-date";
+import { fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { AdherenceTrendCard } from "./adherence-trend-card";
 import { BottomNav } from "./bottom-nav";
@@ -78,28 +79,28 @@ export function DashboardHome({ userId }: { userId: string }) {
   };
 
   function classifySleep(v: number): ZoneInfo {
-    if (v >= 70) return { zone: "good", label: "Good", scale: v };
-    if (v >= 40) return { zone: "caution", label: "Fair", scale: v };
-    return { zone: "concern", label: "Poor", scale: v };
+    if (v >= 70) return { zone: "good", label: "Gut", scale: v };
+    if (v >= 40) return { zone: "caution", label: "Mittel", scale: v };
+    return { zone: "concern", label: "Schlecht", scale: v };
   }
 
   function classifyHrv(v: number): ZoneInfo {
     if (v >= 65) return { zone: "good", label: "Optimal", scale: v };
-    if (v >= 35) return { zone: "caution", label: "Moderate", scale: v };
-    return { zone: "concern", label: "Low", scale: v };
+    if (v >= 35) return { zone: "caution", label: "Moderat", scale: v };
+    return { zone: "concern", label: "Niedrig", scale: v };
   }
 
   function classifyLoad(v: number): ZoneInfo {
-    if (v >= 60) return { zone: "good", label: "Balanced", scale: v };
-    if (v >= 30) return { zone: "caution", label: "Building", scale: v };
-    return { zone: "concern", label: "High Load", scale: v };
+    if (v >= 60) return { zone: "good", label: "Ausgeglichen", scale: v };
+    if (v >= 30) return { zone: "caution", label: "Aufbauend", scale: v };
+    return { zone: "concern", label: "Hohe Belastung", scale: v };
   }
 
   function classifyStress(v: number): ZoneInfo {
     // Higher score = less stress = better
-    if (v >= 60) return { zone: "good", label: "Low", scale: v };
-    if (v >= 30) return { zone: "caution", label: "Moderate", scale: v };
-    return { zone: "concern", label: "High", scale: v };
+    if (v >= 60) return { zone: "good", label: "Niedrig", scale: v };
+    if (v >= 30) return { zone: "caution", label: "Moderat", scale: v };
+    return { zone: "concern", label: "Hoch", scale: v };
   }
 
   const sleepCtx = sleepVal != null ? classifySleep(sleepVal) : null;
@@ -109,7 +110,7 @@ export function DashboardHome({ userId }: { userId: string }) {
 
   const stats = [
     {
-      label: "Sleep",
+      label: "Schlaf",
       value: sleepVal != null ? `${sleepVal}` : null,
       unit: "/100",
       icon: "😴",
@@ -222,7 +223,7 @@ export function DashboardHome({ userId }: { userId: string }) {
           <div>
             <p className="text-sm font-semibold">Fitness</p>
             <p className="text-muted-foreground text-xs">
-              VO2max &amp; Race Predictions
+              VO2max &amp; Wettkampfprognosen
             </p>
           </div>
         </Link>
@@ -234,7 +235,7 @@ export function DashboardHome({ userId }: { userId: string }) {
           <div>
             <p className="text-sm font-semibold">Insights</p>
             <p className="text-muted-foreground text-xs">
-              Daily Recommendations
+              Tägliche Empfehlungen
             </p>
           </div>
         </Link>
@@ -244,12 +245,12 @@ export function DashboardHome({ userId }: { userId: string }) {
       {recentActivities.data && recentActivities.data.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Recent Activities</h2>
+            <h2 className="text-sm font-semibold">Letzte Aktivitäten</h2>
             <Link
               href="/activities"
               className="text-primary text-xs font-medium"
             >
-              View all →
+              Alle anzeigen →
             </Link>
           </div>
           <div className="space-y-2">
@@ -263,13 +264,13 @@ export function DashboardHome({ userId }: { userId: string }) {
                   : "—";
               const dist =
                 a.distanceMeters != null && a.distanceMeters > 0
-                  ? `${(a.distanceMeters / 1000).toFixed(1)} km`
+                  ? `${fmtNum(a.distanceMeters / 1000, 1)} km`
                   : null;
               const sport = a.sportType
                 ? a.sportType
                     .replace(/_/g, " ")
                     .replace(/\b\w/g, (c: string) => c.toUpperCase())
-                : "Activity";
+                : "Aktivität";
               const date = formatDateInTz(a.startedAt, timezone, {
                 weekday: "long",
                 month: "long",

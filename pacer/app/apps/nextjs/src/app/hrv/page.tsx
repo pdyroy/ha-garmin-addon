@@ -18,6 +18,7 @@ import { cn } from "@acme/ui";
 
 import { PageShell } from "~/components/page-shell";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
+import { fmtDelta, fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { DateRangeSelector } from "../_components/date-range-selector";
@@ -31,28 +32,28 @@ const STATUS_CONFIG: Record<
 > = {
   recovered: {
     icon: "✅",
-    label: "Recovered",
+    label: "Erholt",
     cls: "bg-green-500/20 text-green-400 border-green-500/30",
-    description: "HRV is above baseline — your body is well recovered.",
+    description: "HRV liegt über der Baseline — dein Körper ist gut erholt.",
   },
   recovering: {
     icon: "🔄",
-    label: "Recovering",
+    label: "In Erholung",
     cls: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    description: "HRV is near baseline — recovery is progressing normally.",
+    description: "HRV liegt nahe der Baseline — die Erholung schreitet normal voran.",
   },
   strained: {
     icon: "⚠️",
-    label: "Strained",
+    label: "Belastet",
     cls: "bg-red-500/20 text-red-400 border-red-500/30",
     description:
-      "HRV is below baseline or highly variable — consider rest or easy training.",
+      "HRV liegt unter der Baseline oder ist stark schwankend — erwäge Ruhe oder ein lockeres Training.",
   },
   insufficient_data: {
     icon: "📊",
-    label: "Insufficient Data",
+    label: "Unzureichende Daten",
     cls: "bg-muted text-muted-foreground border-border",
-    description: "Need more HRV data to determine recovery status.",
+    description: "Es werden mehr HRV-Daten benötigt, um den Erholungsstatus zu bestimmen.",
   },
 };
 
@@ -145,9 +146,9 @@ export default function HrvPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="pl-12 text-2xl font-bold">HRV Analysis</h1>
+          <h1 className="pl-12 text-2xl font-bold">HRV-Analyse</h1>
           <p className="text-muted-foreground text-sm">
-            Heart Rate Variability &amp; Recovery
+            Herzfrequenzvariabilität &amp; Erholung
           </p>
         </div>
         {statusConfig && data?.status !== "insufficient_data" && (
@@ -177,7 +178,7 @@ export default function HrvPage() {
           )}
         >
           <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-            Current HRV (RMSSD)
+            Aktuelle HRV (RMSSD)
           </p>
           <p
             className={cn(
@@ -191,7 +192,7 @@ export default function HrvPage() {
                     : "text-muted-foreground",
             )}
           >
-            {data.summary.current.toFixed(0)}
+            {fmtNum(data.summary.current, 0)}
           </p>
           <p className="text-muted-foreground mt-1 text-sm">ms</p>
           {data.summary.deviationFromBaseline !== null && (
@@ -204,10 +205,9 @@ export default function HrvPage() {
                     : "text-red-400",
                 )}
               >
-                {data.summary.deviationFromBaseline >= 0 ? "+" : ""}
-                {data.summary.deviationFromBaseline.toFixed(1)}%
+                {fmtDelta(data.summary.deviationFromBaseline, 1)} %
               </span>
-              <span className="text-muted-foreground"> from baseline</span>
+              <span className="text-muted-foreground"> von der Baseline</span>
             </p>
           )}
           {statusConfig && (
@@ -219,8 +219,8 @@ export default function HrvPage() {
       ) : (
         <div className="bg-card rounded-2xl border p-6 text-center">
           <p className="text-muted-foreground text-sm">
-            No HRV data available yet. Wear your Garmin device while sleeping to
-            collect HRV measurements.
+            Noch keine HRV-Daten verfügbar. Trage dein Garmin-Gerät beim
+            Schlafen, um HRV-Messwerte zu sammeln.
           </p>
         </div>
       )}
@@ -230,18 +230,18 @@ export default function HrvPage() {
         <div className="grid-metrics">
           <div className="bg-card rounded-xl border p-3 text-center">
             <p className="text-muted-foreground text-[10px] font-medium uppercase">
-              Current
+              Aktuell
             </p>
             <p className="mt-1 text-lg font-bold">
-              {data.summary.current.toFixed(0)}
+              {fmtNum(data.summary.current, 0)}
             </p>
           </div>
           <div className="bg-card rounded-xl border p-3 text-center">
             <p className="text-muted-foreground text-[10px] font-medium uppercase">
-              7d Avg
+              7-Tage-Ø
             </p>
             <p className="mt-1 text-lg font-bold">
-              {data.summary.avg7d.toFixed(0)}
+              {fmtNum(data.summary.avg7d, 0)}
             </p>
           </div>
           <div className="bg-card rounded-xl border p-3 text-center">
@@ -249,7 +249,7 @@ export default function HrvPage() {
               Baseline
             </p>
             <p className="mt-1 text-lg font-bold">
-              {data.summary.baseline?.toFixed(0) ?? "—"}
+              {fmtNum(data.summary.baseline, 0)}
             </p>
           </div>
           <div className="bg-card rounded-xl border p-3 text-center">
@@ -266,7 +266,7 @@ export default function HrvPage() {
                     : "text-green-400",
               )}
             >
-              {data.summary.cv.toFixed(1)}%
+              {fmtNum(data.summary.cv, 1)}%
             </p>
           </div>
         </div>
@@ -288,8 +288,8 @@ export default function HrvPage() {
       ) : chartData.length > 0 ? (
         <div className="bg-card rounded-2xl border p-4">
           <SectionHeader
-            title={`HRV Trend — ${data?.summary?.daysWithData ?? 0} readings`}
-            info="Heart Rate Variability (RMSSD) measured by your Garmin device during sleep. Higher HRV generally indicates better recovery and parasympathetic (rest-and-digest) nervous system activity. The 7-day rolling average smooths daily fluctuations, while the 14-day baseline represents your personal norm. Citation: Shaffer &amp; Ginsberg (2017). An Overview of HRV Metrics and Norms. Frontiers in Public Health."
+            title={`HRV-Trend — ${data?.summary?.daysWithData ?? 0} Messwerte`}
+            info="Heart Rate Variability (RMSSD), gemessen von deinem Garmin-Gerät während des Schlafs. Höhere HRV deutet in der Regel auf bessere Erholung und stärkere parasympathische (entspannende) Nervensystemaktivität hin. Der 7-Tage-Durchschnitt glättet Tagesschwankungen, während die 14-Tage-Baseline deine persönliche Norm abbildet. Quelle: Shaffer &amp; Ginsberg (2017). An Overview of HRV Metrics and Norms. Frontiers in Public Health."
             className="mb-3"
           />
           <ResponsiveContainer width="100%" height={260}>
@@ -330,7 +330,7 @@ export default function HrvPage() {
                   strokeDasharray="6 3"
                   strokeWidth={1.5}
                   label={{
-                    value: `Baseline ${data.baseline.toFixed(0)}`,
+                    value: `Baseline ${fmtNum(data.baseline, 0)}`,
                     position: "insideTopRight",
                     fill: "#6366f1",
                     fontSize: 10,
@@ -344,7 +344,7 @@ export default function HrvPage() {
                 stroke="#22c55e"
                 fill="url(#hrvFill)"
                 strokeWidth={1}
-                name="Daily HRV"
+                name="Tägliche HRV"
                 dot={{ fill: "#22c55e", r: 2 }}
                 connectNulls
               />
@@ -354,7 +354,7 @@ export default function HrvPage() {
                 stroke="#3b82f6"
                 strokeWidth={2.5}
                 dot={false}
-                name="7d Average"
+                name="7-Tage-Ø"
                 connectNulls
               />
               <Line
@@ -364,7 +364,7 @@ export default function HrvPage() {
                 strokeWidth={1.5}
                 strokeDasharray="6 3"
                 dot={false}
-                name="14d Baseline"
+                name="14-Tage-Baseline"
                 connectNulls
               />
             </ComposedChart>
@@ -376,8 +376,8 @@ export default function HrvPage() {
       {cvData.length > 0 && (
         <div className="bg-card rounded-2xl border p-4">
           <SectionHeader
-            title="HRV Variability (CV%)"
-            info="Coefficient of Variation (CV%) measures how consistent your HRV is over a rolling 7-day window. CV% = standard deviation / mean × 100. Below 10% indicates stable, consistent recovery. 10-15% is moderate. Above 15% suggests high stress or inconsistent recovery patterns. Citation: Plews et al. (2013). Training Adaptation and Heart Rate Variability in Elite Endurance Athletes. Int J Sports Physiol Perform."
+            title="HRV-Variabilität (CV%)"
+            info="Der Variationskoeffizient (CV%) misst, wie konstant deine HRV über ein rollierendes 7-Tage-Fenster ist. CV% = Standardabweichung / Mittelwert × 100. Unter 10 % deutet auf stabile, gleichbleibende Erholung hin. 10-15 % ist moderat. Über 15 % deutet auf hohen Stress oder unregelmäßige Erholungsmuster hin. Quelle: Plews et al. (2013). Training Adaptation and Heart Rate Variability in Elite Endurance Athletes. Int J Sports Physiol Perform."
             className="mb-3"
           />
           <ResponsiveContainer width="100%" height={140}>
@@ -404,7 +404,7 @@ export default function HrvPage() {
                   borderRadius: 8,
                   fontSize: 12,
                 }}
-                formatter={(value: unknown) => `${Number(value).toFixed(1)}%`}
+                formatter={(value: unknown) => `${fmtNum(Number(value), 1)}%`}
               />
               <ReferenceLine
                 y={10}
@@ -430,9 +430,9 @@ export default function HrvPage() {
             </ComposedChart>
           </ResponsiveContainer>
           <div className="mt-2 flex justify-center gap-4 text-[10px]">
-            <span className="text-green-400">● &lt;10% Stable</span>
-            <span className="text-yellow-400">● 10–15% Moderate</span>
-            <span className="text-red-400">● &gt;15% High</span>
+            <span className="text-green-400">● &lt;10 % Stabil</span>
+            <span className="text-yellow-400">● 10–15 % Moderat</span>
+            <span className="text-red-400">● &gt;15 % Hoch</span>
           </div>
         </div>
       )}
@@ -441,8 +441,8 @@ export default function HrvPage() {
       {data?.summary && (
         <div className="bg-card rounded-2xl border p-4">
           <SectionHeader
-            title="Period Summary"
-            info="Summary statistics for the selected date range. Min/Max show the full range of your HRV values. Days with data indicates measurement consistency — aim for daily readings for the most reliable analysis."
+            title="Zeitraum-Zusammenfassung"
+            info="Statistische Zusammenfassung für den gewählten Zeitraum. Min/Max zeigen die volle Bandbreite deiner HRV-Werte. Tage mit Daten zeigt die Messkonstanz — für die zuverlässigste Analyse strebe tägliche Messwerte an."
             className="mb-3"
           />
           <div className="grid-metrics">
@@ -451,7 +451,7 @@ export default function HrvPage() {
                 Min
               </p>
               <p className="text-lg font-bold">
-                {data.summary.min.toFixed(0)}{" "}
+                {fmtNum(data.summary.min, 0)}{" "}
                 <span className="text-muted-foreground text-xs">ms</span>
               </p>
             </div>
@@ -460,19 +460,19 @@ export default function HrvPage() {
                 Max
               </p>
               <p className="text-lg font-bold">
-                {data.summary.max.toFixed(0)}{" "}
+                {fmtNum(data.summary.max, 0)}{" "}
                 <span className="text-muted-foreground text-xs">ms</span>
               </p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3">
               <p className="text-muted-foreground text-[10px] font-medium uppercase">
-                Days with Data
+                Tage mit Daten
               </p>
               <p className="text-lg font-bold">{data.summary.daysWithData}</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3">
               <p className="text-muted-foreground text-[10px] font-medium uppercase">
-                Coverage
+                Abdeckung
               </p>
               <p className="text-lg font-bold">
                 {Math.round((data.summary.daysWithData / days) * 100)}%

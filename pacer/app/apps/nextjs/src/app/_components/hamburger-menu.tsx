@@ -60,7 +60,7 @@ export function MoreMenu({ open, onOpenChange, sections }: MoreMenuProps) {
             type="button"
             onClick={() => onOpenChange(false)}
             className="text-muted-foreground hover:text-foreground flex h-11 w-11 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label="Close menu"
+            aria-label="Menü schließen"
           >
             <span className="text-lg">✕</span>
           </button>

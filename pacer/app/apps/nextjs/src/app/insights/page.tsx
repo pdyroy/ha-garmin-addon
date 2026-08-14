@@ -7,6 +7,7 @@ import { cn } from "@acme/ui";
 import { toast } from "@acme/ui/toast";
 
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
+import { fmtNum, fmtPct } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
@@ -55,24 +56,24 @@ interface ProactiveInsight {
 /** Friendly labels for metric keys cited by AI insights. */
 const METRIC_LABELS: Record<string, string> = {
   hrv: "HRV",
-  rhr: "Resting HR",
-  resting_hr: "Resting HR",
-  restingHr: "Resting HR",
+  rhr: "Ruhepuls",
+  resting_hr: "Ruhepuls",
+  restingHr: "Ruhepuls",
   acwr: "ACWR",
   tsb: "Form (TSB)",
   ctl: "Fitness (CTL)",
-  atl: "Fatigue (ATL)",
+  atl: "Ermüdung (ATL)",
   spo2: "SpO₂",
   zone: "Zone",
   readiness: "Readiness",
-  sleephours: "Sleep",
-  sleep_hours: "Sleep",
-  sleepHours: "Sleep",
-  sleep_duration: "Sleep Duration",
-  sleep_quality: "Sleep Quality",
-  next_day_hrv: "Next-day HRV",
+  sleephours: "Schlaf",
+  sleep_hours: "Schlaf",
+  sleepHours: "Schlaf",
+  sleep_duration: "Schlafdauer",
+  sleep_quality: "Schlafqualität",
+  next_day_hrv: "HRV (Folgetag)",
   stress: "Stress",
-  rr: "Resp. Rate",
+  rr: "Atemfreq.",
 };
 
 function prettyMetricKey(k: string): string {
@@ -94,7 +95,7 @@ function ProactiveInsightCard({
   const style = AI_SEVERITY_STYLES[severity] ?? AI_SEVERITY_STYLES.info;
   const confidencePct =
     insight.confidence != null
-      ? `${(insight.confidence * 100).toFixed(0)}% confidence`
+      ? `${fmtPct(insight.confidence * 100, 0)} Konfidenz`
       : null;
   const metricEntries = insight.metrics ? Object.entries(insight.metrics) : [];
 
@@ -136,7 +137,7 @@ function ProactiveInsightCard({
               ? String(v)
               : Number.isInteger(num)
                 ? String(num)
-                : num.toFixed(1);
+                : fmtNum(num, 1);
             const label = METRIC_LABELS[k] ?? prettyMetricKey(k);
             return (
               <span
@@ -158,7 +159,7 @@ function ProactiveInsightCard({
         <div className="mt-3 rounded-xl bg-muted px-3 py-2 text-sm">
           <span className="mr-1">💡</span>
           <span className="text-foreground/80">
-            Suggested action: {insight.actionSuggestion}
+            Empfohlene Maßnahme: {insight.actionSuggestion}
           </span>
         </div>
       )}
@@ -169,7 +170,7 @@ function ProactiveInsightCard({
           onClick={() => onMarkRead(insight.id)}
           className="text-muted-foreground mt-3 text-xs underline underline-offset-2 hover:text-foreground"
         >
-          Mark as read
+          Als gelesen markieren
         </button>
       )}
     </div>
@@ -233,6 +234,15 @@ interface InsightData {
   summary: Record<string, unknown> | null;
 }
 
+/** Display labels for the readiness engine's zone keys (mirrors readiness-card.tsx). */
+const ZONE_LABEL_DE: Record<string, string> = {
+  prime: "Optimal",
+  high: "Hoch",
+  moderate: "Moderat",
+  low: "Niedrig",
+  poor: "Schwach",
+};
+
 function generateInsights(data: InsightData): InsightCard[] {
   const insights: InsightCard[] = [];
 
@@ -240,15 +250,17 @@ function generateInsights(data: InsightData): InsightCard[] {
   if (data.readiness) {
     const score = data.readiness.score as number;
     const zone = data.readiness.zone as string;
+    const zoneLabel = ZONE_LABEL_DE[zone] ?? zone;
     const explanation = data.readiness.explanation as string;
     const severity: InsightCard["severity"] =
       score >= 70 ? "positive" : score >= 40 ? "info" : "warning";
     insights.push({
       icon:
         severity === "positive" ? "✅" : severity === "warning" ? "⚠️" : "📊",
-      title: `Readiness: ${score} (${zone})`,
+      title: `Readiness: ${score} (${zoneLabel})`,
       body:
-        explanation || `Your readiness score is ${score}, in the ${zone} zone.`,
+        explanation ||
+        `Dein Readiness-Score liegt bei ${score}, in der Zone „${zoneLabel}“.`,
       severity,
       metric: `${score}`,
     });
@@ -263,46 +275,46 @@ function generateInsights(data: InsightData): InsightCard[] {
     if (acwr > 1.3) {
       insights.push({
         icon: "⚠️",
-        title: "Training Spike Detected",
-        body: `Your acute:chronic workload ratio is ${acwr.toFixed(2)}, which exceeds the safe zone (0.8–1.3). Consider reducing intensity to lower injury risk.`,
+        title: "Trainingsspitze erkannt",
+        body: `Dein ACWR (Verhältnis von akuter zu chronischer Belastung) liegt bei ${fmtNum(acwr, 2)} und damit über dem sicheren Bereich (0,8–1,3). Reduziere die Intensität, um dein Verletzungsrisiko zu senken.`,
         severity: "alert",
-        metric: `ACWR: ${acwr.toFixed(2)}`,
+        metric: `ACWR: ${fmtNum(acwr, 2)}`,
       });
     } else if (acwr >= 0.8 && acwr <= 1.3) {
       insights.push({
         icon: "👍",
-        title: "Training Load in Sweet Spot",
-        body: `Your ACWR is ${acwr.toFixed(2)}, within the optimal 0.8–1.3 range. Keep up the balanced approach.`,
+        title: "Training Load im optimalen Bereich",
+        body: `Dein ACWR liegt bei ${fmtNum(acwr, 2)} und damit im optimalen Bereich von 0,8–1,3. Weiter so mit diesem ausgewogenen Ansatz.`,
         severity: "positive",
-        metric: `ACWR: ${acwr.toFixed(2)}`,
+        metric: `ACWR: ${fmtNum(acwr, 2)}`,
       });
     }
 
     if (tsb < -20) {
       insights.push({
         icon: "😴",
-        title: "Significant Fatigue",
-        body: `Your Training Stress Balance is ${tsb.toFixed(1)}, indicating heavy accumulated fatigue. Consider a recovery day or lighter session.`,
+        title: "Deutliche Ermüdung",
+        body: `Deine Training Stress Balance (TSB) liegt bei ${fmtNum(tsb, 1)} und zeigt eine deutlich angesammelte Ermüdung. Erwäge einen Erholungstag oder eine leichtere Einheit.`,
         severity: "warning",
-        metric: `TSB: ${tsb.toFixed(1)}`,
+        metric: `TSB: ${fmtNum(tsb, 1)}`,
       });
     } else if (tsb > 15) {
       insights.push({
         icon: "⚡",
-        title: "Fresh & Ready to Perform",
-        body: `Your TSB is +${tsb.toFixed(1)}, indicating you're well rested. Great time for a key workout or race.`,
+        title: "Frisch und leistungsbereit",
+        body: `Dein TSB liegt bei +${fmtNum(tsb, 1)} — ein Zeichen, dass du gut erholt bist. Ein guter Zeitpunkt für eine Schlüsseleinheit oder ein Rennen.`,
         severity: "positive",
-        metric: `TSB: +${tsb.toFixed(1)}`,
+        metric: `TSB: +${fmtNum(tsb, 1)}`,
       });
     }
 
     if (rampRate > 8) {
       insights.push({
         icon: "📈",
-        title: "Rapid Load Increase",
-        body: `Your training load is increasing at ${rampRate.toFixed(1)} pts/week. Ramp rates above 8 increase overtraining risk. Consider a down week.`,
+        title: "Schneller Belastungsanstieg",
+        body: `Deine Trainingsbelastung steigt um ${fmtNum(rampRate, 1)} Punkte pro Woche. Eine Ramp Rate über 8 erhöht das Übertrainingsrisiko. Erwäge eine ruhigere Woche.`,
         severity: "warning",
-        metric: `Ramp: ${rampRate.toFixed(1)}/wk`,
+        metric: `Ramp: ${fmtNum(rampRate, 1)}/Wo.`,
       });
     }
   }
@@ -317,19 +329,19 @@ function generateInsights(data: InsightData): InsightCard[] {
 
     if (sleepDebt > 60) {
       const bedtimeHint = recommendedBedtime
-        ? ` Try going to bed by ${recommendedBedtime}.`
+        ? ` Versuch, bis ${recommendedBedtime} Uhr ins Bett zu gehen.`
         : "";
       insights.push({
         icon: "🛏️",
-        title: "Sleep Debt Accumulating",
-        body: `You have ${sleepDebt} minutes of sleep debt.${bedtimeHint}`,
+        title: "Schlafdefizit wächst",
+        body: `Du hast ${sleepDebt} Minuten Schlafdefizit.${bedtimeHint}`,
         severity: "warning",
-        metric: `${sleepDebt} min debt`,
+        metric: `${sleepDebt} Min. Defizit`,
       });
     } else if (insight) {
       insights.push({
         icon: "🌙",
-        title: "Sleep Coach",
+        title: "Schlaf-Coach",
         body: insight,
         severity: "info",
       });
@@ -342,10 +354,10 @@ function generateInsights(data: InsightData): InsightCard[] {
     const severity: InsightCard["severity"] = hours > 48 ? "warning" : "info";
     insights.push({
       icon: hours > 48 ? "🔋" : "⏱️",
-      title: "Recovery Estimate",
-      body: `Estimated ${hours} hours until full recovery from your last session.`,
+      title: "Geschätzte Erholungszeit",
+      body: `Geschätzte ${hours} Stunden bis zur vollständigen Erholung nach deiner letzten Einheit.`,
       severity,
-      metric: `${hours}h`,
+      metric: `${hours} Std.`,
     });
   }
 
@@ -357,18 +369,18 @@ function generateInsights(data: InsightData): InsightCard[] {
     if (direction === "declining" || direction === "down") {
       insights.push({
         icon: "💓",
-        title: "HRV Declining",
-        body: `Your HRV has been declining (${Math.abs(percentChange).toFixed(1)}% change). This may indicate accumulated stress or insufficient recovery.`,
+        title: "HRV sinkt",
+        body: `Deine HRV sinkt (${fmtNum(Math.abs(percentChange), 1)} % Veränderung). Das kann auf angesammelten Stress oder unzureichende Erholung hindeuten.`,
         severity: "warning",
-        metric: `${percentChange.toFixed(1)}%`,
+        metric: `${fmtNum(percentChange, 1)} %`,
       });
     } else if (direction === "improving" || direction === "up") {
       insights.push({
         icon: "💓",
-        title: "HRV Improving",
-        body: `Your HRV trend is positive (+${Math.abs(percentChange).toFixed(1)}%), suggesting good recovery and adaptation.`,
+        title: "HRV steigt",
+        body: `Deine HRV entwickelt sich positiv (+${fmtNum(Math.abs(percentChange), 1)} %), ein Zeichen für gute Erholung und Anpassung.`,
         severity: "positive",
-        metric: `+${Math.abs(percentChange).toFixed(1)}%`,
+        metric: `+${fmtNum(Math.abs(percentChange), 1)} %`,
       });
     }
   }
@@ -569,15 +581,15 @@ export default function InsightsPage() {
         <div>
           <div className="mb-2 flex items-center justify-between">
             <SectionHeader
-              title="AI Insights"
-              info="Proactive insights generated by evidence-based rules analyzing your ACWR, TSB, HRV baseline deviation, sleep debt, ramp rate, and intervention patterns. Rules fire when thresholds are exceeded. Confidence reflects data completeness."
+              title="KI-Insights"
+              info="Proaktive Insights, erzeugt durch evidenzbasierte Regeln, die deinen ACWR, TSB, deine HRV-Abweichung von der Baseline, dein Schlafdefizit, deine Ramp Rate und Interventionsmuster analysieren. Regeln lösen aus, wenn Schwellenwerte überschritten werden. Die Konfidenz spiegelt die Vollständigkeit der Daten wider."
             />
             <button
               onClick={() => generateMutation.mutate()}
               disabled={generateMutation.isPending}
               className="rounded-lg bg-blue-500/20 px-3 py-1 text-xs font-medium text-blue-400 hover:bg-blue-500/30 disabled:opacity-50"
             >
-              {generateMutation.isPending ? "Analyzing…" : "Refresh Insights"}
+              {generateMutation.isPending ? "Wird analysiert…" : "Insights aktualisieren"}
             </button>
           </div>
           {proactiveInsights.isLoading ? (
@@ -605,7 +617,8 @@ export default function InsightsPage() {
           ) : (
             <div className="bg-card rounded-2xl border p-4 text-center">
               <p className="text-muted-foreground text-sm">
-                No AI insights yet. Tap "Refresh Insights" to run analysis.
+                Noch keine KI-Insights. Tippe auf „Insights aktualisieren“,
+                um die Analyse zu starten.
               </p>
             </div>
           )}
@@ -627,8 +640,8 @@ export default function InsightsPage() {
         ) : summaryData ? (
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
-              title="This Week"
-              info="Weekly summary comparing key metrics against your 30-day personal baselines. Green = better than average, red = below. Method: Current week's mean vs 30-day EMA baseline for each metric (sleep, activity, RHR, stress, HRV). Threshold: >0.5 SD difference flagged. Citation: Individual monitoring using z-scores (Buchheit 2014)."
+              title="Diese Woche"
+              info="Wochenübersicht, die zentrale Metriken mit deinen persönlichen 30-Tage-Baselines vergleicht. Grün = besser als der Durchschnitt, Rot = darunter. Methode: Mittelwert der aktuellen Woche vs. 30-Tage-EMA-Baseline je Metrik (Schlaf, Aktivität, RHR, Stress, HRV). Schwelle: Abweichung >0,5 SD wird markiert. Quelle: Individuelles Monitoring mittels Z-Scores (Buchheit 2014)."
               className="mb-3"
             />
             <div className="grid-metrics">
@@ -638,7 +651,7 @@ export default function InsightsPage() {
                     {summaryData.totalDays as number}
                   </p>
                   <p className="text-foreground/80 mt-0.5 text-[11px]">
-                    Days tracked
+                    Erfasste Tage
                   </p>
                 </div>
               )}
@@ -648,17 +661,17 @@ export default function InsightsPage() {
                     {Math.round(summaryData.avgReadiness as number)}
                   </p>
                   <p className="text-foreground/80 mt-0.5 text-[11px]">
-                    Avg readiness
+                    Ø Readiness
                   </p>
                 </div>
               )}
               {summaryData.avgSleepMinutes != null && (
                 <div className="bg-muted/60 rounded-xl p-3 text-center">
                   <p className="text-xl font-bold text-purple-400">
-                    {((summaryData.avgSleepMinutes as number) / 60).toFixed(1)}h
+                    {fmtNum((summaryData.avgSleepMinutes as number) / 60, 1)}h
                   </p>
                   <p className="text-foreground/80 mt-0.5 text-[11px]">
-                    Avg sleep
+                    Ø Schlaf
                   </p>
                 </div>
               )}
@@ -668,7 +681,7 @@ export default function InsightsPage() {
                     {Math.round(summaryData.avgHrv as number)}
                   </p>
                   <p className="text-foreground/80 mt-0.5 text-[11px]">
-                    Avg HRV
+                    Ø HRV
                   </p>
                 </div>
               )}
@@ -698,8 +711,8 @@ export default function InsightsPage() {
         ) : insights.length > 0 ? (
           <div className="space-y-3">
             <SectionHeader
-              title="Daily Insights"
-              info="Day-by-day notable patterns and anomalies. Method: Flags days where metrics deviate >2 SD from personal 30-day baseline (z-score analysis). Both positive achievements and concerns highlighted. Anomaly sources: HRV spikes/drops, unusual RHR, sleep disruption, training load changes. Citation: Plews et al. (2013) HRV monitoring."
+              title="Tägliche Insights"
+              info="Auffällige Muster und Anomalien Tag für Tag. Methode: Markiert Tage, an denen Metriken um >2 SD von der persönlichen 30-Tage-Baseline abweichen (Z-Score-Analyse). Sowohl positive Erfolge als auch Auffälligkeiten werden hervorgehoben. Anomaliequellen: HRV-Ausschläge, ungewöhnlicher RHR, Schlafstörungen, Änderungen der Trainingsbelastung. Quelle: Plews et al. (2013) HRV-Monitoring."
             />
             {insights.map((insight, i) => (
               <InsightCardUI key={i} insight={insight} />
@@ -709,8 +722,8 @@ export default function InsightsPage() {
           <div className="bg-card rounded-2xl border p-6 text-center">
             <p className="text-3xl">🔍</p>
             <p className="text-muted-foreground mt-2 text-sm">
-              No insights available yet. As more data comes in, personalized
-              insights will appear here.
+              Noch keine Insights verfügbar. Sobald mehr Daten vorliegen,
+              erscheinen hier deine persönlichen Insights.
             </p>
           </div>
         )}

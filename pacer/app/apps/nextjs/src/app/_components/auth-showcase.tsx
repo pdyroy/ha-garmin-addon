@@ -27,7 +27,7 @@ export async function AuthShowcase() {
             redirect(res.url);
           }}
         >
-          Sign in with Discord
+          Mit Discord anmelden
         </Button>
       </form>
     );
@@ -36,7 +36,7 @@ export async function AuthShowcase() {
   return (
     <div className="flex flex-col items-center justify-center gap-4">
       <p className="text-center text-2xl">
-        <span>Logged in as {session.user.name}</span>
+        <span>Angemeldet als {session.user.name}</span>
       </p>
 
       <form>
@@ -50,7 +50,7 @@ export async function AuthShowcase() {
             redirect("/");
           }}
         >
-          Sign out
+          Abmelden
         </Button>
       </form>
     </div>

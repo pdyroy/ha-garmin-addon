@@ -26,15 +26,15 @@ interface TodayRecommendationCardProps {
 
 const ACTION_LABEL: Record<Recommendation["action"], string> = {
   workout: "Workout",
-  rest: "Rest day",
-  active_recovery: "Active recovery",
+  rest: "Ruhetag",
+  active_recovery: "Aktive Erholung",
   deload: "Deload",
 };
 
 const ACTION_STATE_LABEL: Record<RecommendationActionState["kind"], string> = {
-  intervention_accept: "Accepted",
-  intervention_skip: "Skipped",
-  intervention_defer: "Deferred",
+  intervention_accept: "Angenommen",
+  intervention_skip: "Übersprungen",
+  intervention_defer: "Verschoben",
 };
 
 const SEVERITY_STYLE: Record<
@@ -48,13 +48,13 @@ const SEVERITY_STYLE: Record<
       "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
   },
   warn: {
-    label: "Warning",
+    label: "Warnung",
     icon: "⚠️",
     className:
       "border-yellow-500/30 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
   },
   block: {
-    label: "Block",
+    label: "Blockiert",
     icon: "⛔",
     className: "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300",
   },
@@ -92,12 +92,12 @@ function formatHeadline(recommendation: Recommendation): string {
 }
 
 function formatDuration(durationMin: number | undefined): string {
-  if (durationMin == null) return "Today";
+  if (durationMin == null) return "Heute";
   if (durationMin < 60) return `${durationMin} min`;
 
   const hours = Math.floor(durationMin / 60);
   const minutes = durationMin % 60;
-  return minutes === 0 ? `${hours} hr` : `${hours} hr ${minutes} min`;
+  return minutes === 0 ? `${hours} Std.` : `${hours} Std. ${minutes} min`;
 }
 
 function confidenceLevel(confidence: number): "low" | "medium" | "high" {
@@ -105,6 +105,12 @@ function confidenceLevel(confidence: number): "low" | "medium" | "high" {
   if (confidence < 0.7) return "medium";
   return "high";
 }
+
+const CONFIDENCE_LABEL: Record<ReturnType<typeof confidenceLevel>, string> = {
+  low: "gering",
+  medium: "mittel",
+  high: "hoch",
+};
 
 function confidenceClass(level: ReturnType<typeof confidenceLevel>): string {
   if (level === "high") {
@@ -126,7 +132,7 @@ function RecommendationSkeleton() {
   return (
     <section
       aria-busy="true"
-      aria-label="Loading today's recommendation"
+      aria-label="Lädt die heutige Empfehlung"
       className="bg-card animate-pulse rounded-2xl border p-5"
     >
       <div className="flex items-center justify-between gap-3">
@@ -169,19 +175,19 @@ export function TodayRecommendationCard({
 
   const acceptMutation = useMutation(
     trpc.coach.accept.mutationOptions({
-      onSuccess: () => handleMutationSuccess("Recommendation accepted"),
+      onSuccess: () => handleMutationSuccess("Empfehlung angenommen"),
       onError: (error) => toast.error(error.message),
     }),
   );
   const skipMutation = useMutation(
     trpc.coach.skip.mutationOptions({
-      onSuccess: () => handleMutationSuccess("Recommendation skipped"),
+      onSuccess: () => handleMutationSuccess("Empfehlung übersprungen"),
       onError: (error) => toast.error(error.message),
     }),
   );
   const deferMutation = useMutation(
     trpc.coach.defer.mutationOptions({
-      onSuccess: () => handleMutationSuccess("Recommendation deferred"),
+      onSuccess: () => handleMutationSuccess("Empfehlung verschoben"),
       onError: (error) => toast.error(error.message),
     }),
   );
@@ -195,16 +201,16 @@ export function TodayRecommendationCard({
   if (query.isError) {
     return (
       <section className="bg-card rounded-2xl border p-5 text-center">
-        <h2 className="text-lg font-semibold">Recommendation unavailable</h2>
+        <h2 className="text-lg font-semibold">Empfehlung nicht verfügbar</h2>
         <p className="text-muted-foreground mt-2 text-sm">
-          Pacer could not load today&apos;s recommendation. Please try
-          again.
+          Pacer konnte die heutige Empfehlung nicht laden. Bitte versuch es
+          noch einmal.
         </p>
         <Button
           className="mt-4 w-full sm:w-auto"
           onClick={() => void query.refetch()}
         >
-          Try again
+          Erneut versuchen
         </Button>
       </section>
     );
@@ -215,15 +221,16 @@ export function TodayRecommendationCard({
   if (!data?.recommendation) {
     return (
       <section className="bg-card rounded-2xl border p-5 text-center">
-        <h2 className="text-lg font-semibold">No recommendation for today</h2>
+        <h2 className="text-lg font-semibold">Keine Empfehlung für heute</h2>
         <p className="text-muted-foreground mt-2 text-sm">
-          Pacer could not load a recommendation. Try again after sync.
+          Pacer konnte keine Empfehlung laden. Versuch es nach dem nächsten
+          Sync erneut.
         </p>
         <Button
           className="mt-4 w-full sm:w-auto"
           onClick={() => void query.refetch()}
         >
-          Try again
+          Erneut versuchen
         </Button>
       </section>
     );
@@ -249,7 +256,7 @@ export function TodayRecommendationCard({
     setDeferDate(value);
     setDeferError(
       value && value <= effectiveDate
-        ? "Choose a defer date after the recommendation date."
+        ? "Wähle ein Datum nach dem Empfehlungsdatum."
         : null,
     );
   }
@@ -257,7 +264,7 @@ export function TodayRecommendationCard({
   function submitDefer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!deferDate || deferDate <= effectiveDate) {
-      setDeferError("Choose a defer date after the recommendation date.");
+      setDeferError("Wähle ein Datum nach dem Empfehlungsdatum.");
       return;
     }
     deferMutation.mutate({ ...actionInput, deferToDate: deferDate });
@@ -290,7 +297,7 @@ export function TodayRecommendationCard({
               >
                 {ACTION_STATE_LABEL[actionState.kind]}
                 {actionState.deferToDate
-                  ? ` to ${actionState.deferToDate}`
+                  ? ` bis ${actionState.deferToDate}`
                   : ""}
               </span>
             ) : null}
@@ -304,11 +311,11 @@ export function TodayRecommendationCard({
             "inline-flex w-fit items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold capitalize",
             confidenceClass(confidence),
           )}
-          aria-label={`Confidence ${confidence}, ${Math.round(
+          aria-label={`Konfidenz ${CONFIDENCE_LABEL[confidence]}, ${Math.round(
             recommendation.confidence * 100,
-          )} percent`}
+          )} Prozent`}
         >
-          {confidence} confidence
+          Konfidenz {CONFIDENCE_LABEL[confidence]}
         </span>
       </div>
 
@@ -317,7 +324,7 @@ export function TodayRecommendationCard({
         data-testid="rule-trace-accordion"
       >
         <summary className="focus-visible:ring-ring cursor-pointer text-sm font-semibold focus-visible:ring-2 focus-visible:outline-none">
-          Why
+          Warum
         </summary>
         <div className="mt-3 space-y-2">
           {visibleRules.length > 0 ? (
@@ -342,7 +349,7 @@ export function TodayRecommendationCard({
             })
           ) : (
             <p className="text-muted-foreground text-sm">
-              No rules fired today.
+              Heute wurden keine Regeln ausgelöst.
             </p>
           )}
 
@@ -353,7 +360,7 @@ export function TodayRecommendationCard({
               className="h-auto px-0 text-xs"
               onClick={() => setShowAllRules(true)}
             >
-              Show all rules considered
+              Alle geprüften Regeln anzeigen
             </Button>
           )}
         </div>
@@ -368,11 +375,11 @@ export function TodayRecommendationCard({
           data-testid="recommendation-accept"
         >
           {acceptMutation.isPending ? (
-            <span aria-label="Accept pending" role="status">
+            <span aria-label="Wird angenommen" role="status">
               ⏳
             </span>
           ) : null}
-          Accept
+          Annehmen
         </Button>
         <Button
           type="button"
@@ -383,11 +390,11 @@ export function TodayRecommendationCard({
           data-testid="recommendation-skip"
         >
           {skipMutation.isPending ? (
-            <span aria-label="Skip pending" role="status">
+            <span aria-label="Wird übersprungen" role="status">
               ⏳
             </span>
           ) : null}
-          Skip
+          Überspringen
         </Button>
         <Button
           type="button"
@@ -398,11 +405,11 @@ export function TodayRecommendationCard({
           data-testid="recommendation-defer"
         >
           {deferMutation.isPending ? (
-            <span aria-label="Defer pending" role="status">
+            <span aria-label="Wird verschoben" role="status">
               ⏳
             </span>
           ) : null}
-          Defer
+          Verschieben
         </Button>
       </div>
 
@@ -415,11 +422,11 @@ export function TodayRecommendationCard({
         >
           <form className="space-y-3" onSubmit={submitDefer}>
             <h3 id="defer-dialog-title" className="text-sm font-semibold">
-              Defer recommendation
+              Empfehlung verschieben
             </h3>
             <div>
               <label className="text-sm font-medium" htmlFor="defer-to-date">
-                Defer to
+                Verschieben auf
               </label>
               <input
                 className="border-input bg-background mt-1 w-full rounded-md border px-3 py-2 text-sm"
@@ -449,11 +456,11 @@ export function TodayRecommendationCard({
                 data-testid="recommendation-save-defer"
               >
                 {deferMutation.isPending ? (
-                  <span aria-label="Defer pending" role="status">
+                  <span aria-label="Wird verschoben" role="status">
                     ⏳
                   </span>
                 ) : null}
-                Save defer date
+                Verschiebedatum speichern
               </Button>
               <Button
                 type="button"
@@ -462,7 +469,7 @@ export function TodayRecommendationCard({
                 disabled={isAnyMutationPending}
                 onClick={() => setIsDeferOpen(false)}
               >
-                Cancel
+                Abbrechen
               </Button>
             </div>
           </form>

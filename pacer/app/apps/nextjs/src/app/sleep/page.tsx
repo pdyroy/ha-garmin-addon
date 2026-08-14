@@ -21,6 +21,7 @@ import { cn } from "@acme/ui";
 
 import { IngressLink as Link } from "~/app/_components/ingress-link";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
+import { fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
@@ -59,16 +60,14 @@ function fmtDateShort(
   return formatDateInTz(iso, timezone, { month: "short", day: "numeric" });
 }
 
-/** Format a clock time given as minutes-from-midnight (or decimal hours) */
+/** Format a clock time given as minutes-from-midnight (or decimal hours), German 24h style */
 function fmtClockTime(minutesFromMidnight: number | null | undefined): string {
   if (minutesFromMidnight == null || isNaN(minutesFromMidnight)) return "—";
   // Handle negative values (before midnight) by wrapping
   const mins = ((minutesFromMidnight % 1440) + 1440) % 1440;
   const h = Math.floor(mins / 60);
   const m = Math.round(mins % 60);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")} Uhr`;
 }
 
 /** Simple moving average over an array of numbers */
@@ -353,9 +352,9 @@ export default function SleepDashboard() {
         {/* Header (own h1: pl-12 clears the fixed mobile hamburger button) */}
         {/* ================================================================ */}
         <div>
-          <h1 className="pl-12 text-2xl font-bold">Sleep Dashboard</h1>
+          <h1 className="pl-12 text-2xl font-bold">Schlaf-Dashboard</h1>
           <p className="text-muted-foreground text-sm">
-            Your sleep insights &amp; coaching
+            Deine Schlaf-Insights &amp; dein Coaching
           </p>
         </div>
 
@@ -385,13 +384,13 @@ export default function SleepDashboard() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-muted-foreground text-sm font-medium">
-                  Tonight&apos;s Recommendation
+                  Empfehlung für heute Nacht
                 </p>
                 <p className="mt-1 text-3xl font-bold">
                   {fmtDuration(coachData.recommendedDurationMinutes)}
                 </p>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  Bedtime: {coachData.recommendedBedtime}
+                  Zubettgehen: {coachData.recommendedBedtime}
                 </p>
               </div>
               <span
@@ -401,7 +400,7 @@ export default function SleepDashboard() {
                 )}
               >
                 {coachData.sleepDebtMinutes > 0 ? "+" : ""}
-                {fmtDuration(coachData.sleepDebtMinutes)} debt
+                {fmtDuration(coachData.sleepDebtMinutes)} Schlafdefizit
               </span>
             </div>
             {coachData.insight && (
@@ -430,17 +429,17 @@ export default function SleepDashboard() {
         ) : stats ? (
           <div className="grid-metrics">
             <StatCard
-              label="Avg Duration"
+              label="Ø Dauer"
               value={fmtDuration(stats.avgDuration)}
               icon="⏱️"
             />
             <StatCard
-              label="Avg Score"
+              label="Ø Sleep Score"
               value={stats.avgScore != null ? String(stats.avgScore) : "—"}
               icon="⭐"
             />
             <StatCard
-              label="Sleep Debt"
+              label="Schlafdefizit"
               value={
                 // Prefer the live coach value (used for the "+14h 47m debt"
                 // badge); fall back to last entry in history. Previously the
@@ -457,7 +456,7 @@ export default function SleepDashboard() {
               )}
             />
             <StatCard
-              label="Efficiency"
+              label="Effizienz"
               value={
                 stats.avgEfficiency != null ? `${stats.avgEfficiency}%` : "—"
               }
@@ -471,15 +470,15 @@ export default function SleepDashboard() {
         {/* ================================================================ */}
         <div className="bg-card rounded-xl border p-4">
           <SectionHeader
-            title="Sleep Stages · Last 14 Nights"
-            info="Stacked bar chart of nightly sleep stage breakdown from Garmin's Firstbeat sleep analysis. Deep sleep (N3): physical recovery + growth hormone — aim for 1-2h. REM: memory + emotional regulation — aim for 1.5-2h. Light sleep transitions between stages. Method: sleepDeepMinutes, sleepRemMinutes, sleepLightMinutes from daily metrics."
+            title="Schlafphasen · Letzte 14 Nächte"
+            info="Gestapeltes Balkendiagramm der nächtlichen Schlafphasen aus Garmins Firstbeat-Schlafanalyse. Tiefschlaf (N3): körperliche Erholung + Wachstumshormon — Ziel 1-2h. REM-Schlaf: Gedächtnis + emotionale Regulation — Ziel 1,5-2h. Leichtschlaf ist der Übergang zwischen den Phasen. Methode: sleepDeepMinutes, sleepRemMinutes, sleepLightMinutes aus den Tagesmetriken."
             className="mb-4"
           />
           {stages.isLoading ? (
             <div className="bg-muted h-64 animate-pulse rounded-lg" />
           ) : stagesChartData.length === 0 ? (
             <p className="text-muted-foreground py-12 text-center text-sm">
-              No sleep stage data yet
+              Noch keine Schlafphasen-Daten
             </p>
           ) : hasNoSleepStages ? (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
@@ -501,9 +500,10 @@ export default function SleepDashboard() {
                 </svg>
               </span>
               <p className="text-muted-foreground max-w-sm text-sm">
-                Your Garmin device may not support detailed sleep stage
-                tracking. Devices like Fenix 7+, Venu 3, and Forerunner 265+
-                provide deep/light/REM/awake breakdown.
+                Dein Garmin-Gerät unterstützt vermutlich kein detailliertes
+                Schlafphasen-Tracking. Geräte wie Fenix 7+, Venu 3 und
+                Forerunner 265+ liefern eine Aufschlüsselung nach
+                Tiefschlaf/Leichtschlaf/REM-Schlaf/Wach.
               </p>
             </div>
           ) : (
@@ -525,7 +525,7 @@ export default function SleepDashboard() {
                   axisLine={false}
                   width={35}
                   label={{
-                    value: "hours",
+                    value: "Stunden",
                     angle: -90,
                     position: "insideLeft",
                     style: AXIS_LABEL_STYLE,
@@ -534,17 +534,11 @@ export default function SleepDashboard() {
                 <Tooltip
                   {...TOOLTIP_STYLE}
                   formatter={(value, name) => [
-                    `${Number(value).toFixed(1)}h`,
-                    String(name).charAt(0).toUpperCase() +
-                      String(name).slice(1),
+                    `${fmtNum(Number(value), 1)}h`,
+                    String(name),
                   ]}
                 />
-                <Legend
-                  wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-                  formatter={(value: string) =>
-                    value.charAt(0).toUpperCase() + value.slice(1)
-                  }
-                />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                 {stagesChartData.some((d) => d.need != null) && (
                   <ReferenceLine
                     y={
@@ -554,7 +548,7 @@ export default function SleepDashboard() {
                     stroke="var(--muted-foreground)"
                     strokeDasharray="6 3"
                     label={{
-                      value: "Need",
+                      value: "Bedarf",
                       fill: "var(--muted-foreground)",
                       fontSize: 10,
                       position: "right",
@@ -567,21 +561,21 @@ export default function SleepDashboard() {
                   stackId="sleep"
                   fill="var(--chart-1)"
                   radius={[0, 0, 0, 0]}
-                  name="Deep"
+                  name="Tiefschlaf"
                 />
                 <Bar
                   isAnimationActive={false}
                   dataKey="rem"
                   stackId="sleep"
                   fill="var(--chart-2)"
-                  name="REM"
+                  name="REM-Schlaf"
                 />
                 <Bar
                   isAnimationActive={false}
                   dataKey="light"
                   stackId="sleep"
                   fill="var(--chart-3)"
-                  name="Light"
+                  name="Leichtschlaf"
                 />
                 <Bar
                   isAnimationActive={false}
@@ -589,7 +583,7 @@ export default function SleepDashboard() {
                   stackId="sleep"
                   fill="var(--destructive)"
                   radius={[4, 4, 0, 0]}
-                  name="Awake"
+                  name="Wach"
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -601,15 +595,15 @@ export default function SleepDashboard() {
         {/* ================================================================ */}
         <div className="bg-card rounded-xl border p-4">
           <SectionHeader
-            title="Sleep Score · Last 28 Days"
-            info="Garmin's composite sleep score (0-100) based on duration, depth, continuity, and REM/deep percentages. Scores >75 = good recovery. Consistent scores >70 correlate with better training adaptation. Drops <60 may indicate stress or overtraining. Method: sleepScore field from dailyMetrics table. Citation: Garmin Firstbeat Analytics."
+            title="Sleep Score · Letzte 28 Tage"
+            info="Garmins zusammengesetzter Sleep Score (0-100) basiert auf Dauer, Tiefe, Kontinuität und dem Anteil an REM-/Tiefschlaf. Werte >75 = gute Erholung. Konstante Werte >70 korrelieren mit besserer Trainingsadaption. Ein Abfall <60 kann auf Stress oder Übertraining hindeuten. Methode: Feld sleepScore aus der Tabelle dailyMetrics. Quelle: Garmin Firstbeat Analytics."
             className="mb-4"
           />
           {history.isLoading ? (
             <div className="bg-muted h-64 animate-pulse rounded-lg" />
           ) : scoreChartData.length === 0 ? (
             <p className="text-muted-foreground py-12 text-center text-sm">
-              No score data yet
+              Noch keine Daten zum Sleep Score
             </p>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
@@ -640,7 +634,7 @@ export default function SleepDashboard() {
                   strokeWidth={2}
                   dot={{ r: 3, fill: "var(--primary)" }}
                   connectNulls
-                  name="Score"
+                  name="Sleep Score"
                 />
                 {scoreChartData.some((d) => d.avg != null) && (
                   <Line
@@ -651,7 +645,7 @@ export default function SleepDashboard() {
                     strokeDasharray="6 3"
                     dot={false}
                     connectNulls
-                    name="7-day Avg"
+                    name="7-Tage-Ø"
                   />
                 )}
               </LineChart>
@@ -665,15 +659,15 @@ export default function SleepDashboard() {
         <div className="grid-panels">
           <div className="bg-card rounded-xl border p-4">
             <SectionHeader
-              title="Actual vs Need"
-              info="Compares actual sleep duration vs estimated need (typically 7-9h for adults). Chronic debt of even 30-60 min/night impairs reaction time, immune function, and training adaptation. Method: sleepDurationMinutes vs sleepNeedMinutes from daily metrics. Citation: Hirshkowitz M et al. (2015) Sleep Recommendations."
+              title="Ist vs. Bedarf"
+              info="Vergleicht die tatsächliche Schlafdauer mit dem geschätzten Bedarf (typischerweise 7-9h bei Erwachsenen). Schon ein chronisches Defizit von 30-60 Min/Nacht beeinträchtigt Reaktionszeit, Immunsystem und Trainingsadaption. Methode: sleepDurationMinutes vs. sleepNeedMinutes aus den Tagesmetriken. Quelle: Hirshkowitz M et al. (2015) Sleep Recommendations."
               className="mb-4"
             />
             {history.isLoading ? (
               <div className="bg-muted h-56 animate-pulse rounded-lg" />
             ) : vsNeedChartData.length === 0 ? (
               <p className="text-muted-foreground py-12 text-center text-sm">
-                No data yet
+                Noch keine Daten
               </p>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
@@ -695,7 +689,7 @@ export default function SleepDashboard() {
                     axisLine={false}
                     width={30}
                     label={{
-                      value: "hrs",
+                      value: "Std.",
                       angle: -90,
                       position: "insideLeft",
                       style: AXIS_LABEL_STYLE,
@@ -704,15 +698,13 @@ export default function SleepDashboard() {
                   <Tooltip
                     {...TOOLTIP_STYLE}
                     formatter={(value, name) => [
-                      `${Number(value).toFixed(1)}h`,
-                      name === "actual" ? "Actual" : "Need",
+                      `${fmtNum(Number(value), 1)}h`,
+                      name === "actual" ? "Ist" : "Bedarf",
                     ]}
                   />
                   <Legend
                     wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-                    formatter={(v: string) =>
-                      v === "actual" ? "Actual" : "Need"
-                    }
+                    formatter={(v: string) => (v === "actual" ? "Ist" : "Bedarf")}
                   />
                   <Bar
                     isAnimationActive={false}
@@ -737,15 +729,15 @@ export default function SleepDashboard() {
 
           <div className="bg-card rounded-xl border p-4">
             <SectionHeader
-              title="Sleep Debt · Last 7 Days"
-              info="Running total of accumulated sleep debt over 7 days. Formula: Daily debt = sleepNeedMinutes - sleepDurationMinutes (if positive). Weekly debt >5 hours significantly impairs athletic performance and increases injury risk by 1.7×. Method: Cumulative sum of nightly deficits. Citation: Milewski et al. (2014) Sleep & Injury."
+              title="Schlafdefizit · Letzte 7 Tage"
+              info="Laufende Summe des angesammelten Schlafdefizits über 7 Tage. Formel: Tägliches Defizit = sleepNeedMinutes - sleepDurationMinutes (falls positiv). Ein Wochendefizit >5 Stunden beeinträchtigt die sportliche Leistung deutlich und erhöht das Verletzungsrisiko um das 1,7-fache. Methode: kumulierte Summe der nächtlichen Defizite. Quelle: Milewski et al. (2014) Sleep & Injury."
               className="mb-4"
             />
             {history.isLoading ? (
               <div className="bg-muted h-56 animate-pulse rounded-lg" />
             ) : debtChartData.length === 0 ? (
               <p className="text-muted-foreground py-12 text-center text-sm">
-                No debt data yet
+                Noch keine Daten zum Schlafdefizit
               </p>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
@@ -766,7 +758,7 @@ export default function SleepDashboard() {
                     axisLine={false}
                     width={40}
                     label={{
-                      value: "min",
+                      value: "Min.",
                       angle: -90,
                       position: "insideLeft",
                       style: AXIS_LABEL_STYLE,
@@ -774,14 +766,17 @@ export default function SleepDashboard() {
                   />
                   <Tooltip
                     {...TOOLTIP_STYLE}
-                    formatter={(value) => [fmtDuration(Number(value)), "Debt"]}
+                    formatter={(value) => [
+                      fmtDuration(Number(value)),
+                      "Defizit",
+                    ]}
                   />
                   <ReferenceLine
                     y={30}
                     stroke="var(--muted-foreground)"
                     strokeDasharray="4 2"
                     label={{
-                      value: "30m",
+                      value: "30 Min",
                       fill: "var(--muted-foreground)",
                       fontSize: 10,
                       position: "right",
@@ -792,7 +787,7 @@ export default function SleepDashboard() {
                     stroke="var(--destructive)"
                     strokeDasharray="4 2"
                     label={{
-                      value: "60m",
+                      value: "60 Min",
                       fill: "var(--destructive)",
                       fontSize: 10,
                       position: "right",
@@ -819,7 +814,7 @@ export default function SleepDashboard() {
                         />
                       );
                     }}
-                    name="Debt"
+                    name="Defizit"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -832,15 +827,15 @@ export default function SleepDashboard() {
         {/* ================================================================ */}
         <div className="bg-card rounded-xl border p-4">
           <SectionHeader
-            title="Sleep Timing Consistency"
-            info="Tracks bedtime and wake time patterns over time. Consistent timing (±30min) strengthens circadian rhythm. Irregular schedules (>1h variation) associated with poorer metabolic health and reduced sleep quality. Method: sleepStartTime and sleepEndTime from daily metrics. Citation: Phillips AJK et al. (2017) Irregular Sleep & Health."
+            title="Schlafenszeiten-Konsistenz"
+            info="Verfolgt Zubettgeh- und Aufstehzeiten über die Zeit. Konsistente Zeiten (±30 Min) stärken den zirkadianen Rhythmus. Unregelmäßige Zeiten (>1h Abweichung) hängen mit schlechterer Stoffwechselgesundheit und geringerer Schlafqualität zusammen. Methode: sleepStartTime und sleepEndTime aus den Tagesmetriken. Quelle: Phillips AJK et al. (2017) Irregular Sleep & Health."
             className="mb-4"
           />
           {history.isLoading ? (
             <div className="bg-muted h-56 animate-pulse rounded-lg" />
           ) : timingChartData.length === 0 ? (
             <p className="text-muted-foreground py-12 text-center text-sm">
-              No timing data yet
+              Noch keine Daten zu den Schlafenszeiten
             </p>
           ) : (
             <>
@@ -848,10 +843,12 @@ export default function SleepDashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-border text-muted-foreground border-b text-left text-xs">
-                      <th className="py-2 pr-3 font-medium">Night</th>
-                      <th className="py-2 pr-3 font-medium">Bedtime</th>
-                      <th className="py-2 pr-3 font-medium">Wake</th>
-                      <th className="py-2 font-medium">Timing (8PM–12PM)</th>
+                      <th className="py-2 pr-3 font-medium">Nacht</th>
+                      <th className="py-2 pr-3 font-medium">Zubettgehen</th>
+                      <th className="py-2 pr-3 font-medium">Aufstehzeit</th>
+                      <th className="py-2 font-medium">
+                        Zeitverlauf (20–12 Uhr)
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -926,11 +923,11 @@ export default function SleepDashboard() {
                 </table>
               </div>
               <div className="text-muted-foreground mt-2 flex justify-between text-[10px]">
-                <span>8 PM</span>
-                <span>12 AM</span>
-                <span>4 AM</span>
-                <span>8 AM</span>
-                <span>12 PM</span>
+                <span>20 Uhr</span>
+                <span>0 Uhr</span>
+                <span>4 Uhr</span>
+                <span>8 Uhr</span>
+                <span>12 Uhr</span>
               </div>
             </>
           )}
@@ -939,7 +936,7 @@ export default function SleepDashboard() {
         {/* ---- Bottom nav link ---- */}
         <div className="pt-2 text-center">
           <Link href="/" className="text-primary text-sm hover:underline">
-            ← Back to Home
+            ← Zurück zur Startseite
           </Link>
         </div>
       </div>

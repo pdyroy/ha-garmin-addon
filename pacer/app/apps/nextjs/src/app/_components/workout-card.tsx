@@ -53,7 +53,7 @@ export function WorkoutCard({
   if (!title) {
     return (
       <div className="bg-card rounded-2xl border p-6 text-center">
-        <p className="text-muted-foreground">No workout planned for today.</p>
+        <p className="text-muted-foreground">Heute ist kein Workout geplant.</p>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export function WorkoutCard({
       <div className="flex items-start justify-between">
         <div>
           <p className="text-muted-foreground mb-1 text-xs font-medium tracking-wider uppercase">
-            Today&apos;s Workout
+            Heutiges Workout
           </p>
           <h3 className="text-lg font-semibold">
             {emoji} {title}
@@ -77,7 +77,7 @@ export function WorkoutCard({
             href={`/workout/${id}`}
             className="text-primary text-sm font-medium hover:underline"
           >
-            View Details →
+            Details ansehen →
           </Link>
         )}
       </div>
@@ -111,14 +111,14 @@ export function WorkoutCard({
             size="sm"
             onClick={() => onAdjust("easier")}
           >
-            😴 Too tired
+            😴 Zu müde
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => onAdjust("harder")}
           >
-            💪 Feeling fresh
+            💪 Fühle mich frisch
           </Button>
         </div>
       )}

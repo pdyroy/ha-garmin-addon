@@ -25,6 +25,7 @@ import {
   formatTimeInTz,
   useUserTimezone,
 } from "~/lib/format-date";
+import { fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../../_components/bottom-nav";
 
@@ -36,13 +37,13 @@ function formatDuration(minutes: number | null): string {
   if (minutes == null) return "—";
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
-  return h > 0 ? `${h}h ${m}m` : `${m} min`;
+  return h > 0 ? `${h} Std ${m} Min` : `${m} Min`;
 }
 
 function formatDistance(meters: number | null): string {
   if (meters == null) return "—";
   const km = meters / 1000;
-  return km >= 1 ? `${km.toFixed(2)} km` : `${Math.round(meters)} m`;
+  return km >= 1 ? `${fmtNum(km, 2)} km` : `${Math.round(meters)} m`;
 }
 
 function formatPace(secPerKm: number | null): string {
@@ -56,9 +57,48 @@ function formatPace(secPerKm: number | null): string {
 // ~/lib/format-date so it respects the user's profile timezone
 // instead of the SSR container's UTC.
 
+// The API humanizes raw sportType/subType slugs to English Title Case
+// (see humanizeActivityRow in packages/api) before they reach this
+// component, so we translate the display label here rather than
+// touching the shared backend helper other agents/AI prompts rely on.
+// ponytail: known sport codes only, unmapped ones fall back to the
+// English title-case string — add entries here as new sports appear.
+const SPORT_LABELS_DE: Record<string, string> = {
+  running: "Laufen",
+  "trail running": "Trailrunning",
+  "treadmill running": "Laufband",
+  "indoor running": "Indoor-Laufen",
+  cycling: "Radfahren",
+  "road biking": "Rennradfahren",
+  "mountain biking": "Mountainbiken",
+  "indoor cycling": "Indoor-Radfahren",
+  "virtual ride": "Virtuelle Fahrt",
+  "strength training": "Krafttraining",
+  weightlifting: "Gewichtheben",
+  swimming: "Schwimmen",
+  "lap swimming": "Bahnenschwimmen",
+  "open water swimming": "Freiwasserschwimmen",
+  walking: "Gehen",
+  "treadmill walking": "Gehen (Laufband)",
+  hiking: "Wandern",
+  yoga: "Yoga",
+  pilates: "Pilates",
+  meditation: "Meditation",
+  stretching: "Dehnen",
+  breathwork: "Atemübungen",
+  mobility: "Beweglichkeit",
+  elliptical: "Crosstrainer",
+  rowing: "Rudern",
+  "indoor rowing": "Indoor-Rudern",
+  other: "Sonstiges",
+};
+
 function sportLabel(sportType: string | null): string {
-  if (!sportType) return "Activity";
-  return sportType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  if (!sportType) return "Aktivität";
+  const humanized = sportType
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return SPORT_LABELS_DE[humanized.toLowerCase()] ?? humanized;
 }
 
 const SPORT_ICONS: Record<string, string> = {
@@ -116,12 +156,12 @@ function teBgColor(value: number): string {
 }
 
 function teLabel(value: number): string {
-  if (value < 1) return "None";
-  if (value < 2) return "Minor";
-  if (value < 3) return "Maintaining";
-  if (value < 4) return "Improving";
-  if (value < 5) return "Highly Improving";
-  return "Overreaching";
+  if (value < 1) return "Kein";
+  if (value < 2) return "Gering";
+  if (value < 3) return "Erhaltend";
+  if (value < 4) return "Verbessernd";
+  if (value < 5) return "Stark verbessernd";
+  return "Übertraining";
 }
 
 function ratingColor(rating: string): string {
@@ -147,8 +187,29 @@ function ratingColor(rating: string): string {
   }
 }
 
+// Running-form rating codes from the engine (ground contact time, vertical
+// oscillation, stride length, cadence, GCT balance ratings) — display only,
+// ratingColor()'s switch above still matches the raw English rating string.
+const RATING_LABELS_DE: Record<string, string> = {
+  elite: "Elite",
+  good: "Gut",
+  optimal: "Optimal",
+  balanced: "Ausgeglichen",
+  average: "Durchschnittlich",
+  slight_imbalance: "Leicht unausgeglichen",
+  high: "Hoch",
+  poor: "Schlecht",
+  overstriding: "Zu lange Schritte",
+  understriding: "Zu kurze Schritte",
+  imbalanced: "Unausgeglichen",
+  low: "Niedrig",
+};
+
 function ratingLabel(rating: string): string {
-  return rating.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return (
+    RATING_LABELS_DE[rating] ??
+    rating.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +254,7 @@ function TrainingEffectBar({
       <div className="flex items-baseline justify-between">
         <span className="text-sm font-medium">{label}</span>
         <span className={cn("text-sm font-bold", teColor(value))}>
-          {value.toFixed(1)}{" "}
+          {fmtNum(value, 1)}{" "}
           <span className="text-muted-foreground text-xs font-normal">
             {teLabel(value)}
           </span>
@@ -292,7 +353,7 @@ function RunningFormRow({
           {typeof value === "number"
             ? Number.isInteger(value)
               ? value
-              : value.toFixed(1)
+              : fmtNum(value, 1)
             : value}
           <span className="text-muted-foreground ml-1 text-xs font-normal">
             {unit}
@@ -350,10 +411,10 @@ function LapTable({
         <thead>
           <tr className="text-muted-foreground border-b text-left text-xs">
             <th className="pr-3 pb-2">Lap</th>
-            <th className="pr-3 pb-2">Distance</th>
-            <th className="pr-3 pb-2">Time</th>
+            <th className="pr-3 pb-2">Distanz</th>
+            <th className="pr-3 pb-2">Zeit</th>
             <th className="pr-3 pb-2">Pace</th>
-            {hasHr && <th className="pr-3 pb-2">HR</th>}
+            {hasHr && <th className="pr-3 pb-2">Puls</th>}
             {hasPower && <th className="pr-3 pb-2">Power</th>}
           </tr>
         </thead>
@@ -458,7 +519,7 @@ export default function ActivityDetailPage({
     trpc.sessionReport.upsert.mutationOptions({
       onSuccess: () => {
         void queryClient.invalidateQueries(trpc.sessionReport.pathFilter());
-        toast.success("Session report saved");
+        toast.success("Sitzungsbericht gespeichert");
       },
       onError: (err) => toast.error(err.message),
     }),
@@ -489,12 +550,13 @@ export default function ActivityDetailPage({
             href="/activities"
             className="text-primary inline-flex items-center gap-1 text-sm"
           >
-            ← Back to Activities
+            ← Zurück zu Aktivitäten
           </Link>
           <div className="bg-card rounded-xl p-8 text-center">
-            <p className="text-lg font-medium">Activity not found</p>
+            <p className="text-lg font-medium">Aktivität nicht gefunden</p>
             <p className="text-muted-foreground mt-1 text-sm">
-              This activity may have been deleted or doesn&apos;t exist.
+              Diese Aktivität wurde möglicherweise gelöscht oder existiert
+              nicht.
             </p>
           </div>
         </div>
@@ -557,7 +619,7 @@ export default function ActivityDetailPage({
         href="/activities"
         className="text-primary inline-flex items-center gap-1 text-sm"
       >
-        ← Back to Activities
+        ← Zurück zu Aktivitäten
       </Link>
 
       {/* Header */}
@@ -583,14 +645,14 @@ export default function ActivityDetailPage({
         </div>
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
           <span>
-            <span className="text-muted-foreground">Duration:</span>{" "}
+            <span className="text-muted-foreground">Dauer:</span>{" "}
             <span className="font-semibold">
               {formatDuration(activity.durationMinutes)}
             </span>
           </span>
           {activity.distanceMeters != null && activity.distanceMeters > 0 && (
             <span>
-              <span className="text-muted-foreground">Distance:</span>{" "}
+              <span className="text-muted-foreground">Distanz:</span>{" "}
               <span className="font-semibold">
                 {formatDistance(activity.distanceMeters)}
               </span>
@@ -609,9 +671,9 @@ export default function ActivityDetailPage({
 
       {/* Key Metrics */}
       <div className="grid-metrics">
-        <MetricCard label="Avg HR" value={activity.avgHr} unit="bpm" />
-        <MetricCard label="Max HR" value={activity.maxHr} unit="bpm" />
-        <MetricCard label="Calories" value={activity.calories} unit="kcal" />
+        <MetricCard label="Ø Puls" value={activity.avgHr} unit="bpm" />
+        <MetricCard label="Maximalpuls" value={activity.maxHr} unit="bpm" />
+        <MetricCard label="Kalorien" value={activity.calories} unit="kcal" />
         <MetricCard
           label="Strain"
           value={
@@ -629,10 +691,10 @@ export default function ActivityDetailPage({
       {(activity.aerobicTE != null || activity.anaerobicTE != null) && (
         <section className="bg-card space-y-3 rounded-xl p-4">
           <h2 className="text-sm font-semibold tracking-wider uppercase">
-            Training Effect
+            Trainingseffekt
           </h2>
-          <TrainingEffectBar label="Aerobic" value={activity.aerobicTE} />
-          <TrainingEffectBar label="Anaerobic" value={activity.anaerobicTE} />
+          <TrainingEffectBar label="Aerob" value={activity.aerobicTE} />
+          <TrainingEffectBar label="Anaerob" value={activity.anaerobicTE} />
         </section>
       )}
 
@@ -640,7 +702,7 @@ export default function ActivityDetailPage({
       {activity.hrZoneMinutes != null && (
         <section className="bg-card space-y-3 rounded-xl p-4">
           <h2 className="text-sm font-semibold tracking-wider uppercase">
-            Heart Rate Zones
+            HF-Zonen
           </h2>
           <HrZoneChart
             zones={
@@ -661,7 +723,7 @@ export default function ActivityDetailPage({
         <section className="bg-card space-y-2 rounded-xl p-4">
           <div className="flex items-baseline justify-between">
             <h2 className="text-sm font-semibold tracking-wider uppercase">
-              Running Form
+              Laufdynamik
             </h2>
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-bold">
@@ -673,31 +735,31 @@ export default function ActivityDetailPage({
 
           <div className="divide-border divide-y">
             <RunningFormRow
-              label="Ground Contact Time"
+              label="Bodenkontaktzeit"
               value={activity.runningFormScore.groundContactTime.value}
               unit="ms"
               rating={activity.runningFormScore.groundContactTime.rating}
             />
             <RunningFormRow
-              label="Vertical Oscillation"
+              label="Vertikale Bewegung"
               value={activity.runningFormScore.verticalOscillation.value}
               unit="cm"
               rating={activity.runningFormScore.verticalOscillation.rating}
             />
             <RunningFormRow
-              label="Stride Length"
+              label="Schrittlänge"
               value={activity.runningFormScore.strideLength.value}
               unit="m"
               rating={activity.runningFormScore.strideLength.rating}
             />
             <RunningFormRow
-              label="Cadence"
+              label="Kadenz"
               value={activity.runningFormScore.cadence.value}
               unit="spm"
               rating={activity.runningFormScore.cadence.rating}
             />
             <RunningFormRow
-              label="GCT Balance"
+              label="Bodenkontaktzeit-Balance"
               value={activity.runningFormScore.gctBalance.value}
               unit="%"
               rating={activity.runningFormScore.gctBalance.rating}
@@ -710,7 +772,7 @@ export default function ActivityDetailPage({
       {(activity.elevationGain != null || activity.elevationLoss != null) && (
         <section className="bg-card space-y-3 rounded-xl p-4">
           <h2 className="text-sm font-semibold tracking-wider uppercase">
-            Elevation
+            Höhenmeter
           </h2>
           <div className="flex gap-6 text-sm">
             {activity.elevationGain != null && (
@@ -744,7 +806,7 @@ export default function ActivityDetailPage({
           <div className="grid-metrics">
             {activity.avgPaceSecPerKm != null && (
               <div>
-                <p className="text-muted-foreground text-xs">Avg Pace</p>
+                <p className="text-muted-foreground text-xs">Ø Pace</p>
                 <p className="font-semibold">
                   {formatPace(activity.avgPaceSecPerKm)}
                 </p>
@@ -752,7 +814,7 @@ export default function ActivityDetailPage({
             )}
             {activity.avgCadence != null && (
               <div>
-                <p className="text-muted-foreground text-xs">Avg Cadence</p>
+                <p className="text-muted-foreground text-xs">Ø Kadenz</p>
                 <p className="font-semibold">
                   {Math.round(activity.avgCadence)} spm
                 </p>
@@ -760,7 +822,7 @@ export default function ActivityDetailPage({
             )}
             {activity.avgPower != null && (
               <div>
-                <p className="text-muted-foreground text-xs">Avg Power</p>
+                <p className="text-muted-foreground text-xs">Ø Power</p>
                 <p className="font-semibold">
                   {Math.round(activity.avgPower)} W
                 </p>
@@ -769,7 +831,7 @@ export default function ActivityDetailPage({
             {activity.normalizedPower != null && (
               <div>
                 <p className="text-muted-foreground text-xs">
-                  Normalized Power
+                  Normalisierte Power
                 </p>
                 <p className="font-semibold">
                   {Math.round(activity.normalizedPower)} W
@@ -778,7 +840,7 @@ export default function ActivityDetailPage({
             )}
             {activity.maxPower != null && (
               <div>
-                <p className="text-muted-foreground text-xs">Max Power</p>
+                <p className="text-muted-foreground text-xs">Max. Power</p>
                 <p className="font-semibold">
                   {Math.round(activity.maxPower)} W
                 </p>
@@ -800,7 +862,7 @@ export default function ActivityDetailPage({
       ) : (
         <section className="bg-card rounded-xl p-4 text-center">
           <p className="text-muted-foreground text-sm">
-            Lap data not available for this activity.
+            Keine Lap-Daten für diese Aktivität verfügbar.
           </p>
         </section>
       )}
@@ -811,7 +873,7 @@ export default function ActivityDetailPage({
           {activity.vo2maxEstimate != null && (
             <MetricCard
               label="VO₂ Max"
-              value={activity.vo2maxEstimate.toFixed(1)}
+              value={fmtNum(activity.vo2maxEstimate, 1)}
               unit="ml/kg/min"
             />
           )}
@@ -830,31 +892,34 @@ export default function ActivityDetailPage({
       {(isRunning || hasPower) && activity.avgHr != null && (
         <section className="bg-card space-y-3 rounded-xl p-4">
           <h2 className="text-sm font-semibold tracking-wider uppercase">
-            Efficiency Analysis
+            Effizienzanalyse
           </h2>
           {isRunning &&
             activity.avgPaceSecPerKm != null &&
             activity.avgHr != null && (
               <div className="space-y-1">
                 <p className="text-muted-foreground text-xs">
-                  Aerobic Efficiency (AeT)
+                  Aerobe Effizienz (AeT)
                 </p>
                 <p className="text-lg font-bold">
-                  {(
+                  {fmtNum(
                     ((100 / activity.avgPaceSecPerKm) * 100) /
-                    activity.avgHr
-                  ).toFixed(2)}
+                      activity.avgHr,
+                    2,
+                  )}
                   <span className="text-muted-foreground ml-1 text-xs font-normal">
-                    (pace-units / HR · higher = better)
+                    (Pace-Einheiten / Puls · höher = besser)
                   </span>
                 </p>
               </div>
             )}
           {hasPower && activity.avgPower != null && activity.avgHr != null && (
             <div className="space-y-1">
-              <p className="text-muted-foreground text-xs">Power:HR Ratio</p>
+              <p className="text-muted-foreground text-xs">
+                Power:Puls-Verhältnis
+              </p>
               <p className="text-lg font-bold">
-                {(activity.avgPower / activity.avgHr).toFixed(2)}
+                {fmtNum(activity.avgPower / activity.avgHr, 2)}
                 <span className="text-muted-foreground ml-1 text-xs font-normal">
                   W/bpm
                 </span>
@@ -869,7 +934,7 @@ export default function ActivityDetailPage({
             activity.distanceMeters > 0 && (
               <div className="space-y-1">
                 <p className="text-muted-foreground text-xs">
-                  Flat-Equivalent Pace (GAP)
+                  Höhenbereinigte Pace (GAP)
                 </p>
                 {(() => {
                   const gap =
@@ -915,7 +980,7 @@ export default function ActivityDetailPage({
           return (
             <section className="bg-card space-y-3 rounded-xl p-4">
               <h2 className="text-sm font-semibold tracking-wider uppercase">
-                Zone Distribution
+                Zonenverteilung
               </h2>
               <div className="flex h-4 w-full overflow-hidden rounded-full">
                 {zones.map((z) =>
@@ -953,13 +1018,14 @@ export default function ActivityDetailPage({
       {/* Post-Session Report */}
       <section className="bg-card space-y-4 rounded-2xl border p-4">
         <h2 className="text-sm font-semibold tracking-wider uppercase">
-          Session RPE
+          Trainings-RPE
         </h2>
 
         {/* RPE buttons 1-10 */}
         <div className="space-y-2">
           <p className="text-muted-foreground text-xs">
-            Rate your perceived exertion (1 = very easy · 10 = max effort)
+            Bewerte deine wahrgenommene Anstrengung (1 = sehr leicht · 10 =
+            maximale Anstrengung)
           </p>
           <div className="flex flex-wrap gap-1.5">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
@@ -994,17 +1060,17 @@ export default function ActivityDetailPage({
         {/* Session Type */}
         <div className="space-y-2">
           <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-            Session Type
+            Trainingsart
           </p>
           <div className="flex flex-wrap gap-1.5">
             {[
-              { key: "base", emoji: "🏃", label: "Base" },
+              { key: "base", emoji: "🏃", label: "Grundlage" },
               { key: "threshold", emoji: "⚡", label: "Threshold" },
-              { key: "interval", emoji: "🔥", label: "Interval" },
-              { key: "recovery", emoji: "😴", label: "Recovery" },
-              { key: "race", emoji: "🏁", label: "Race" },
-              { key: "strength", emoji: "💪", label: "Strength" },
-              { key: "mobility", emoji: "🧘", label: "Mobility" },
+              { key: "interval", emoji: "🔥", label: "Intervall" },
+              { key: "recovery", emoji: "😴", label: "Erholung" },
+              { key: "race", emoji: "🏁", label: "Wettkampf" },
+              { key: "strength", emoji: "💪", label: "Kraft" },
+              { key: "mobility", emoji: "🧘", label: "Beweglichkeit" },
             ].map((st) => (
               <button
                 key={st.key}
@@ -1028,11 +1094,11 @@ export default function ActivityDetailPage({
         {/* Drill Notes */}
         <div className="space-y-1.5">
           <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-            Drill Notes
+            Übungsnotizen
           </p>
           <textarea
             rows={2}
-            placeholder="e.g. strides, drills, key intervals..."
+            placeholder="z. B. Steigerungen, Übungen, Schlüsselintervalle …"
             value={drillNotes}
             onChange={(e) => setDrillNotes(e.target.value)}
             className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-2.5 text-xs focus:ring-2 focus:outline-none"
@@ -1063,7 +1129,7 @@ export default function ActivityDetailPage({
             });
           }}
         >
-          {upsertReportMutation.isPending ? "Saving…" : "Save Report"}
+          {upsertReportMutation.isPending ? "Wird gespeichert…" : "Bericht speichern"}
         </Button>
       </section>
       </div>

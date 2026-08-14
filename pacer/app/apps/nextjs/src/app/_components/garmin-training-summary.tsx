@@ -14,11 +14,11 @@ function readinessZone(score: number | null): {
   className: string;
 } {
   if (score == null) return { label: "—", className: "text-muted-foreground" };
-  if (score >= 80) return { label: "Prime", className: "text-emerald-400" };
-  if (score >= 60) return { label: "Good", className: "text-green-400" };
-  if (score >= 40) return { label: "Moderate", className: "text-yellow-400" };
-  if (score >= 20) return { label: "Low", className: "text-orange-400" };
-  return { label: "Poor", className: "text-red-400" };
+  if (score >= 80) return { label: "Top", className: "text-emerald-400" };
+  if (score >= 60) return { label: "Gut", className: "text-green-400" };
+  if (score >= 40) return { label: "Mittel", className: "text-yellow-400" };
+  if (score >= 20) return { label: "Niedrig", className: "text-orange-400" };
+  return { label: "Schwach", className: "text-red-400" };
 }
 
 function trendChip(trend: "rising" | "falling" | "stable" | null): {
@@ -30,6 +30,14 @@ function trendChip(trend: "rising" | "falling" | "stable" | null): {
   if (trend === "stable") return { symbol: "▶", className: "text-blue-400" };
   return { symbol: "—", className: "text-muted-foreground" };
 }
+
+// Display-only German labels for the trend enum — the enum values
+// themselves (used above for comparisons) stay untouched.
+const TREND_LABELS: Record<string, string> = {
+  rising: "steigend",
+  falling: "fallend",
+  stable: "stabil",
+};
 
 /* ── component ──────────────────────────────────────────────────── */
 export function GarminTrainingSummary() {
@@ -47,8 +55,8 @@ export function GarminTrainingSummary() {
   if (!latest) {
     return (
       <div className="bg-card text-muted-foreground rounded-2xl border p-4 text-sm">
-        No Garmin training summary yet — sync your device to populate readiness,
-        recovery, and HRV.
+        Noch keine Garmin-Trainingszusammenfassung — synchronisiere dein
+        Gerät, um Readiness, Erholung und HRV zu befüllen.
       </div>
     );
   }
@@ -71,7 +79,7 @@ export function GarminTrainingSummary() {
       day: "2-digit",
     });
     if (dateKey === todayKey) return null;
-    return `as of ${formatDateInTz(local, timezone, {
+    return `Stand ${formatDateInTz(local, timezone, {
       month: "short",
       day: "numeric",
     })}`;
@@ -104,9 +112,10 @@ export function GarminTrainingSummary() {
         <DataFreshness computedAt={summary.data?.computedAt} />
       </div>
       <p className="text-muted-foreground -mt-1 text-xs leading-relaxed">
-        From your watch&apos;s Firstbeat algorithms. Requires Forerunner 245+,
-        Fenix 6+, or similar. See the home page for our computed Readiness
-        score, which uses HRV / RHR / sleep and works on any device.
+        Direkt von den Firstbeat-Algorithmen deiner Uhr. Erfordert Forerunner
+        245+, Fenix 6+ oder ein vergleichbares Modell. Den von uns
+        berechneten Readiness-Score, der HRV, Ruhepuls und Schlaf nutzt und
+        mit jedem Gerät funktioniert, findest du auf der Startseite.
       </p>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -134,7 +143,7 @@ export function GarminTrainingSummary() {
         {/* Recovery Time */}
         <div className="bg-background/40 rounded-lg p-3">
           <div className="text-muted-foreground text-[10px] tracking-wide uppercase">
-            Recovery
+            Erholung
           </div>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-2xl font-bold">
@@ -147,7 +156,7 @@ export function GarminTrainingSummary() {
             )}
           </div>
           <div className="text-muted-foreground mt-0.5 text-xs">
-            remaining{recoveryAsOf ? ` · ${recoveryAsOf}` : ""}
+            verbleibend{recoveryAsOf ? ` · ${recoveryAsOf}` : ""}
           </div>
         </div>
 
@@ -164,12 +173,12 @@ export function GarminTrainingSummary() {
           >
             {latest.garminTrainingStatus
               ? latest.garminTrainingStatus.toLowerCase().replace(/_/g, " ")
-              : "Unavailable"}
+              : "Nicht verfügbar"}
           </div>
           <div className="text-muted-foreground mt-0.5 text-xs">
             {latest.garminTrainingStatus
               ? (latest.garminTrainingReadinessLevel?.toLowerCase() ?? "")
-              : "unavailable"}
+              : "nicht verfügbar"}
             {statusAsOf ? ` · ${statusAsOf}` : ""}
           </div>
         </div>
@@ -177,7 +186,7 @@ export function GarminTrainingSummary() {
         {/* HRV (weekly avg + trend) */}
         <div className="bg-background/40 rounded-lg p-3">
           <div className="text-muted-foreground text-[10px] tracking-wide uppercase">
-            HRV (14d)
+            HRV (14 T.)
           </div>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-2xl font-bold">
@@ -188,7 +197,10 @@ export function GarminTrainingSummary() {
             )}
           </div>
           <div className={cn("mt-0.5 text-xs", trend.className)}>
-            {trend.symbol} {summary.data?.hrvTrend ?? "no trend"}
+            {trend.symbol}{" "}
+            {summary.data?.hrvTrend
+              ? (TREND_LABELS[summary.data.hrvTrend] ?? summary.data.hrvTrend)
+              : "kein Trend"}
           </div>
         </div>
       </div>

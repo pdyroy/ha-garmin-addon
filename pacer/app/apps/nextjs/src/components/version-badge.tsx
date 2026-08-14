@@ -18,7 +18,7 @@ export function VersionBadge({
 }: VersionBadgeProps) {
   const label =
     fullText && buildTime
-      ? `Pacer App v${version} · Built ${buildTime}`
+      ? `Pacer App v${version} · erstellt ${buildTime}`
       : `v${version}`;
 
   return (
@@ -27,7 +27,7 @@ export function VersionBadge({
         "text-muted-foreground text-xs opacity-80",
         className,
       )}
-      title={buildTime ? `Built ${buildTime}` : undefined}
+      title={buildTime ? `Erstellt ${buildTime}` : undefined}
     >
       {label}
     </span>

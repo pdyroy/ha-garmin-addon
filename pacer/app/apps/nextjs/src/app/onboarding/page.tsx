@@ -13,43 +13,43 @@ import { PageShell } from "~/components/page-shell";
 import { useTRPC } from "~/trpc/react";
 
 const HEALTH_CONDITIONS = [
-  { id: "asthma", label: "🫁 Asthma", desc: "Exercise-induced or chronic" },
+  { id: "asthma", label: "🫁 Asthma", desc: "Belastungsinduziert oder chronisch" },
   {
     id: "hypertension",
-    label: "❤️‍🩹 High Blood Pressure",
-    desc: "Managed or unmanaged",
+    label: "❤️‍🩹 Bluthochdruck",
+    desc: "Behandelt oder unbehandelt",
   },
-  { id: "diabetes_t1", label: "💉 Type 1 Diabetes", desc: "Insulin-dependent" },
+  { id: "diabetes_t1", label: "💉 Diabetes Typ 1", desc: "Insulinpflichtig" },
   {
     id: "diabetes_t2",
-    label: "🩺 Type 2 Diabetes",
-    desc: "Diet/medication managed",
+    label: "🩺 Diabetes Typ 2",
+    desc: "Diät- oder medikamentös eingestellt",
   },
   {
     id: "heart_condition",
-    label: "🫀 Heart Condition",
-    desc: "Arrhythmia, murmur, etc.",
+    label: "🫀 Herzerkrankung",
+    desc: "Herzrhythmusstörungen, Herzgeräusch usw.",
   },
   {
     id: "joint_issues",
-    label: "🦴 Joint Problems",
-    desc: "Arthritis, chronic pain",
+    label: "🦴 Gelenkprobleme",
+    desc: "Arthrose, chronische Schmerzen",
   },
   {
     id: "back_issues",
-    label: "🔙 Back Problems",
-    desc: "Herniation, chronic pain",
+    label: "🔙 Rückenprobleme",
+    desc: "Bandscheibenvorfall, chronische Schmerzen",
   },
   {
     id: "respiratory",
-    label: "😮‍💨 Respiratory Issues",
-    desc: "COPD, sleep apnea",
+    label: "😮‍💨 Atemwegserkrankungen",
+    desc: "COPD, Schlafapnoe",
   },
-  { id: "thyroid", label: "🦋 Thyroid Disorder", desc: "Hypo/hyperthyroidism" },
+  { id: "thyroid", label: "🦋 Schilddrüsenerkrankung", desc: "Unter- oder Überfunktion" },
   {
     id: "anxiety_depression",
-    label: "🧠 Anxiety/Depression",
-    desc: "Affects training motivation",
+    label: "🧠 Angst/Depression",
+    desc: "Beeinflusst die Trainingsmotivation",
   },
 ];
 
@@ -70,6 +70,57 @@ const BODY_PARTS = [
   "quad",
 ];
 
+// Display-only translations. The underlying values (body part IDs, sport
+// IDs, day IDs, severity) are unchanged — they're stored, sent to the API,
+// and compared as-is; only the German label shown to the user is looked
+// up here.
+const BODY_PART_LABELS: Record<string, string> = {
+  knee: "Knie",
+  ankle: "Knöchel",
+  hip: "Hüfte",
+  shoulder: "Schulter",
+  lower_back: "Unterer Rücken",
+  upper_back: "Oberer Rücken",
+  wrist: "Handgelenk",
+  elbow: "Ellbogen",
+  neck: "Nacken",
+  foot: "Fuß",
+  shin: "Schienbein",
+  hamstring: "Beinbeuger",
+  calf: "Wade",
+  quad: "Quadrizeps",
+};
+
+const SEVERITY_LABELS: Record<"mild" | "moderate" | "severe", string> = {
+  mild: "Leicht",
+  moderate: "Mittel",
+  severe: "Schwer",
+};
+
+const SEX_LABELS: Record<"male" | "female" | "other", string> = {
+  male: "Männlich",
+  female: "Weiblich",
+  other: "Divers",
+};
+
+const SPORT_LABELS: Record<string, string> = {
+  running: "Laufen",
+  cycling: "Radfahren",
+  strength: "Krafttraining",
+  swimming: "Schwimmen",
+  team_sport: "Mannschaftssport",
+};
+
+const DAY_LABELS: Record<string, string> = {
+  mon: "Mo",
+  tue: "Di",
+  wed: "Mi",
+  thu: "Do",
+  fri: "Fr",
+  sat: "Sa",
+  sun: "So",
+};
+
 const SPORTS = ["running", "cycling", "strength", "swimming", "team_sport"];
 const GOALS = [
   "maintain",
@@ -79,10 +130,10 @@ const GOALS = [
 ];
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const GOAL_LABELS: Record<string, string> = {
-  maintain: "🏃 Maintain Fitness",
-  performance: "🏆 Performance",
-  body_composition: "💪 Body Composition",
-  return_from_injury: "🔄 Return from Layoff",
+  maintain: "🏃 Fitness erhalten",
+  performance: "🏆 Leistung steigern",
+  body_composition: "💪 Körperzusammensetzung",
+  return_from_injury: "🔄 Wiedereinstieg nach Pause",
 };
 
 export default function OnboardingPage() {
@@ -159,13 +210,13 @@ export default function OnboardingPage() {
   const steps = [
     // Step 0: Profile
     <div key="profile" className="space-y-4">
-      <h2 className="text-xl font-bold">About You</h2>
+      <h2 className="text-xl font-bold">Über dich</h2>
       <p className="text-muted-foreground text-sm">
-        Help us personalize your training.
+        Damit können wir dein Training persönlich zuschneiden.
       </p>
       <div className="grid-metrics">
         <div>
-          <Label>Age</Label>
+          <Label>Alter</Label>
           <Input
             type="number"
             value={age}
@@ -174,26 +225,26 @@ export default function OnboardingPage() {
           />
         </div>
         <div>
-          <Label>Sex</Label>
+          <Label>Geschlecht</Label>
           <div className="flex gap-2">
             {(["male", "female", "other"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setSex(s)}
                 className={cn(
-                  "flex-1 rounded-lg border px-3 py-2 text-sm capitalize",
+                  "flex-1 rounded-lg border px-3 py-2 text-sm",
                   sex === s
                     ? "border-primary bg-primary/10 text-primary"
                     : "text-muted-foreground",
                 )}
               >
-                {s}
+                {SEX_LABELS[s]}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <Label>Weight (kg)</Label>
+          <Label>Gewicht (kg)</Label>
           <Input
             type="number"
             value={massKg}
@@ -202,7 +253,7 @@ export default function OnboardingPage() {
           />
         </div>
         <div>
-          <Label>Height (cm)</Label>
+          <Label>Größe (cm)</Label>
           <Input
             type="number"
             value={heightCm}
@@ -215,9 +266,9 @@ export default function OnboardingPage() {
 
     // Step 1: Sports
     <div key="sports" className="space-y-4">
-      <h2 className="text-xl font-bold">Your Sports</h2>
+      <h2 className="text-xl font-bold">Deine Sportarten</h2>
       <p className="text-muted-foreground text-sm">
-        Select all sports you train.
+        Wähle alle Sportarten aus, die du trainierst.
       </p>
       <div className="flex flex-wrap gap-2">
         {SPORTS.map((sport) => (
@@ -225,24 +276,24 @@ export default function OnboardingPage() {
             key={sport}
             onClick={() => toggleSport(sport)}
             className={cn(
-              "rounded-full border px-4 py-2 text-sm capitalize transition-colors",
+              "rounded-full border px-4 py-2 text-sm transition-colors",
               selectedSports.includes(sport)
                 ? "border-primary bg-primary/10 text-primary font-medium"
                 : "text-muted-foreground hover:border-foreground/30",
             )}
           >
-            {sport.replace("_", " ")}
+            {SPORT_LABELS[sport] ?? sport}
           </button>
         ))}
       </div>
 
       {selectedSports.length > 0 && (
         <div className="space-y-3 pt-2">
-          <p className="text-sm font-medium">Goal for each sport:</p>
+          <p className="text-sm font-medium">Ziel für jede Sportart:</p>
           {selectedSports.map((sport) => (
             <div key={sport} className="space-y-1">
-              <p className="text-muted-foreground text-xs capitalize">
-                {sport}
+              <p className="text-muted-foreground text-xs">
+                {SPORT_LABELS[sport] ?? sport}
               </p>
               <div className="flex flex-wrap gap-1">
                 {GOALS.map((goal) => (
@@ -275,8 +326,8 @@ export default function OnboardingPage() {
 
     // Step 2: Availability
     <div key="availability" className="space-y-4">
-      <h2 className="text-xl font-bold">Weekly Schedule</h2>
-      <p className="text-muted-foreground text-sm">Which days can you train?</p>
+      <h2 className="text-xl font-bold">Wochenplan</h2>
+      <p className="text-muted-foreground text-sm">An welchen Tagen kannst du trainieren?</p>
       <div className="flex gap-2">
         {DAYS.map((d) => (
           <button
@@ -289,12 +340,12 @@ export default function OnboardingPage() {
                 : "text-muted-foreground",
             )}
           >
-            {d.charAt(0).toUpperCase()}
+            {DAY_LABELS[d]}
           </button>
         ))}
       </div>
       <div>
-        <Label>Minutes per session: {minutesPerDay}</Label>
+        <Label>Minuten pro Einheit: {minutesPerDay}</Label>
         <input
           type="range"
           min={15}
@@ -305,22 +356,22 @@ export default function OnboardingPage() {
           className="w-full"
         />
         <div className="text-muted-foreground flex justify-between text-xs">
-          <span>15 min</span>
-          <span>120 min</span>
+          <span>15 Min.</span>
+          <span>120 Min.</span>
         </div>
       </div>
     </div>,
 
     // Step 3: Health & Safety
     <div key="health" className="space-y-4">
-      <h2 className="text-xl font-bold">Health & Safety</h2>
+      <h2 className="text-xl font-bold">Gesundheit & Sicherheit</h2>
       <p className="text-muted-foreground text-sm">
-        Optional — helps us tailor safe recommendations for your body.
+        Optional — hilft uns, sichere Empfehlungen für deinen Körper zu geben.
       </p>
 
       {/* Health conditions */}
       <div>
-        <Label className="text-sm font-medium">Any health conditions?</Label>
+        <Label className="text-sm font-medium">Gesundheitliche Vorerkrankungen?</Label>
         <div className="mt-2 grid-wide">
           {HEALTH_CONDITIONS.map((c) => (
             <button
@@ -355,7 +406,7 @@ export default function OnboardingPage() {
 
       {/* Current injuries */}
       <div>
-        <Label className="text-sm font-medium">Any current injuries?</Label>
+        <Label className="text-sm font-medium">Aktuelle Verletzungen?</Label>
         <div className="mt-2 flex flex-wrap gap-2">
           {BODY_PARTS.map((part) => {
             const existing = injuries.find((i) => i.bodyPart === part);
@@ -373,13 +424,13 @@ export default function OnboardingPage() {
                   )
                 }
                 className={cn(
-                  "rounded-full border px-3 py-1.5 text-xs capitalize transition-colors",
+                  "rounded-full border px-3 py-1.5 text-xs transition-colors",
                   existing
                     ? "border-amber-500 bg-amber-500/10 font-medium text-amber-700 dark:text-amber-400"
                     : "text-muted-foreground hover:border-foreground/30",
                 )}
               >
-                {part.replace("_", " ")}
+                {BODY_PART_LABELS[part] ?? part}
               </button>
             );
           })}
@@ -391,8 +442,8 @@ export default function OnboardingPage() {
                 key={injury.bodyPart}
                 className="flex items-center gap-2 text-sm"
               >
-                <span className="min-w-[80px] font-medium capitalize">
-                  {injury.bodyPart.replace("_", " ")}:
+                <span className="min-w-[80px] font-medium">
+                  {BODY_PART_LABELS[injury.bodyPart] ?? injury.bodyPart}:
                 </span>
                 {(["mild", "moderate", "severe"] as const).map((sev) => (
                   <button
@@ -407,7 +458,7 @@ export default function OnboardingPage() {
                       )
                     }
                     className={cn(
-                      "rounded-md border px-2 py-0.5 text-xs capitalize",
+                      "rounded-md border px-2 py-0.5 text-xs",
                       injury.severity === sev
                         ? sev === "mild"
                           ? "border-green-500 bg-green-500/10 text-green-700"
@@ -417,7 +468,7 @@ export default function OnboardingPage() {
                         : "text-muted-foreground",
                     )}
                   >
-                    {sev}
+                    {SEVERITY_LABELS[sev]}
                   </button>
                 ))}
               </div>
@@ -428,36 +479,38 @@ export default function OnboardingPage() {
 
       {/* Medications */}
       <div>
-        <Label>Current medications</Label>
+        <Label>Aktuelle Medikamente</Label>
         <Input
           value={medications}
           onChange={(e) => setMedications(e.target.value)}
-          placeholder="e.g., Beta-blockers, Metformin, Inhaler…"
+          placeholder="z. B. Betablocker, Metformin, Inhalator…"
         />
       </div>
 
       {/* Allergies */}
       <div>
-        <Label>Allergies or sensitivities</Label>
+        <Label>Allergien oder Unverträglichkeiten</Label>
         <Input
           value={allergies}
           onChange={(e) => setAllergies(e.target.value)}
-          placeholder="e.g., Pollen, lactose intolerant…"
+          placeholder="z. B. Pollen, laktoseintolerant…"
         />
       </div>
 
       <p className="text-muted-foreground text-xs italic">
-        💡 All health information is optional and stored locally. It helps our
-        AI avoid unsafe recommendations.
+        💡 Alle Gesundheitsinformationen sind optional und werden lokal
+        gespeichert. Sie helfen unserer KI, unsichere Empfehlungen zu vermeiden.
       </p>
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          <strong>⚠️ Medical Disclaimer:</strong> Pacer is not a substitute
-          for professional medical advice, diagnosis, or treatment.
-          Recommendations are generated by AI and may not account for all
-          individual factors. Always consult a qualified healthcare professional
-          before starting or modifying any exercise program, especially if you
-          have pre-existing health conditions. Individual results may vary.
+          <strong>⚠️ Medizinischer Hinweis:</strong> Pacer ersetzt keine
+          professionelle medizinische Beratung, Diagnose oder Behandlung.
+          Empfehlungen werden von einer KI erstellt und berücksichtigen
+          möglicherweise nicht alle individuellen Faktoren. Konsultiere vor
+          Beginn oder Änderung eines Trainingsprogramms immer eine
+          qualifizierte Ärztin oder einen qualifizierten Arzt, besonders bei
+          bestehenden Vorerkrankungen. Individuelle Ergebnisse können
+          variieren.
         </p>
       </div>
     </div>,
@@ -485,12 +538,12 @@ export default function OnboardingPage() {
       <div className="mt-8 flex gap-3">
         {step > 0 && (
           <Button variant="outline" onClick={() => setStep((s) => s - 1)}>
-            Back
+            Zurück
           </Button>
         )}
         {step < steps.length - 1 ? (
           <Button className="flex-1" onClick={() => setStep((s) => s + 1)}>
-            Continue
+            Weiter
           </Button>
         ) : (
           <Button
@@ -498,7 +551,7 @@ export default function OnboardingPage() {
             onClick={handleFinish}
             disabled={upsertProfile.isPending}
           >
-            {upsertProfile.isPending ? "Saving..." : "Let's Go 🚀"}
+            {upsertProfile.isPending ? "Wird gespeichert…" : "Los geht's 🚀"}
           </Button>
         )}
       </div>

@@ -148,12 +148,20 @@ export const analyticsRouter = {
     // Return primitives only — no `Date` in the response. The superjson
     // transformer was previously crashing here with `Invalid time value`
     // for one user, so we ship an ISO string and let the client parse.
+    // `acwr` stays a plain number so every existing consumer keeps working:
+    // computeACWR now returns { ratio, chronicLoad, reason }, and returning
+    // that object here silently broke four pages, where `acwr < 0.8` compared
+    // an object against a number and quietly evaluated to false. The absolute
+    // chronic load is exposed alongside instead, because the ratio is not
+    // interpretable without it.
     return {
       ctl: loadMetrics.ctl,
       atl: loadMetrics.atl,
       tsb: loadMetrics.tsb,
-      acwr,
-      acwrEwma,
+      acwr: acwr.ratio,
+      acwrChronicLoad: acwr.chronicLoad,
+      acwrReason: acwr.reason ?? null,
+      acwrEwma: acwrEwma.ratio,
       loadFocus,
       rampRate: loadMetrics.rampRate,
       timezone: profile?.timezone ?? "UTC",
