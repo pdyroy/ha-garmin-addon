@@ -1305,10 +1305,18 @@ export async function buildDataContext(
 
   const result = sections.join("\n\n");
 
-  // Cap context size to prevent OOM — LLMs work fine with summarized data.
-  // Allow a larger budget when a history block is present so multi-year
-  // grounding isn't truncated away.
-  const cap = historyBlock ? 6000 : 4000;
+  // Cap the context. The old limit of 4000 characters was set to protect a
+  // local Ollama model on a memory-constrained device, and it silently threw
+  // away everything after the metric JSON — training load, recent activities,
+  // sleep, zone distribution and the trend section all fell off the end, on
+  // every single request. A hosted model has orders of magnitude more room
+  // (deepseek-v4-flash offers 163k tokens), so the cap only needs to apply
+  // where it was actually earned.
+  //
+  // The sections are ordered most-important-first, so truncation still
+  // degrades gracefully rather than losing the grounding rules.
+  const localModel = (process.env.AI_BACKEND ?? "") === "ollama";
+  const cap = localModel ? (historyBlock ? 6000 : 4000) : 40_000;
   if (result.length > cap) {
     return result.slice(0, cap) + "\n\n[... context trimmed for performance]";
   }

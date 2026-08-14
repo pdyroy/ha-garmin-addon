@@ -61,12 +61,21 @@ const TOOLTIP_STYLE = {
 
 /* ─────────────── ACWR helpers ─────────────── */
 
+/**
+ * Describe the ratio without grading it.
+ *
+ * The Optimal / Caution / High Risk banding this replaced has no evidential
+ * basis: Impellizzeri et al. (2021) reproduced the published injury
+ * association after substituting random numbers for chronic load. The ratio
+ * says how this week compares with the three weeks before it — nothing about
+ * risk — so the label states the direction and the colour stays neutral.
+ */
 function acwrStatus(value: number): { label: string; color: string } {
-  if (value < 0.8)
-    return { label: "Under-training", color: "text-muted-foreground" };
-  if (value <= 1.3) return { label: "Optimal", color: "text-green-400" };
-  if (value <= 1.5) return { label: "Caution", color: "text-yellow-400" };
-  return { label: "⚠️ High Risk", color: "text-red-400" };
+  if (value < 0.85)
+    return { label: "unter dem Schnitt", color: "text-muted-foreground" };
+  if (value <= 1.15)
+    return { label: "wie zuletzt", color: "text-muted-foreground" };
+  return { label: "über dem Schnitt", color: "text-foreground" };
 }
 
 /* ─────────────── page ─────────────── */
@@ -172,7 +181,7 @@ export default function TrainingLoadPage() {
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <SectionHeader
               title="Performance Management Chart"
-              info="CTL (Chronic Training Load) = fitness built over 42 days. ATL (Acute Training Load) = fatigue over 7 days. TSB (Training Stress Balance) = CTL - ATL = form. ACWR (Acute:Chronic Workload Ratio) = optimal 0.8–1.3. Citation: Banister (1991), Hulin et al. (2016)."
+              info="CTL (Chronic Training Load) = fitness built over 42 days. ATL (Acute Training Load) = fatigue over 7 days. TSB (Training Stress Balance) = CTL - ATL = form. ACWR (Acute:Chronic Workload Ratio) = diese Woche gegen die 21 Tage davor, beschreibend ohne Risikoschwelle. Citation: Banister (1991)."
             />
             <DateRangeSelector
               value={pmcDays}
@@ -342,8 +351,8 @@ export default function TrainingLoadPage() {
           <div className="bg-card rounded-2xl border p-4">
             <div className="mb-3 flex items-baseline justify-between">
               <SectionHeader
-                title="ACWR Gauge"
-                info="Current Acute:Chronic Workload Ratio with risk zones. Sweet spot 0.8–1.3 = lowest injury risk. Source: Hulin BT et al. (2016)."
+                title="ACWR"
+                info="Diese Woche im Verhältnis zu den 21 Tagen davor. Beschreibend, keine Risikoschwelle: Impellizzeri et al. (2021) erzeugten dieselbe Verletzungsassoziation, nachdem sie die chronische Last durch Zufallszahlen ersetzt hatten. Immer zusammen mit der absoluten chronischen Last lesen."
               />
               <DataFreshness computedAt={loads.data?.computedAt} />
             </div>
@@ -367,19 +376,10 @@ export default function TrainingLoadPage() {
                   &lt;0.8 — Under-training
                 </span>
               </span>
-              <span className="flex items-center gap-1.5">
-                <span className="text-base">🟢</span>
-                <span className="text-muted-foreground">0.8–1.3 — Optimal</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="text-base">🟡</span>
-                <span className="text-muted-foreground">1.3–1.5 — Caution</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="text-base">🔴</span>
-                <span className="text-muted-foreground">
-                  &gt;1.5 — High Risk
-                </span>
+              <span className="text-muted-foreground">
+                1,0 = diese Woche wie die 21 Tage davor. Darunter weniger,
+                darüber mehr. Kein Risikowert — immer zusammen mit der
+                absoluten chronischen Last lesen.
               </span>
             </div>
           </div>
@@ -565,7 +565,7 @@ export default function TrainingLoadPage() {
               </p>
               <p className="text-muted-foreground mt-1 text-xs">Ramp Rate</p>
               <p className="text-muted-foreground mt-0.5 text-[10px]">
-                {loads.data.rampRate > 8 ? "⚠ High — injury risk" : "pts/week"}
+                {loads.data.rampRate > 8 ? "⚠ steiler Aufbau" : "pts/week"}
               </p>
             </div>
           </div>
@@ -726,7 +726,7 @@ export default function TrainingLoadPage() {
           <div className="bg-card rounded-2xl border p-4">
             <SectionHeader
               title="Recommendation"
-              info="AI-generated training recommendation combining: ACWR (injury risk), TSB (freshness = CTL - ATL), sleep quality score, and recent strain pattern. Suggests push/maintain/rest based on composite readiness. Method: Rule-based engine with sport science thresholds."
+              info="AI-generated training recommendation combining: ACWR (Lastverhältnis), TSB (freshness = CTL - ATL), sleep quality score, and recent strain pattern. Suggests push/maintain/rest based on composite readiness. Method: Rule-based engine with sport science thresholds."
               className="mb-2"
             />
             <p className="text-sm leading-relaxed">
@@ -748,13 +748,9 @@ function ACWRGaugeEnhanced({ value }: { value: number }) {
   const pct = (clamped / 2) * 100;
   const { label, color } = acwrStatus(value);
 
-  // Zone widths: 0–0.8 (40%), 0.8–1.3 (25%), 1.3–1.5 (10%), 1.5–2.0 (25%)
-  const segments = [
-    { color: "#71717a", width: "40%", label: "Under" },
-    { color: "#22c55e", width: "25%", label: "Optimal" },
-    { color: "#eab308", width: "10%", label: "Caution" },
-    { color: "#ef4444", width: "25%", label: "High Risk" },
-  ];
+  // One neutral track. The graded segments this replaced encoded an
+  // injury-risk threshold the evidence does not support.
+  const segments = [{ color: "var(--muted)", width: "100%", label: "scale" }];
 
   return (
     <div className="space-y-2">
@@ -811,20 +807,14 @@ function ACWRGauge({ value }: { value: number }) {
     <div className="space-y-2">
       {/* Colored zone bar */}
       <div className="relative h-4 w-full overflow-hidden rounded-full">
-        {/* 0–0.8: undertrained (red) */}
+        {/* Neutral track. The green/amber/red banding this replaced implied
+            an injury-risk threshold the evidence does not support — see the
+            section info text. A single reference tick at 1.0 is all the
+            ratio can honestly carry. */}
+        <div className="bg-muted absolute inset-0" />
         <div
-          className="absolute inset-y-0 left-0 bg-red-500/40"
-          style={{ width: "40%" }}
-        />
-        {/* 0.8–1.3: sweet spot (green) */}
-        <div
-          className="absolute inset-y-0 bg-green-500/50"
-          style={{ left: "40%", width: "25%" }}
-        />
-        {/* 1.3–2.0: spike risk (red) */}
-        <div
-          className="absolute inset-y-0 right-0 bg-red-500/40"
-          style={{ left: "65%" }}
+          className="bg-border absolute inset-y-0 w-px"
+          style={{ left: "50%" }}
         />
         {/* Marker */}
         <div

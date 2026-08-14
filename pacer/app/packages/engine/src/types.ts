@@ -304,7 +304,7 @@ export interface UserProfile {
 // Ref: Hulin 2016 (ACWR), Meeusen 2013 (TSB overreaching), Kellmann 2010
 // ---------------------------------------------------------------------------
 export interface RecoveryContext {
-  acwr: number | null; // Acute:Chronic Workload Ratio (sweet spot: 0.8-1.3)
+  acwr: number | null; // Acute:Chronic Workload Ratio — descriptive, no risk band
   tsb: number | null; // Training Stress Balance (CTL - ATL)
   bodyBattery: number | null; // Garmin Body Battery (0-100)
   sleepDebtMinutes: number | null; // accumulated sleep debt
