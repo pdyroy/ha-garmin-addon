@@ -31,7 +31,10 @@ const AGENT_LABELS: Record<AgentType, string> = {
 let _aiInFlight = false;
 let _aiAbortController: AbortController | null = null;
 
-const AI_TIMEOUT_MS = 45_000; // 45s — HA Conversation API on RPi4 can be slow
+// 45s was not enough for a reasoning model: the chain of thought alone can
+// run well past it on a full coaching prompt, and the request was aborted
+// before any answer text existed.
+const AI_TIMEOUT_MS = 150_000;
 const ACTIVITY_NAME_SLUG_PATTERN =
   /\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+\b/g;
 

@@ -11,7 +11,7 @@
  *
  * Environment variables:
  *   OPENROUTER_API_KEY  – required to enable this backend (sk-or-...)
- *   OPENROUTER_MODEL    – model slug (default anthropic/claude-3.5-sonnet)
+ *   OPENROUTER_MODEL    – model slug (default anthropic/claude-sonnet-4.5)
  *   OPENROUTER_BASE_URL – API base (default https://openrouter.ai/api/v1)
  */
 
@@ -28,8 +28,17 @@ export interface OpenRouterChatOptions {
   timeoutMs?: number;
 }
 
-const DEFAULT_MODEL = "anthropic/claude-3.5-sonnet";
+// anthropic/claude-3.5-sonnet was the previous default and now 404s on
+// OpenRouter, so an install that never set a model got no AI at all.
+const DEFAULT_MODEL = "anthropic/claude-sonnet-4.5";
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
+
+// Reasoning models spend their token budget on an internal chain of thought
+// before emitting any answer. With a 1024 budget and a full coaching prompt,
+// the reasoning alone exhausted it: the reply came back with
+// finish_reason "length" and an empty content field, so a working model
+// looked like a broken backend.
+const DEFAULT_MAX_TOKENS = 4096;
 
 /**
  * True when OpenRouter is the selected backend AND an API key is present.
@@ -76,7 +85,7 @@ export async function openRouterChat(
         messages,
         stream: false,
         temperature: options?.temperature ?? 0.7,
-        max_tokens: options?.maxTokens ?? 1024,
+        max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
       }),
     });
 
@@ -88,10 +97,25 @@ export async function openRouterChat(
     }
 
     const data = (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
+      choices?: {
+        message?: { content?: string | null };
+        finish_reason?: string;
+      }[];
     };
-    const text = data.choices?.[0]?.message?.content;
+    const choice = data.choices?.[0];
+    const text = choice?.message?.content;
     if (!text) {
+      // Distinguish an exhausted budget from a genuinely empty reply: on a
+      // reasoning model these look identical from the content field alone,
+      // and "empty response" sent people looking in the wrong place.
+      if (choice?.finish_reason === "length") {
+        throw new Error(
+          `OpenRouter returned no answer: model "${model}" hit the ${
+            options?.maxTokens ?? DEFAULT_MAX_TOKENS
+          } token limit before producing content. Reasoning models need a ` +
+            `larger budget, or pick a non-reasoning model.`,
+        );
+      }
       throw new Error("OpenRouter returned empty response");
     }
     return text;

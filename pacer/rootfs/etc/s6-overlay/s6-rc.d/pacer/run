@@ -113,7 +113,7 @@ STRAVA_CLIENT_SECRET=$(bashio::config 'strava_client_secret' || echo "")
 STRAVA_REFRESH_TOKEN=$(bashio::config 'strava_refresh_token' || echo "")
 AI_BACKEND=$(bashio::config 'ai_backend' || echo "none")
 OPENROUTER_API_KEY=$(bashio::config 'openrouter_api_key' || echo "")
-OPENROUTER_MODEL=$(bashio::config 'openrouter_model' || echo "anthropic/claude-3.5-sonnet")
+OPENROUTER_MODEL=$(bashio::config 'openrouter_model' || echo "anthropic/claude-sonnet-4.5")
 OLLAMA_URL=$(bashio::config 'ollama_url' || echo "")
 OLLAMA_EMBED_MODEL=$(bashio::config 'ollama_embed_model' || echo "nomic-embed-text")
 SYNC_INTERVAL=$(bashio::config 'sync_interval_minutes' || echo "60")
@@ -123,7 +123,7 @@ export GARMIN_EMAIL GARMIN_PASSWORD
 export STRAVA_CLIENT_ID STRAVA_CLIENT_SECRET STRAVA_REFRESH_TOKEN
 export AI_BACKEND
 export OPENROUTER_API_KEY
-export OPENROUTER_MODEL="${OPENROUTER_MODEL:-anthropic/claude-3.5-sonnet}"
+export OPENROUTER_MODEL="${OPENROUTER_MODEL:-anthropic/claude-sonnet-4.5}"
 export OLLAMA_URL
 export OLLAMA_MODEL="${OLLAMA_MODEL:-gpt-oss:20b}"
 export OLLAMA_EMBED_MODEL="${OLLAMA_EMBED_MODEL:-nomic-embed-text}"
