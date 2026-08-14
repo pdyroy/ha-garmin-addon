@@ -8,4 +8,14 @@
 bashio::log.info "Starting Garmin auth server on 127.0.0.1:8099..."
 MEETING_LOOKBACK_DAYS=$(bashio::config 'meeting_lookback_days' || echo "30")
 export MEETING_LOOKBACK_DAYS
+
+# These were exported only in the pacer service, so this process saw neither.
+# /auth/status therefore always reported an empty account address, and the
+# metrics recompute this server spawns bucketed activities in UTC while the
+# scheduled run used the configured zone — the same day could show different
+# numbers depending on which one ran last.
+GARMIN_EMAIL=$(bashio::config 'garmin_email' || echo "")
+USER_TIMEZONE=$(bashio::config 'user_timezone' || echo "UTC")
+export GARMIN_EMAIL USER_TIMEZONE
+
 exec python3 /app/scripts/garmin-auth-server.py

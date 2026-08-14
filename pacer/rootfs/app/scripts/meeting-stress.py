@@ -378,44 +378,6 @@ def load_hr_cache(cache_dir: str) -> HrSeries:
     return series
 
 
-def _migrate_garth_tokens(token_dir: str) -> None:
-    """Convert legacy garth oauth2_token.json to garminconnect 0.3.x native format.
-
-    Same migration as pacer garmin-sync.py — generate-garmin-tokens.py emits
-    garth-format files, which newer garminconnect can't load directly.
-    """
-    import base64
-
-    native = os.path.join(token_dir, "garmin_tokens.json")
-    legacy = os.path.join(token_dir, "oauth2_token.json")
-    if os.path.exists(native) or not os.path.exists(legacy):
-        return
-    with open(legacy) as f:
-        oauth2 = json.load(f)
-    access_token = oauth2.get("access_token", "")
-    if not access_token:
-        return
-    client_id = ""
-    try:
-        part = access_token.split(".")[1]
-        pad = -len(part) % 4
-        jwt = json.loads(base64.urlsafe_b64decode(part + "=" * pad))
-        client_id = jwt.get("client_id", "")
-    except Exception as exc:
-        logging.getLogger(__name__).debug("token client-id parse failed: %s", exc)
-    fd = os.open(native, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, "w") as f:
-        json.dump(
-            {
-                "di_token": access_token,
-                "di_refresh_token": oauth2.get("refresh_token", ""),
-                "di_client_id": client_id,
-            },
-            f,
-            indent=2,
-        )
-
-
 def fetch_hr_garmin(dates: list[str], cache_dir: str) -> HrSeries:
     """Real path: pull ~2-min HR per date via garminconnect, cache, return series.
 
@@ -429,7 +391,6 @@ def fetch_hr_garmin(dates: list[str], cache_dir: str) -> HrSeries:
     from garminconnect import Garmin  # type: ignore
 
     token_dir = os.environ.get("GARMIN_TOKEN_DIR", "/data/garmin-tokens")
-    _migrate_garth_tokens(token_dir)
     client = Garmin(
         os.environ.get("GARMIN_EMAIL", "token-user"),
         os.environ.get("GARMIN_PASSWORD", ""),

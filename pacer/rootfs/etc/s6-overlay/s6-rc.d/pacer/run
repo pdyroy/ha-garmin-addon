@@ -279,7 +279,7 @@ if [ -n "${GARMIN_EMAIL}" ] && [ -n "${GARMIN_PASSWORD}" ]; then
         done
     ) &
     SYNC_PID=$!
-elif [ -f "${TOKEN_DIR}/garmin_tokens.json" ] || { [ -f "${TOKEN_DIR}/oauth1_token.json" ] && [ -f "${TOKEN_DIR}/oauth2_token.json" ]; }; then
+elif [ -f "${TOKEN_DIR}/oauth1_token.json" ] && [ -f "${TOKEN_DIR}/oauth2_token.json" ]; then
     bashio::log.info "Found saved Garmin tokens in ${TOKEN_DIR}"
     bashio::log.info "Starting Garmin sync from saved tokens (every ${SYNC_INTERVAL} minutes)..."
     (

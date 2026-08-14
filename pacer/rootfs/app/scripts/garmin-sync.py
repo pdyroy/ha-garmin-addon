@@ -102,12 +102,16 @@ def _ensure_secure_dir(path: str) -> None:
 
 
 def _has_saved_garmin_tokens(token_dir: str | None = None) -> bool:
-    """Return true if either native or legacy Garmin token files exist."""
+    """Return true if a usable Garmin token pair exists.
+
+    Only the garth pair counts. garmin_tokens.json used to satisfy this check
+    too, reporting a session the pinned garth 0.6.3 cannot load — so the add-on
+    logged "Found saved Garmin tokens" and then failed every request.
+    """
     token_dir = token_dir or TOKEN_DIR
-    return os.path.exists(os.path.join(token_dir, "garmin_tokens.json")) or (
-        os.path.exists(os.path.join(token_dir, "oauth1_token.json"))
-        and os.path.exists(os.path.join(token_dir, "oauth2_token.json"))
-    )
+    return os.path.exists(
+        os.path.join(token_dir, "oauth1_token.json")
+    ) and os.path.exists(os.path.join(token_dir, "oauth2_token.json"))
 
 
 def _exception_status_code(exc: Exception) -> int | None:
@@ -267,19 +271,31 @@ def _refresh_matview(db) -> None:
 def get_client():
     """Authenticate with Garmin Connect, preferring saved tokens."""
     _ensure_secure_dir(TOKEN_DIR)
-    native_token_path = os.path.join(TOKEN_DIR, "garmin_tokens.json")
+    stale_native_path = os.path.join(TOKEN_DIR, "garmin_tokens.json")
+    oauth1_path = os.path.join(TOKEN_DIR, "oauth1_token.json")
     oauth2_path = os.path.join(TOKEN_DIR, "oauth2_token.json")
 
-    # Migrate legacy garth tokens to garminconnect 0.3.x native format
-    if not os.path.exists(native_token_path) and os.path.exists(oauth2_path):
+    # An earlier version converted the garth token pair into garminconnect
+    # 0.3.x's native format (di_token / di_refresh_token / di_client_id) and
+    # wrote it to garmin_tokens.json. This build pins garminconnect 0.2.40 with
+    # garth 0.6.3, which cannot read that format and needs the OAuth1 token the
+    # conversion dropped entirely. Worse, the file's mere presence selected the
+    # token path below, so every start failed with "OAuth1 token is required
+    # for OAuth2 refresh", the auth server reported the session as
+    # disconnected, and the user was asked to sign in to Garmin again — after
+    # every single restart. Remove the artefact so existing installs recover.
+    if os.path.exists(stale_native_path):
         try:
-            _migrate_garth_tokens(oauth2_path, native_token_path)
-        except Exception as e:
-            print(f"Token migration failed: {e}", file=sys.stderr)
-            logging.getLogger(__name__).debug("token migration failed: %s", e)
+            os.remove(stale_native_path)
+            print(
+                "Removed incompatible garmin_tokens.json left by an older version",
+                file=sys.stderr,
+            )
+        except OSError as exc:
+            print(f"WARNING: could not remove stale token file: {exc}", file=sys.stderr)
 
-    # Mode 1: Resume from saved tokens (garminconnect 0.3.x native format)
-    if os.path.exists(native_token_path):
+    # Mode 1: resume from the garth token pair written by the auth server.
+    if os.path.exists(oauth1_path) and os.path.exists(oauth2_path):
         try:
             client = Garmin(GARMIN_EMAIL or "token-user", GARMIN_PASSWORD or "")
             client.login(tokenstore=TOKEN_DIR)
@@ -320,48 +336,6 @@ def get_client():
             logging.getLogger(__name__).debug("credential login failed: %s", e)
 
     return None
-
-
-def _migrate_garth_tokens(oauth2_path, native_token_path):
-    """Convert legacy garth OAuth2 tokens to garminconnect 0.3.x native format."""
-    import base64
-
-    with open(oauth2_path) as f:
-        oauth2 = json.load(f)
-
-    access_token = oauth2.get("access_token", "")
-    refresh_token = oauth2.get("refresh_token", "")
-    if not access_token:
-        return
-
-    # Extract client_id from JWT payload
-    client_id = ""
-    try:
-        parts = access_token.split(".")
-        payload = parts[1] + "=" * (4 - len(parts[1]) % 4)
-        jwt_data = json.loads(base64.b64decode(payload))
-        client_id = jwt_data.get("client_id", "")
-    except Exception as exc:
-        logging.getLogger(__name__).debug("token client-id parse failed: %s", exc)
-
-    new_tokens = {
-        "di_token": access_token,
-        "di_refresh_token": refresh_token,
-        "di_client_id": client_id,
-    }
-    # Create the file with 0600 from the start so the secret is never briefly
-    # exposed under the process umask between write and chmod. O_NOFOLLOW
-    # refuses to write through a symlink planted in place of the token file.
-    fd = os.open(
-        native_token_path,
-        os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
-        0o600,
-    )
-    with os.fdopen(fd, "w") as f:
-        json.dump(new_tokens, f, indent=2)
-    # O_CREAT mode is ignored if the file already existed; enforce it anyway.
-    os.chmod(native_token_path, 0o600)
-    print(f"Migrated garth tokens to native format (client_id={client_id})")
 
 
 def get_db():

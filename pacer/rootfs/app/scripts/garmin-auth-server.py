@@ -119,12 +119,16 @@ _mfa_store = MfaStore()
 def _has_saved_garmin_tokens(
     token_dir: str | None = None, user_id: Optional[str] = None
 ) -> bool:
-    """Return true if either native or legacy Garmin token files exist."""
+    """Return true if a usable Garmin token pair exists.
+
+    Only the garth pair counts — garmin_tokens.json is written in a format the
+    pinned garth 0.6.3 cannot load, so treating it as a session made the UI
+    claim a connection that no request could actually use.
+    """
     token_dir = token_dir or _token_dir(user_id)
-    return os.path.exists(os.path.join(token_dir, "garmin_tokens.json")) or (
-        os.path.exists(os.path.join(token_dir, "oauth1_token.json"))
-        and os.path.exists(os.path.join(token_dir, "oauth2_token.json"))
-    )
+    return os.path.exists(
+        os.path.join(token_dir, "oauth1_token.json")
+    ) and os.path.exists(os.path.join(token_dir, "oauth2_token.json"))
 
 
 def _save_tokens(client: "Garmin", user_id: Optional[str] = None) -> None:
@@ -611,10 +615,7 @@ def trigger_meeting_stress() -> tuple[Response, int] | Response:
             "(scripts/generate-gcal-token.py) or drop "
             f"calendar_events.json at {events_file}",
         ), 400
-    has_tokens = any(
-        os.path.exists(os.path.join(TOKEN_DIR, name))
-        for name in ("garmin_tokens.json", "oauth1_token.json", "oauth2_token.json")
-    )
+    has_tokens = _has_saved_garmin_tokens(TOKEN_DIR)
     if not has_tokens:
         return jsonify(success=False, message="Not connected to Garmin"), 400
 
