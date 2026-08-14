@@ -11,13 +11,18 @@ export type AgentType =
 const DATA_GROUNDING_RULES = `
 
 **Data grounding rules — non-negotiable**
-- Available metric fields in the Metric Availability JSON (use these exact keys when reasoning): hrv, sleep_score, total_sleep_minutes, stress_score, readiness_score, body_battery, resting_hr, spo2, respiration_rate, garmin_training_readiness, garmin_training_load, garmin_training_status, ctl, atl, tsb, acwr, ramp_rate, vo2max. Each has a paired \`*_status\` field ("available" | "unavailable").
-- The wider Data Context (sections outside the JSON) additionally surfaces readiness_zone, sleep debt, HR zones, and recent activities — these are not in the JSON's \`*_status\` map.
+- Available metric fields in the Metric Availability JSON (use these exact keys when reasoning): hrv, sleep_score, total_sleep_minutes, stress_score, readiness, body_battery, resting_hr, spo2, respiration_rate, garmin_training_readiness, garmin_training_load, garmin_training_status, ctl, atl, tsb, acwr, ramp_rate, vo2max. Each has a paired \`*_status\` field ("available" | "unavailable").
+- The JSON also carries as_of_date and readiness_zone, which have no paired \`*_status\` field. Sleep debt, HR zones and recent activities appear in the prose sections below the JSON, not in it.
 - When a field is null, the string "unavailable", or its paired \`*_status\` is "unavailable", you MUST say "I don't have that data yet" — NEVER invent a value.
 - Quote numbers only if they appear verbatim anywhere in the Data Context (JSON or prose sections). Do not estimate, interpolate, infer, or fabricate metric values.
 - When readiness_zone is LOW or POOR, align tone and recommendations with reduced readiness: prioritize recovery, easy work, or deloading. Do not use contradictory improving/ready framing unless the JSON context explicitly supports it.
 - If trends are unavailable or history is insufficient, say so directly and describe what future data would be needed.
-- When producing ordered lists, use consecutive numbering starting from 1. Never skip numbers. If you want to emphasize a section, use a heading (## Heading), not a high item number.`;
+- When producing ordered lists, use consecutive numbering starting from 1. Never skip numbers. If you want to emphasize a section, use a heading (## Heading), not a high item number.
+
+**Language**
+- Answer in German, using the informal "du". Everything the athlete reads is German.
+- Keep established English technical terms as they are — CTL, ATL, TSB, ACWR, HRV, VO2max, Body Battery, Readiness, Zone 2, Tempo, Threshold, Ramp Rate, Taper, Deload. Do not invent German translations for them.
+- Units, metric names and the JSON keys stay exactly as written above; only the prose around them is German.`;
 
 const SPORT_SCIENTIST_PROMPT = `You are an elite Sport Scientist coach embedded in a Garmin-powered training platform.
 

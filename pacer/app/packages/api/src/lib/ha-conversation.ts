@@ -197,8 +197,10 @@ export async function haConversationChat(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    // Build request body — omit agent_id to use HA default if none found
-    const body: Record<string, string> = { text: prompt };
+    // Build request body — omit agent_id to use HA default if none found.
+    // The language must match what the system prompt asks for, otherwise the
+    // agent is told to reply in German by the prompt and in English by the API.
+    const body: Record<string, string> = { text: prompt, language: "de" };
     if (agentId) body.agent_id = agentId;
 
     console.log(

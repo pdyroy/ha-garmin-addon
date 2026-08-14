@@ -271,28 +271,13 @@ def _refresh_matview(db) -> None:
 def get_client():
     """Authenticate with Garmin Connect, preferring saved tokens."""
     _ensure_secure_dir(TOKEN_DIR)
-    stale_native_path = os.path.join(TOKEN_DIR, "garmin_tokens.json")
     oauth1_path = os.path.join(TOKEN_DIR, "oauth1_token.json")
     oauth2_path = os.path.join(TOKEN_DIR, "oauth2_token.json")
 
-    # An earlier version converted the garth token pair into garminconnect
-    # 0.3.x's native format (di_token / di_refresh_token / di_client_id) and
-    # wrote it to garmin_tokens.json. This build pins garminconnect 0.2.40 with
-    # garth 0.6.3, which cannot read that format and needs the OAuth1 token the
-    # conversion dropped entirely. Worse, the file's mere presence selected the
-    # token path below, so every start failed with "OAuth1 token is required
-    # for OAuth2 refresh", the auth server reported the session as
-    # disconnected, and the user was asked to sign in to Garmin again — after
-    # every single restart. Remove the artefact so existing installs recover.
-    if os.path.exists(stale_native_path):
-        try:
-            os.remove(stale_native_path)
-            print(
-                "Removed incompatible garmin_tokens.json left by an older version",
-                file=sys.stderr,
-            )
-        except OSError as exc:
-            print(f"WARNING: could not remove stale token file: {exc}", file=sys.stderr)
+    # Only the garth pair matters here. An earlier version also wrote
+    # garmin_tokens.json in garminconnect 0.3.x's native format, which the
+    # pinned garth 0.6.3 cannot read; it is simply ignored rather than deleted,
+    # so a future garminconnect that writes it legitimately is not sabotaged.
 
     # Mode 1: resume from the garth token pair written by the auth server.
     if os.path.exists(oauth1_path) and os.path.exists(oauth2_path):
