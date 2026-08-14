@@ -52,7 +52,7 @@ export function QuickStats({ stats }: { stats: StatItem[] }) {
             </p>
             {/* Scale bar */}
             {stat.scale != null && (
-              <div className="mx-auto mt-1.5 h-1 w-full max-w-[80px] overflow-hidden rounded-full bg-zinc-700">
+              <div className="mx-auto mt-1.5 h-1 w-full max-w-[80px] overflow-hidden rounded-full bg-muted">
                 <div
                   className={`h-full rounded-full transition-all ${colors.bar}`}
                   style={{
@@ -63,14 +63,14 @@ export function QuickStats({ stats }: { stats: StatItem[] }) {
             )}
             <p className="text-muted-foreground text-xs">{stat.label}</p>
             {stat.zoneLabel && (
-              // `!text-zinc-400` (Tailwind `!important` modifier) is required
+              // `!text-muted-foreground` (Tailwind `!important` modifier) is required
               // because Tailwind v4's generated utility order means the
               // sibling zone-color classes (e.g. `text-red-400` on the value
               // element) can win the cascade through inherited `currentColor`
               // on `<p>`, leaving "High Load" / "Optimal" rendering in the
               // vivid zone color instead of muted gray (#165). The `!`
               // prefix beats any non-important rule deterministically.
-              <p className="text-[10px] font-medium !text-zinc-400">
+              <p className="text-[10px] font-medium !text-muted-foreground">
                 {stat.zoneLabel}
               </p>
             )}

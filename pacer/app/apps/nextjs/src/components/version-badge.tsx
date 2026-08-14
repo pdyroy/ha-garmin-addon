@@ -24,7 +24,7 @@ export function VersionBadge({
   return (
     <span
       className={cn(
-        "text-xs text-zinc-500 opacity-80 dark:text-zinc-400",
+        "text-muted-foreground text-xs opacity-80",
         className,
       )}
       title={buildTime ? `Built ${buildTime}` : undefined}

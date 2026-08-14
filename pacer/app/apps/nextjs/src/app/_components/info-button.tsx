@@ -35,14 +35,14 @@ export function InfoButton({ title, description }: InfoButtonProps) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={`Info: ${title}`}
-        className="ml-2 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-zinc-600 text-[11px] font-medium text-zinc-400 transition-colors hover:border-zinc-400 hover:text-zinc-200"
+        className="border-border text-muted-foreground hover:border-foreground hover:text-foreground focus-visible:ring-ring ml-2 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
       >
         i
       </button>
       {open && (
-        <div className="absolute top-7 left-0 z-50 w-72 rounded-xl border border-zinc-700 bg-zinc-800 p-3 shadow-xl sm:w-80">
-          <p className="mb-1 text-xs font-semibold text-zinc-200">{title}</p>
-          <p className="text-[11px] leading-relaxed text-zinc-400">
+        <div className="border-border bg-popover text-popover-foreground absolute top-7 left-0 z-50 w-72 rounded-xl border p-3 shadow-xl sm:w-80">
+          <p className="mb-1 text-xs font-semibold">{title}</p>
+          <p className="text-muted-foreground text-[11px] leading-relaxed">
             {description}
           </p>
         </div>
