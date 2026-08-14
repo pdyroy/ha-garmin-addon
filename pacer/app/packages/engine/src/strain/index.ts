@@ -72,83 +72,155 @@ export function computeStrainScore(
 }
 
 /**
- * Compute Acute:Chronic Workload Ratio (ACWR).
+ * Result shape for both ACWR functions below.
  *
- * ACWR = acute load / chronic load
- *
- * Uses rolling averages (simpler, widely validated):
- * - Acute window: 7 days (standard in literature)
- * - Chronic window: 28 days (standard in literature)
- *
- * Ref: Hulin BT et al. The acute:chronic workload ratio predicts injury:
- *      high chronic workload may decrease injury risk in elite rugby league
- *      players. Br J Sports Med. 2016;50(4):231-236.
- *   → ACWR 0.8-1.3 = "sweet spot" with lowest injury risk
- *   → ACWR > 1.5 = significantly elevated injury risk
- *
- * Ref: Blanch P, Gabbett TJ. Has the athlete trained enough to return
- *      to play safely? Br J Sports Med. 2016;50:471-475.
- *
- * Ref: Gabbett TJ. The training—injury prevention paradox: should athletes
- *      be training smarter AND harder? Br J Sports Med. 2016;50(5):273-280.
- *   → Key insight: HIGH chronic loads are PROTECTIVE against injury
- *     (builds resilience). Acute spikes above chronic base are dangerous.
- *
- * NOTE: Some authors (Lolli et al. 2019) argue coupled ACWR has mathematical
- * artefacts. EWMA-based ACWR addresses this. For MVP we use rolling average
- * (simpler, still clinically useful).
+ * `ratio` and `chronicLoad` are null together whenever the quorum isn't
+ * met — never a number computed from too little data (project rule: prefer
+ * a stated reason over a guess). `chronicLoad` is the ABSOLUTE average daily
+ * load of the chronic window, not just the ratio: a ratio of 1.4 on a base
+ * of 20 TRIMP/day is a different athlete state than 1.4 on a base of 90, and
+ * the ratio alone can't tell them apart.
  */
-export function computeACWR(
-  strainScores: number[], // most recent first (index 0 = today)
-): number {
-  if (strainScores.length < 3) return 1.0; // not enough data
+export interface ACWRResult {
+  ratio: number | null;
+  chronicLoad: number | null;
+  reason?: string;
+}
 
-  // Acute: 7-day window (Hulin et al. 2016)
-  const acuteDays = Math.min(strainScores.length, 7);
-  const acute7 =
-    strainScores.slice(0, acuteDays).reduce((sum, s) => sum + s, 0) / acuteDays;
+/** Minimum days of daily-aggregated history before any ACWR ratio is emitted. */
+const ACWR_MIN_DAYS = 14;
+const ACWR_ACUTE_DAYS = 7;
+const ACWR_CHRONIC_DAYS = 21; // days 8-28, decoupled from the acute week
 
-  // Chronic: 28-day window (Hulin et al. 2016)
-  const chronicDays = Math.min(strainScores.length, 28);
-  const chronic28 =
-    strainScores.slice(0, chronicDays).reduce((sum, s) => sum + s, 0) /
-    chronicDays;
-
-  if (chronic28 === 0) return acute7 > 0 ? 2.0 : 1.0;
-  return Math.round((acute7 / chronic28) * 100) / 100;
+function mean(values: number[]): number {
+  return values.length === 0
+    ? 0
+    : values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
 /**
- * Compute EWMA-based ACWR (addresses Lolli et al. 2019 coupling critique).
+ * Compute Acute:Chronic Workload Ratio (ACWR) from a per-CALENDAR-DAY,
+ * zero-padded, most-recent-first series.
  *
- * Uses exponentially weighted moving averages instead of rolling averages,
- * which eliminates the mathematical coupling between acute and chronic periods.
+ * ACWR = acute load / chronic load, where acute = days 1-7 and chronic =
+ * days 8-28. The chronic window deliberately EXCLUDES the acute week so the
+ * two halves of the ratio are not built from overlapping data.
+ *
+ * WHY DECOUPLED (this used to be a rolling 7-day-in-a-28-day ratio, i.e. the
+ * acute week sat inside its own denominator):
+ * Ref: Impellizzeri FM et al. Acute:chronic workload ratio: conceptual
+ *      issues and fundamental pitfalls. Sports Med. 2021;51:581-592.
+ *      ("Time to dismiss ACWR and its underlying theory") — reproduced the
+ *      published injury association after replacing the real chronic load
+ *      with RANDOM numbers (OR 2.45 real vs 1.16-2.07 random), showing the
+ *      coupled ratio's predictive signal is largely a mathematical artefact
+ *      of numerator/denominator correlation, not a physiological one.
+ * Ref: Lolli L et al. Mathematical coupling causes spurious correlation
+ *      within the conventional acute-to-chronic workload ratio calculations.
+ *      Br J Sports Med. 2019;53:921-922.
+ *
+ * There is no injury-risk banding here on purpose — see readiness/index.ts
+ * for why the 0.8-1.3 "sweet spot" / >1.5 "danger" thresholds were removed.
+ *
+ * Quorum: returns `{ ratio: null, chronicLoad: null, reason }` with fewer
+ * than 14 days of history (rule: no ratio at all below quorum).
+ */
+export function computeACWR(
+  dailyLoadsRecent: number[], // per calendar day, zero-padded, index 0 = today
+): ACWRResult {
+  if (dailyLoadsRecent.length < ACWR_MIN_DAYS) {
+    return {
+      ratio: null,
+      chronicLoad: null,
+      reason: `need ${ACWR_MIN_DAYS}+ days of daily history, have ${dailyLoadsRecent.length}`,
+    };
+  }
+
+  const acute = mean(dailyLoadsRecent.slice(0, ACWR_ACUTE_DAYS));
+  const chronicWindow = dailyLoadsRecent.slice(
+    ACWR_ACUTE_DAYS,
+    ACWR_ACUTE_DAYS + ACWR_CHRONIC_DAYS,
+  );
+  const chronic = mean(chronicWindow);
+
+  if (chronic === 0) {
+    return {
+      ratio: null,
+      chronicLoad: 0,
+      reason: "chronic load is zero — ratio undefined",
+    };
+  }
+
+  return {
+    ratio: Math.round((acute / chronic) * 100) / 100,
+    chronicLoad: Math.round(chronic * 100) / 100,
+  };
+}
+
+/**
+ * Compute EWMA-based ACWR from a per-CALENDAR-DAY, zero-padded,
+ * chronological (oldest-first) series.
+ *
+ * Uses exponentially weighted moving averages instead of rolling averages
+ * — this fixes the WEIGHTING (recent days count more than distant ones)
+ * but NOT the causal logic: EWMA-ACWR is still an acute:chronic ratio and
+ * inherits the same numerator/denominator-coupling critique from
+ * Impellizzeri (2021) and Lolli (2019) above unless the two averages are
+ * fit on non-overlapping data. We therefore apply the same decoupling here:
+ * the chronic EWMA is seeded and updated ONLY on the days strictly before
+ * the acute week (days 8-28), never on the acute week itself.
  *
  * Ref: Williams S et al. Better way to determine the acute:chronic workload
  *      ratio? Br J Sports Med. 2017;51:209-210.
  *
  * α_acute = 2 / (7 + 1) = 0.25
  * α_chronic = 2 / (28 + 1) ≈ 0.069
+ *
+ * Quorum: returns `{ ratio: null, chronicLoad: null, reason }` with fewer
+ * than 14 days of history.
  */
 export function computeACWR_EWMA(
-  dailyLoads: number[], // oldest first (chronological order)
-): number {
-  if (dailyLoads.length < 7) return 1.0;
-
-  const alphaAcute = 2 / (7 + 1);
-  const alphaChronic = 2 / (28 + 1);
-
-  let ewmaAcute = dailyLoads[0]!;
-  let ewmaChronic = dailyLoads[0]!;
-
-  for (let i = 1; i < dailyLoads.length; i++) {
-    ewmaAcute = alphaAcute * dailyLoads[i]! + (1 - alphaAcute) * ewmaAcute;
-    ewmaChronic =
-      alphaChronic * dailyLoads[i]! + (1 - alphaChronic) * ewmaChronic;
+  dailyLoadsChrono: number[], // per calendar day, zero-padded, oldest first
+): ACWRResult {
+  if (dailyLoadsChrono.length < ACWR_MIN_DAYS) {
+    return {
+      ratio: null,
+      chronicLoad: null,
+      reason: `need ${ACWR_MIN_DAYS}+ days of daily history, have ${dailyLoadsChrono.length}`,
+    };
   }
 
-  if (ewmaChronic === 0) return ewmaAcute > 0 ? 2.0 : 1.0;
-  return Math.round((ewmaAcute / ewmaChronic) * 100) / 100;
+  const acuteWindow = dailyLoadsChrono.slice(-ACWR_ACUTE_DAYS);
+  const chronicSource = dailyLoadsChrono
+    .slice(0, -ACWR_ACUTE_DAYS)
+    .slice(-ACWR_CHRONIC_DAYS);
+
+  const alphaAcute = 2 / (ACWR_ACUTE_DAYS + 1);
+  const alphaChronic = 2 / (ACWR_ACUTE_DAYS + ACWR_CHRONIC_DAYS + 1);
+
+  let ewmaAcute = acuteWindow[0]!;
+  for (let i = 1; i < acuteWindow.length; i++) {
+    ewmaAcute = alphaAcute * acuteWindow[i]! + (1 - alphaAcute) * ewmaAcute;
+  }
+
+  let ewmaChronic = chronicSource[0]!;
+  for (let i = 1; i < chronicSource.length; i++) {
+    ewmaChronic =
+      alphaChronic * chronicSource[i]! + (1 - alphaChronic) * ewmaChronic;
+  }
+
+  if (ewmaChronic === 0) {
+    return {
+      ratio: null,
+      chronicLoad: 0,
+      reason: "chronic load is zero — ratio undefined",
+    };
+  }
+
+  return {
+    ratio: Math.round((ewmaAcute / ewmaChronic) * 100) / 100,
+    chronicLoad: Math.round(ewmaChronic * 100) / 100,
+  };
 }
 
 /**
@@ -204,20 +276,30 @@ export function computeTrainingLoads(
 /**
  * Compute a daily Performance Management Chart (PMC) series.
  *
- * Returns one row per day with the rolling Banister CTL/ATL/TSB plus
- * the standard 7d/28d ACWR. This is the canonical source for both the
- * gauge (latest row) and the chart (the whole series), eliminating the
- * "gauge vs chart drift" class of bugs.
+ * Returns one row per day with the rolling Banister CTL/ATL/TSB plus the
+ * decoupled acute:chronic ratio (see `computeACWR`). This is the canonical
+ * source for both the gauge (latest row) and the chart (the whole series),
+ * eliminating the "gauge vs chart drift" class of bugs — which is why this
+ * reuses `computeACWR` per row instead of a second, separately-maintained
+ * copy of the acute/chronic window math.
  *
  * Input:
  *   - `dailyStressScores` — oldest first, zero-padded for rest days.
  *
  * Output:
- *   - Array of `{ ctl, atl, tsb, acwr }` aligned 1:1 with the input.
+ *   - Array of `{ ctl, atl, tsb, acwr, chronicLoad }` aligned 1:1 with the
+ *     input. `acwr`/`chronicLoad` are null for the first ~14 rows of a
+ *     series, same quorum as `computeACWR`.
  */
 export function computeDailyPMCSeries(
   dailyStressScores: number[], // oldest first (chronological)
-): { ctl: number; atl: number; tsb: number; acwr: number }[] {
+): {
+  ctl: number;
+  atl: number;
+  tsb: number;
+  acwr: number | null;
+  chronicLoad: number | null;
+}[] {
   if (dailyStressScores.length === 0) return [];
 
   const alphaCTL = 2 / (42 + 1);
@@ -225,7 +307,13 @@ export function computeDailyPMCSeries(
 
   let ctl = dailyStressScores[0]!;
   let atl = dailyStressScores[0]!;
-  const out: { ctl: number; atl: number; tsb: number; acwr: number }[] = [];
+  const out: {
+    ctl: number;
+    atl: number;
+    tsb: number;
+    acwr: number | null;
+    chronicLoad: number | null;
+  }[] = [];
 
   for (let i = 0; i < dailyStressScores.length; i++) {
     if (i > 0) {
@@ -234,23 +322,21 @@ export function computeDailyPMCSeries(
     }
     const tsb = ctl - atl;
 
-    const acuteStart = Math.max(0, i - 6);
-    const chronicStart = Math.max(0, i - 27);
-    const acuteWindow = dailyStressScores.slice(acuteStart, i + 1);
-    const chronicWindow = dailyStressScores.slice(chronicStart, i + 1);
-    const acute7 =
-      acuteWindow.reduce((s, v) => s + v, 0) / Math.max(1, acuteWindow.length);
-    const chronic28 =
-      chronicWindow.reduce((s, v) => s + v, 0) /
-      Math.max(1, chronicWindow.length);
-    const acwr =
-      chronic28 === 0 ? (acute7 > 0 ? 2.0 : 1.0) : acute7 / chronic28;
+    // Most-recent-first window ending at day i, capped to what computeACWR
+    // needs (7 acute + 21 chronic = 28 days).
+    const windowLen = Math.min(i + 1, ACWR_ACUTE_DAYS + ACWR_CHRONIC_DAYS);
+    const recentWindow: number[] = [];
+    for (let k = 0; k < windowLen; k++) {
+      recentWindow.push(dailyStressScores[i - k]!);
+    }
+    const { ratio, chronicLoad } = computeACWR(recentWindow);
 
     out.push({
       ctl: Math.round(ctl * 100) / 100,
       atl: Math.round(atl * 100) / 100,
       tsb: Math.round(tsb * 100) / 100,
-      acwr: Math.round(acwr * 1000) / 1000,
+      acwr: ratio,
+      chronicLoad,
     });
   }
 

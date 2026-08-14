@@ -10,13 +10,25 @@ import {
   TrainingStatus,
   VO2maxEstimate,
 } from "@acme/db/schema";
+import type {
+  DailyMetricInput,
+  HrvRhrDailyPoint,
+  RaceEffortInput,
+} from "@acme/engine";
 import {
   analyzeRunningForm,
   buildWhatIfOptions,
+  classifyHrvRhrQuadrant,
   classifyLoadFocus,
   classifyTrainingStatus,
   computeACWR,
   computeACWR_EWMA,
+  computeBedtimeVariability,
+  computeChronotype,
+  computeHrvBaselineStatus,
+  computeNightSignalSeries,
+  computeSleepMidpointVariability,
+  computeSleepRegularityIndex,
   computeStandardCorrelations,
   computeStrainScore,
   computeTrainingLoads,
@@ -24,6 +36,7 @@ import {
   estimateRecoveryTime,
   findRaceReadinessWindow,
   linearForecast,
+  predictRaceTimesAdaptive,
   predictRaceTimesFromVO2max,
   projectPMC,
   simulateWhatIf,
@@ -56,7 +69,7 @@ function getDateString(daysAgo: number): string {
  *   - `dailyLoadsRecent`  — index 0 = today/most recent. Consumed by
  *     `computeACWR`.
  */
-function aggregateDailyLoads(
+export function aggregateDailyLoads(
   activities: {
     startedAt: Date;
     strainScore: number | null;
@@ -316,12 +329,17 @@ export const analyticsRouter = {
     );
 
     const loadMetrics = computeTrainingLoads(dailyLoadsChrono);
-    const acwr = computeACWR(dailyLoadsRecent);
+    // computeACWR now returns { ratio, chronicLoad, reason } instead of a
+    // bare number (decoupled acute:chronic windows, see strain/index.ts).
+    // classifyTrainingStatus's TrainingLoadMetrics.acwr is still a plain
+    // number, so unwrap here; 1 (acute == chronic, neutral) is the fallback
+    // below the 14-day quorum rather than guessing a ratio.
+    const acwrResult = computeACWR(dailyLoadsRecent);
     const loadFocus = classifyLoadFocus(recentActivities);
 
     const result = classifyTrainingStatus(vo2maxTrend, {
       ...loadMetrics,
-      acwr,
+      acwr: acwrResult.ratio ?? 1,
       loadFocus,
     });
 
@@ -621,5 +639,101 @@ export const analyticsRouter = {
       profile?.age ?? null,
       sleepDebtMinutes,
     );
+  }),
+
+  getNightSignal: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id;
+
+    // NightSignal needs 7 confirmed prior nights before it classifies
+    // anything; fetch a wide window so the baseline can warm up even
+    // through the occasional missed sync.
+    const nights = await ctx.db.query.DailyMetric.findMany({
+      where: and(
+        eq(DailyMetric.userId, userId),
+        gte(DailyMetric.date, getDateString(90)),
+      ),
+      orderBy: asc(DailyMetric.date),
+    });
+
+    const series = computeNightSignalSeries(nights as DailyMetricInput[]);
+
+    return {
+      series,
+      latest: series.length > 0 ? series[series.length - 1]! : null,
+    };
+  }),
+
+  getHrvBaseline: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id;
+
+    // The 60-day baseline window is anchored to the most recent Monday,
+    // which can sit up to 6 days behind "today" — fetch extra slack so
+    // that anchor snap-back never starves the window of days.
+    const metrics = await ctx.db.query.DailyMetric.findMany({
+      where: and(
+        eq(DailyMetric.userId, userId),
+        gte(DailyMetric.date, getDateString(75)),
+      ),
+      orderBy: desc(DailyMetric.date),
+    });
+
+    const asOfDate = metrics[0]?.date ?? getDateString(0);
+    const history: HrvRhrDailyPoint[] = metrics.map((m) => ({
+      date: m.date,
+      hrv: m.hrv,
+      restingHr: m.restingHr,
+    }));
+
+    return {
+      asOfDate,
+      status: computeHrvBaselineStatus(history, asOfDate),
+      quadrant: classifyHrvRhrQuadrant(history, asOfDate),
+    };
+  }),
+
+  getSleepRegularity: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id;
+
+    const metrics = await ctx.db.query.DailyMetric.findMany({
+      where: and(
+        eq(DailyMetric.userId, userId),
+        gte(DailyMetric.date, getDateString(60)),
+      ),
+      orderBy: desc(DailyMetric.date),
+    });
+    const nights = metrics as DailyMetricInput[];
+
+    return {
+      regularityIndex: computeSleepRegularityIndex(nights),
+      // Single-window primitives (not series generators) — the caller's
+      // "current" trailing window is the last 14 nights.
+      bedtimeVariability: computeBedtimeVariability(nights.slice(0, 14)),
+      midpointVariability: computeSleepMidpointVariability(
+        nights.slice(0, 14),
+      ),
+      chronotype: computeChronotype(nights),
+    };
+  }),
+
+  getRacePredictionsAdaptive: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id;
+
+    // The individual power-law fit recency-weights with a 365-day
+    // half-life and the Riegel fallback prefers efforts within ~2 seasons
+    // (730 days) before reaching further back — fetch that full window.
+    const activitiesRaw = await ctx.db.query.Activity.findMany({
+      where: and(
+        eq(Activity.userId, userId),
+        gte(Activity.startedAt, new Date(Date.now() - 730 * 86400000)),
+      ),
+      orderBy: desc(Activity.startedAt),
+    });
+
+    const efforts = activitiesRaw.filter(
+      (a) =>
+        a.startedAt instanceof Date && !Number.isNaN(a.startedAt.getTime()),
+    );
+
+    return predictRaceTimesAdaptive(efforts, new Date());
   }),
 } satisfies TRPCRouterRecord;

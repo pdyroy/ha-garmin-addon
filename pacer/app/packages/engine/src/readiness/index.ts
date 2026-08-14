@@ -5,7 +5,7 @@ import type {
   ReadinessResult,
   ReadinessZone,
 } from "../types";
-import { computeZScore, zScoreToScore } from "../baselines";
+import { computeSD, computeZScore, zScoreToScore } from "../baselines";
 import { computeACWR, countConsecutiveHardDays } from "../strain";
 
 /**
@@ -207,53 +207,80 @@ export function scoreRestingHR(
 }
 
 /**
- * Training Load Score — ACWR-based
+ * Training Load Score
  *
- * Ref: Hulin BT et al. The acute:chronic workload ratio predicts injury.
- *      Br J Sports Med. 2016;50(4):231-236.
- *   → ACWR 0.8-1.3 = optimal ("sweet spot"), >1.5 = high injury risk
+ * NOTE ON WHY THIS IS NOT ACWR-BANDED ANYMORE:
+ * This used to score the acute:chronic workload ratio against fixed
+ * "sweet spot" (0.8-1.3) / "danger" (>1.5) bands attributed to injury-risk
+ * literature. That banding is retracted here — not just re-tuned — because
+ * the injury-prediction claim behind ACWR itself is now considered a
+ * statistical artefact, not a re-thresholding problem:
+ * Ref: Impellizzeri FM et al. Acute:chronic workload ratio: conceptual
+ *      issues and fundamental pitfalls. Sports Med. 2021;51:581-592.
+ *      ("Time to dismiss ACWR and its underlying theory")
+ * Ref: Lolli L et al. Mathematical coupling causes spurious correlation
+ *      within the conventional ACWR calculations. Br J Sports Med.
+ *      2019;53:921-922.
+ * Also, population thresholds are banned in this codebase — the athlete is
+ * always compared against their own history, never a fixed number.
  *
- * Ref: Blanch P, Gabbett TJ. Has the athlete trained enough to return
- *      to play safely? The ACWR permits clinicians to quantify a patient's
- *      risk of subsequent injury. Br J Sports Med. 2016;50:471-475.
+ * REPLACEMENT — self-referential z-score of this week's ramp:
+ * Instead of judging the ratio against a population band, this scores how
+ * far the athlete's current 7-day average load sits from their own 21-day
+ * chronic average, in units of their OWN day-to-day load variability (SD
+ * of the chronic window). This is the same individual z-score approach
+ * already used for HRV/RHR above (Buchheit 2014) — it makes no injury-risk
+ * claim, it only flags "this week is unusually far from your own normal
+ * load", which is descriptive monitoring, not risk prediction.
+ * Ref: Buchheit M. Monitoring training status with HR measures: do not
+ *      throw the baby out with the bathwater. IJSPP. 2014;9:883-895.
  *
- * Ref: Gabbett TJ. The training—injury prevention paradox.
- *      Br J Sports Med. 2016;50(5):273-280.
- *   → High chronic loads are PROTECTIVE; acute spikes are dangerous
+ * Below the 14-day quorum (see `computeACWR`), or when the athlete's
+ * chronic window has zero variability to compare against, this returns the
+ * same neutral 50 every other scorer in this file falls back to when its
+ * own input is missing — never a number computed from too little data.
  */
 export function scoreTrainingLoad(
-  recentStrainScores: number[], // most recent first
+  dailyLoadsRecent: number[], // per calendar day, zero-padded, most recent first
 ): number {
-  const acwr = computeACWR(recentStrainScores);
-  const consecutiveHard = countConsecutiveHardDays(recentStrainScores);
+  const acwr = computeACWR(dailyLoadsRecent);
+  const consecutiveHard = countConsecutiveHardDays(dailyLoadsRecent);
 
   let score: number;
 
-  // ACWR sweet spot: 0.8-1.3 (Hulin et al. 2016)
-  if (acwr >= 0.8 && acwr <= 1.3) {
-    // Peak score at 1.0 (perfect balance), slight reduction toward edges
-    const distFromOptimal = Math.abs(acwr - 1.05) / 0.25;
-    score = 90 - distFromOptimal * 15; // 75-90 range in sweet spot
-  } else if (acwr < 0.8) {
-    // Under-training: not dangerous but suboptimal for adaptation
-    // Gabbett 2016: low chronic loads reduce resilience
-    score = 60 + (acwr / 0.8) * 10; // 60-70 range
-  } else if (acwr <= 1.5) {
-    // Elevated risk zone (Hulin 2016)
-    score = 50 - ((acwr - 1.3) / 0.2) * 20; // 30-50 range
+  if (acwr.chronicLoad === null) {
+    // Quorum not met (<14 days of daily history) — no defensible judgement.
+    score = 50;
   } else {
-    // High injury risk (ACWR > 1.5) — Blanch & Gabbett 2016
-    score = Math.max(0, 30 - (acwr - 1.5) * 40); // 0-30 range
+    const chronicWindow = dailyLoadsRecent.slice(7, 28);
+    const chronicSD = computeSD(chronicWindow);
+    const acuteLoad = mean(dailyLoadsRecent.slice(0, 7));
+
+    if (chronicSD > 0) {
+      const z = computeZScore(acuteLoad, acwr.chronicLoad, chronicSD);
+      score = zScoreToScore(-z); // inverted: bigger ramp-up → lower score
+    } else {
+      // No day-to-day variability in the chronic window (e.g. identical
+      // load every day) — nothing unusual to flag either way.
+      score = 50;
+    }
   }
 
-  // Consecutive hard days penalty
-  // Rationale: accumulated fatigue without recovery impairs adaptation
+  // Consecutive hard days penalty — a separate, still-valid signal
+  // (accumulated fatigue without recovery impairs adaptation), unrelated
+  // to the retracted ACWR banding above.
   // Ref: Kellmann M. Preventing overtraining in athletes in high-intensity
   //      sports. Scand J Med Sci Sports. 2010;20(Suppl 2):95-102.
   if (consecutiveHard >= 3) score -= 12;
   else if (consecutiveHard >= 2) score -= 5;
 
   return Math.min(100, Math.max(0, score));
+}
+
+function mean(values: number[]): number {
+  return values.length === 0
+    ? 0
+    : values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
 /**
@@ -377,7 +404,7 @@ function generateExplanation(
 
   if (components.trainingLoad < 40) {
     factors.push({
-      label: "high recent training load (elevated ACWR)",
+      label: "this week's load is well above your recent normal",
       impact: components.trainingLoad - 50,
     });
   }
@@ -455,7 +482,14 @@ const WEIGHTS = {
  *
  * INPUT REQUIREMENTS:
  * - todayMetrics: today's Garmin daily health data
- * - recentStrainScores: last 7 days of strain scores (most recent first)
+ * - dailyLoadsRecent: per-CALENDAR-DAY strain load, zero-padded for rest
+ *   days, most recent first (index 0 = today). Needs 14+ days for the
+ *   training-load component to score anything (see `computeACWR`); shorter
+ *   arrays still work but that component falls back to a neutral 50.
+ *   NOTE: this must be aggregated to one entry per day BEFORE calling this
+ *   function — do not pass one entry per activity. See
+ *   `packages/api/src/router/analytics.ts`'s `aggregateDailyLoads` for the
+ *   aggregation this expects.
  * - baselines: personal baselines (from computeBaselines())
  *
  * OUTPUT:
@@ -466,10 +500,10 @@ const WEIGHTS = {
  */
 export function calculateReadiness(input: {
   todayMetrics: DailyMetricInput;
-  recentStrainScores: number[]; // most recent first, last 7 days
+  dailyLoadsRecent: number[]; // per calendar day, zero-padded, most recent first
   baselines: Baselines;
 }): ReadinessResult {
-  const { todayMetrics, recentStrainScores, baselines } = input;
+  const { todayMetrics, dailyLoadsRecent, baselines } = input;
 
   const components: ReadinessComponents = {
     sleepQuantity: scoreSleepQuantity(
@@ -484,7 +518,7 @@ export function calculateReadiness(input: {
       baselines.restingHr,
       baselines.restingHrSD,
     ),
-    trainingLoad: scoreTrainingLoad(recentStrainScores),
+    trainingLoad: scoreTrainingLoad(dailyLoadsRecent),
     stress: scoreStressAndBattery(
       todayMetrics.stressScore,
       todayMetrics.bodyBatteryStart,

@@ -103,57 +103,69 @@ describe("TRIMP — Banister (1991) reference values", () => {
 });
 
 // ── ACWR (Acute:Chronic Workload Ratio) ─────────────────────────────────────
-// Reference: Hulin BT et al. "The acute:chronic workload ratio predicts
-//   injury: high chronic workload may decrease injury risk in elite rugby
-//   league players." Br J Sports Med. 2016;50(4):231-236.
+// Concept ref: Hulin BT et al. "The acute:chronic workload ratio predicts
+//   injury." Br J Sports Med. 2016;50(4):231-236.
 //
-// ACWR = acute_7day_avg / chronic_28day_avg
-// Sweet spot: 0.8–1.3  |  Danger zone: >1.5
+// ACWR = acute_7day_avg (days 1-7) / chronic_21day_avg (days 8-28)
+//
+// The windows are DECOUPLED — the acute week is excluded from the chronic
+// denominator — because the coupled rolling-average version (chronic window
+// = all 28 days, including the acute week) produces a mathematically
+// correlated numerator/denominator and reproduces its "injury" association
+// even on random data:
+// Ref: Impellizzeri FM et al. Sports Med. 2021;51:581-592.
+// Ref: Lolli L et al. Br J Sports Med. 2019;53:921-922.
+// There is no "sweet spot" / "danger zone" banding — see readiness/index.ts
+// for why that threshold language was removed.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("ACWR — Hulin et al. (2016) reference values", () => {
-  it("Test Case 1: Steady state — uniform load → ACWR = 1.0", () => {
+describe("ACWR — decoupled acute (days 1-7) / chronic (days 8-28)", () => {
+  it("Test Case 1: Steady state — uniform load → ratio = 1.0", () => {
     /**
-     * 28 days at load 100: acute_avg = 100, chronic_avg = 100
-     * ACWR = 100 / 100 = 1.0
+     * 28 days at load 100: acute_avg = 100, chronic_avg (days 8-28) = 100
+     * ratio = 100 / 100 = 1.0
      */
     const loads = Array(28).fill(100);
-    expect(computeACWR(loads)).toBe(1.0);
+    const result = computeACWR(loads);
+    expect(result.ratio).toBe(1.0);
+    expect(result.chronicLoad).toBe(100);
   });
 
   it("Test Case 2: Acute spike — 7 days of 200 after 21 days of 100", () => {
     /**
-     * acute_avg = 200, chronic_avg = (200×7 + 100×21)/28 = 125
-     * ACWR = 200/125 = 1.6 — exceeds sweet-spot ceiling (>1.3)
-     *
-     * Note: The rolling-average method includes the acute window in the
-     * chronic calculation, producing 1.6 rather than the uncoupled 2.0.
+     * acute_avg = 200, chronic_avg (days 8-28, EXCLUDING the acute week) = 100
+     * ratio = 200/100 = 2.0 — the acute week no longer dilutes its own
+     * denominator, unlike the old coupled rolling-average version.
      */
     const loads = [...Array(7).fill(200), ...Array(21).fill(100)];
-    expect(computeACWR(loads)).toBe(1.6);
+    const result = computeACWR(loads);
+    expect(result.ratio).toBe(2.0);
+    expect(result.chronicLoad).toBe(100);
   });
 
   it("Test Case 3: Deload week — 7 days of 50 after 21 days of 100", () => {
     /**
-     * acute_avg = 50, chronic_avg = (50×7 + 100×21)/28 = 87.5
-     * ACWR = 50/87.5 ≈ 0.57
+     * acute_avg = 50, chronic_avg (days 8-28) = 100
+     * ratio = 50/100 = 0.5
      */
     const loads = [...Array(7).fill(50), ...Array(21).fill(100)];
-    expect(computeACWR(loads)).toBe(0.57);
+    const result = computeACWR(loads);
+    expect(result.ratio).toBe(0.5);
   });
 
-  it("Test Case 4: Sweet spot — 7 days of 120, chronic base 100", () => {
+  it("Test Case 4: Moderate ramp — 7 days of 120, chronic base 100", () => {
     /**
-     * acute_avg = 120, chronic_avg = (120×7 + 100×21)/28 = 105
-     * ACWR = 120/105 ≈ 1.14 — within the Hulin sweet spot (0.8–1.3)
+     * acute_avg = 120, chronic_avg (days 8-28) = 100
+     * ratio = 120/100 = 1.2
      */
     const loads = [...Array(7).fill(120), ...Array(21).fill(100)];
-    expect(computeACWR(loads)).toBe(1.14);
+    const result = computeACWR(loads);
+    expect(result.ratio).toBe(1.2);
   });
 
-  it("returns 1.0 for insufficient data (<3 days)", () => {
-    expect(computeACWR([])).toBe(1.0);
-    expect(computeACWR([10, 10])).toBe(1.0);
+  it("returns null ratio/chronicLoad below the 14-day quorum", () => {
+    expect(computeACWR([]).ratio).toBeNull();
+    expect(computeACWR([10, 10]).ratio).toBeNull();
   });
 });
 

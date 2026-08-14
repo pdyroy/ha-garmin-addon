@@ -54,6 +54,7 @@ export {
   classifyLoadFocus,
   countConsecutiveHardDays,
 } from "./strain";
+export type { ACWRResult } from "./strain";
 
 export {
   computeBaselines,
@@ -104,6 +105,15 @@ export {
   predictRaceTimes,
   predictRaceTimesFromVO2max,
   computeVO2maxTrend,
+  fitIndividualPowerLaw,
+  predictRaceTimesAdaptive,
+} from "./vo2max";
+export type {
+  RaceEffortInput,
+  PowerLawFitResult,
+  RaceModelInfo,
+  FittedRacePrediction,
+  RacePredictionFitResult,
 } from "./vo2max";
 
 export {
@@ -157,3 +167,47 @@ export {
   type Attribution,
   type RuleEffectiveness,
 } from "./learning";
+
+// NightSignal — overnight RHR state machine (Alavi et al. Nat Med 2022)
+export {
+  computeNightSignalSeries,
+  getLatestNightSignal,
+} from "./night-signal";
+export type { NightSignalState, NightSignalResult } from "./night-signal";
+
+// HRV baseline — log-space M7/SWC band + HRV x RHR quadrants (Plews et al.
+// 2013; Buchheit 2014)
+export {
+  computeHrvM7,
+  computeHrvBaselineBand,
+  computeHrvBaselineStatus,
+  classifyHrvRhrQuadrant,
+} from "./hrv-baseline";
+export type {
+  HrvRhrDailyPoint,
+  QuorumResult,
+  HrvBaselineBand,
+  HrvBandPosition,
+  HrvBaselineStatus,
+  HrvRhrQuadrant,
+  HrvRhrQuadrantResult,
+} from "./hrv-baseline";
+
+// Sleep regularity & chronotype (Phillips et al. 2017; Wittmann 2006;
+// Roenneberg 2012)
+export {
+  computeSleepRegularityIndex,
+  computeBedtimeVariability,
+  computeSleepMidpointVariability,
+  computeChronotype,
+  defaultIsFreeDay,
+} from "./sleep-regularity";
+export type {
+  MetricResult,
+  SleepRegularityIndexOutput,
+  SleepRegularityIndexResult,
+  SleepTimingVariabilityOutput,
+  SleepTimingVariabilityResult,
+  ChronotypeOutput,
+  ChronotypeResult,
+} from "./sleep-regularity";

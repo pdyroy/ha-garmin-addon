@@ -173,32 +173,50 @@ describe("scoreRestingHR", () => {
 
 // ---- Training Load ----
 describe("scoreTrainingLoad", () => {
-  it("scores well with balanced ACWR (0.8-1.3)", () => {
-    const strains = [10, 10, 10, 10, 10, 10, 10]; // ACWR = 1.0
+  it("scores neutral (50) below the 14-day quorum", () => {
+    const strains = [10, 10, 10, 10, 10, 10, 10]; // only 7 days
     const score = scoreTrainingLoad(strains);
-    expect(score).toBeGreaterThanOrEqual(70);
+    expect(score).toBe(50);
   });
 
-  it("penalizes high ACWR (>1.3)", () => {
-    // Need 28 values: high recent, low chronic
+  it("scores ~neutral when this week matches the athlete's own chronic average", () => {
+    const strains = new Array(28).fill(10) as number[]; // no variability at all
+    const score = scoreTrainingLoad(strains);
+    expect(score).toBe(50); // chronic SD is 0 → nothing to compare against
+  });
+
+  it("scores lower when recent load ramps well above the athlete's own chronic pattern", () => {
+    // Chronic window (days 8-28) has real day-to-day variability so a z-score
+    // can be computed; the acute week (days 1-7) is far above that pattern.
+    const chronicWithVariability = [
+      2, 8, 2, 8, 2, 8, 2, 8, 2, 8, 2, 8, 2, 8, 2, 8, 2, 8, 2, 8, 2,
+    ]; // days 8-28, mean 5
     const strains = [
-      18, 18, 18, 18, 18, 18, 18, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-      5, 5, 5, 5, 5, 5,
+      ...new Array(7).fill(20), // days 1-7: way above the ~5 chronic mean
+      ...chronicWithVariability,
     ];
     const score = scoreTrainingLoad(strains);
-    expect(score).toBeLessThan(70);
+    expect(score).toBeLessThan(50);
   });
 
-  it("handles under-training (low ACWR)", () => {
-    const strains = [3, 3, 3, 10, 10, 10, 10]; // low acute
+  it("scores higher when recent load is well below the athlete's own chronic pattern (taper)", () => {
+    const chronicWithVariability = [
+      10, 20, 10, 20, 10, 20, 10, 20, 10, 20, 10, 20, 10, 20, 10, 20, 10, 20,
+      10, 20, 10,
+    ]; // days 8-28, mean 15
+    const strains = [
+      ...new Array(7).fill(2), // days 1-7: well below the ~15 chronic mean
+      ...chronicWithVariability,
+    ];
     const score = scoreTrainingLoad(strains);
-    expect(score).toBeGreaterThanOrEqual(60); // still ok
+    expect(score).toBeGreaterThan(50);
   });
 
-  it("penalizes consecutive hard days", () => {
-    const withConsecutive = [15, 15, 15, 10, 10, 10, 10]; // 3 consecutive hard
+  it("penalizes consecutive hard days on top of the load score", () => {
+    const base = new Array(21).fill(10) as number[];
+    const withConsecutive = [15, 15, 15, 10, 10, 10, 10, ...base]; // 3 consecutive hard
     const score = scoreTrainingLoad(withConsecutive);
-    const normalStrains = [10, 10, 10, 10, 10, 10, 10];
+    const normalStrains = [10, 10, 10, 10, 10, 10, 10, ...base];
     const normalScore = scoreTrainingLoad(normalStrains);
     expect(score).toBeLessThan(normalScore);
   });
@@ -272,7 +290,7 @@ describe("calculateReadiness", () => {
         stressScore: 15,
         bodyBatteryStart: 90,
       }),
-      recentStrainScores: [10, 10, 10, 10, 10, 10, 10],
+      dailyLoadsRecent: [10, 10, 10, 10, 10, 10, 10],
       baselines: BASELINE,
     });
 
@@ -293,7 +311,7 @@ describe("calculateReadiness", () => {
         stressScore: 85,
         bodyBatteryStart: 15,
       }),
-      recentStrainScores: [18, 18, 18, 5, 5, 5, 5],
+      dailyLoadsRecent: [18, 18, 18, 5, 5, 5, 5],
       baselines: BASELINE,
     });
 
@@ -311,7 +329,7 @@ describe("calculateReadiness", () => {
         deepSleepMinutes: null,
         remSleepMinutes: null,
       }),
-      recentStrainScores: [8, 8, 8],
+      dailyLoadsRecent: [8, 8, 8],
       baselines: BASELINE,
     });
 
@@ -331,7 +349,7 @@ describe("calculateReadiness", () => {
         bodyBatteryStart: 100,
         sleepScore: 100,
       }),
-      recentStrainScores: [0, 0, 0, 0, 0, 0, 0],
+      dailyLoadsRecent: [0, 0, 0, 0, 0, 0, 0],
       baselines: BASELINE,
     });
 

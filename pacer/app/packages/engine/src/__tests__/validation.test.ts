@@ -133,29 +133,35 @@ describe("TRIMP validation (Banister 1991)", () => {
 });
 
 // ===================================================================
-// 2. ACWR — Hulin et al. (2016) "The acute:chronic workload ratio
-//    predicts injury" Br J Sports Med 50:273-280
+// 2. ACWR — decoupled acute (days 1-7) / chronic (days 8-28) ratio.
+//    No "sweet spot" / "danger zone" banding: Impellizzeri et al.
+//    (Sports Med 2021;51:581-592) and Lolli et al. (BJSM 2019;53:921-922)
+//    show that ratio thresholds don't hold up as injury predictors. These
+//    tests only check the ratio's direction and magnitude, not any
+//    risk classification.
 // ===================================================================
-describe("ACWR validation (Hulin et al. 2016)", () => {
-  it("sweet-spot: constant load → ACWR ≈ 1.0", () => {
+describe("ACWR validation (decoupled acute/chronic windows)", () => {
+  it("constant load → ratio ≈ 1.0", () => {
     const balanced = Array(28).fill(10); // most-recent-first
     const acwr = computeACWR(balanced);
-    expect(acwr).toBeGreaterThanOrEqual(0.8);
-    expect(acwr).toBeLessThanOrEqual(1.3);
+    expect(acwr.ratio).toBe(1.0);
+    expect(acwr.chronicLoad).toBe(10);
   });
 
-  it("danger zone: spike after rest → ACWR > 1.5", () => {
+  it("spike after a quiet base → ratio rises well above 1", () => {
     // 7 recent days at 20, then 21 prior days at 5 (most-recent-first)
     const spike = [...Array(7).fill(20), ...Array(21).fill(5)];
     const acwr = computeACWR(spike);
-    expect(acwr).toBeGreaterThan(1.5);
+    expect(acwr.ratio).toBeGreaterThan(1.5);
+    expect(acwr.chronicLoad).toBe(5);
   });
 
-  it("deload: rest after block → ACWR < 0.8", () => {
+  it("rest after a hard block → ratio drops well below 1", () => {
     // 7 recent rest days, 21 prior hard days
     const deload = [...Array(7).fill(2), ...Array(21).fill(15)];
     const acwr = computeACWR(deload);
-    expect(acwr).toBeLessThan(0.8);
+    expect(acwr.ratio).toBeLessThan(0.8);
+    expect(acwr.chronicLoad).toBe(15);
   });
 });
 

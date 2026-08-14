@@ -20,6 +20,7 @@ import {
 } from "@acme/engine";
 
 import { protectedProcedure } from "../trpc";
+import { aggregateDailyLoads } from "./analytics";
 
 export type DataQualityStatus = "good" | "missing" | "stale";
 
@@ -272,11 +273,14 @@ export const readinessRouter = {
       orderBy: desc(DailyMetric.date),
     });
 
-    // Fetch recent activities to determine training load data quality
+    // Fetch recent activities to determine training load data quality.
+    // 28 days rather than 7: the training-load component compares this week
+    // against the athlete's own 21-day chronic window, so a 7-day fetch
+    // leaves the chronic side empty and the component permanently neutral.
     const recentActivities = await ctx.db.query.Activity.findMany({
       where: and(
         eq(Activity.userId, userId),
-        gte(Activity.startedAt, new Date(Date.now() - 7 * 86400000)),
+        gte(Activity.startedAt, new Date(Date.now() - 28 * 86400000)),
       ),
       orderBy: desc(Activity.startedAt),
     });
@@ -374,15 +378,26 @@ export const readinessRouter = {
     const metricInputs = recentMetrics.map(toMetricInput);
     const baselines = computeBaselines(metricInputs, profile?.sex ?? null);
 
-    // Compute strain scores from recent activities
+    // Per-activity strain, still what the target-strain band below expects.
     const recentStrainScores = recentActivities.map(
       (a) => a.strainScore ?? computeStrainScore(a.trimpScore ?? 0),
+    );
+
+    // The load component needs one entry per CALENDAR DAY, zero-padded for
+    // rest days. Passing one entry per activity — as this did — made the
+    // acute and chronic windows cover the same handful of sessions for a
+    // two-sessions-a-week athlete, pinning the ratio near 1.0 and the
+    // component at a near-constant regardless of what was actually trained.
+    const { dailyLoadsRecent } = aggregateDailyLoads(
+      recentActivities,
+      28,
+      profile?.timezone ?? null,
     );
 
     const todayMetric = metricInputs[0]!;
     const result = calculateReadiness({
       todayMetrics: todayMetric,
-      recentStrainScores,
+      dailyLoadsRecent,
       baselines,
     });
 

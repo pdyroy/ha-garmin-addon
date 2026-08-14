@@ -14,13 +14,20 @@ import {
   ReadinessScore,
   VO2maxEstimate,
 } from "@acme/db/schema";
+import type { DailyMetricInput, HrvRhrDailyPoint } from "@acme/engine";
 import {
+  classifyHrvRhrQuadrant,
   computeACWR,
+  computeHrvBaselineStatus,
+  computeSleepRegularityIndex,
   computeStrainScore,
   computeTrainingLoads,
   countConsecutiveHardDays,
+  getLatestNightSignal,
+  predictRaceTimesAdaptive,
 } from "@acme/engine";
 
+import { aggregateDailyLoads } from "../router/analytics";
 import { humanizeActivityName } from "./humanize";
 import { isMemoryEnabled, renderHistoryBlock, retrieveHistory } from "./memory";
 import { pickBestVO2maxEstimate } from "./vo2max";
@@ -114,11 +121,28 @@ function classifyVO2max(
   return "Below average";
 }
 
-function acwrStatus(acwr: number): string {
-  if (acwr < 0.8) return "Under-training zone";
-  if (acwr <= 1.3) return "Sweet spot";
-  if (acwr <= 1.5) return "Caution zone";
-  return "High injury risk";
+/**
+ * Describe the acute:chronic ratio WITHOUT a risk band.
+ *
+ * The sweet-spot/danger banding this replaced has no evidential basis:
+ * Impellizzeri et al. (Sports Med 51:581, 2021) reproduced the published
+ * injury association after substituting random numbers for chronic load
+ * (OR 2.45 real versus 1.16-2.07 random), and Lolli et al. (BJSM 53:921,
+ * 2019) show the numerator is contained in its own denominator. The ratio
+ * is reported as a direction of travel, read next to the absolute chronic
+ * load, because the same ratio on a low base is a different event from the
+ * same ratio on a high one.
+ */
+function describeAcwr(acwr: number, chronicLoad: number | null): string {
+  const direction =
+    acwr > 1.15
+      ? "this week above the recent norm"
+      : acwr < 0.85
+        ? "this week below the recent norm"
+        : "this week in line with the recent norm";
+  return chronicLoad != null
+    ? `${direction}, on a 21-day base of ${chronicLoad.toFixed(1)}/day`
+    : direction;
 }
 
 function statusFor(value: unknown): "available" | "unavailable" {
@@ -170,6 +194,7 @@ export async function buildDataContext(
     advancedMetrics42,
     baselines,
     activitiesYtd,
+    metrics90,
   ] = await Promise.all([
     // Last 14 days of daily metrics
     db.query.DailyMetric.findMany({
@@ -282,6 +307,19 @@ export async function buildDataContext(
         "sportType" | "startedAt" | "durationMinutes" | "distanceMeters"
       >[]
     >,
+
+    // 90 days of daily metrics — wider window than metrics14, needed by
+    // NightSignal (7 confirmed prior nights to warm up), the HRV baseline
+    // band (60-day window, anchored up to 6 days behind today), and the
+    // Sleep Regularity Index (14+ valid consecutive-night pairs).
+    db.query.DailyMetric.findMany({
+      where: and(
+        eq(DailyMetric.userId, userId),
+        gte(DailyMetric.date, dateNDaysAgo(90)),
+      ),
+      orderBy: desc(DailyMetric.date),
+      limit: 90,
+    }) as Promise<(typeof DailyMetric.$inferSelect)[]>,
   ]);
 
   const humanizedActivities10 = humanizeActivities(activities10);
@@ -314,6 +352,49 @@ export async function buildDataContext(
     dateNDaysAgo(0);
   const readinessZone = latestReadiness?.zone ?? "unavailable";
   const latestVo2Value = latestVo2?.value ?? profile?.vo2maxRunning;
+
+  // ACWR — computed once here (calendar-day aggregate, per computeACWR's
+  // documented input contract) and reused below in the Training Load
+  // section, so the JSON block and the prose never disagree.
+  const acwrWindow = aggregateDailyLoads(
+    humanizedActivities10.slice(0, 10),
+    28,
+    profile?.timezone,
+  );
+  const acwrResult = computeACWR(acwrWindow.dailyLoadsRecent);
+
+  // NightSignal — needs nights OLDEST FIRST; metrics90 is fetched newest
+  // first.
+  const nightsChrono = [...metrics90].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+  const nightSignal = getLatestNightSignal(nightsChrono as DailyMetricInput[]);
+
+  // HRV baseline (M7 vs 60-day B±SWC band) and the HRV x RHR quadrant —
+  // both read the same 90-day history, "as of" the most recent day we have.
+  const hrvHistory: HrvRhrDailyPoint[] = metrics90.map((m) => ({
+    date: m.date,
+    hrv: m.hrv,
+    restingHr: m.restingHr,
+  }));
+  const hrvAsOfDate = metrics90[0]?.date ?? asOfDate;
+  const hrvBaselineResult = computeHrvBaselineStatus(hrvHistory, hrvAsOfDate);
+  const hrvQuadrantResult = classifyHrvRhrQuadrant(hrvHistory, hrvAsOfDate);
+
+  // Sleep Regularity Index (Phillips et al. 2017) — the best-evidenced
+  // single sleep measure in this engine (Windred et al. 2024, UK Biobank).
+  const sleepRegularityResult = computeSleepRegularityIndex(
+    metrics90 as DailyMetricInput[],
+  );
+
+  // Adaptive race prediction — reuses the YTD activity fetch already made
+  // above (same sportType/startedAt/durationMinutes/distanceMeters shape
+  // as RaceEffortInput) rather than issuing another query.
+  const racePrediction = predictRaceTimesAdaptive(activitiesYtd, new Date());
+  const racePrediction10k =
+    "predictions" in racePrediction
+      ? (racePrediction.predictions.find((p) => p.distance === "10K") ?? null)
+      : null;
 
   const metricContext = {
     as_of_date: asOfDate,
@@ -368,6 +449,34 @@ export async function buildDataContext(
     ramp_rate_status: statusFor(latestAdvMetric?.rampRate),
     vo2max: numericOrNull(latestVo2Value),
     vo2max_status: statusFor(latestVo2Value),
+    // Absolute chronic (28-day) load backing the ACWR ratio — read it
+    // alongside `acwr`, never alone (see grounding rules).
+    acwr_chronic_load: numericOrNull(acwrResult.chronicLoad),
+    acwr_chronic_load_status: statusFor(acwrResult.chronicLoad),
+    // NightSignal: deviation of last night's resting HR from this athlete's
+    // own baseline, never an illness diagnosis.
+    night_signal_state: nightSignal?.state ?? null,
+    night_signal_status: statusFor(nightSignal?.state),
+    night_signal_deviation_bpm: numericOrNull(nightSignal?.deviationBpm),
+    // HRV: this week's 7-day mean (M7) vs the athlete's own 60-day B±SWC
+    // band, and the HRV x RHR quadrant (Buchheit 2014).
+    hrv_baseline_position: hrvBaselineResult.value?.position ?? null,
+    hrv_baseline_status: statusFor(hrvBaselineResult.value?.position),
+    hrv_rhr_quadrant: hrvQuadrantResult.value?.quadrant ?? null,
+    hrv_rhr_quadrant_status: statusFor(hrvQuadrantResult.value?.quadrant),
+    // Sleep Regularity Index (-100..100, Phillips et al. 2017).
+    sleep_regularity_index: numericOrNull(sleepRegularityResult.value?.sri),
+    sleep_regularity_index_status: statusFor(sleepRegularityResult.value?.sri),
+    // Adaptive race prediction — best-recorded pace, not a confirmed race.
+    race_prediction_10k: racePrediction10k?.predictedFormatted ?? null,
+    race_prediction_10k_status: statusFor(
+      racePrediction10k?.predictedFormatted,
+    ),
+    race_prediction_method:
+      "predictions" in racePrediction ? racePrediction.model.method : null,
+    race_prediction_method_status: statusFor(
+      "predictions" in racePrediction ? racePrediction.model.method : null,
+    ),
   };
 
   const sections: string[] = [
@@ -512,17 +621,27 @@ export async function buildDataContext(
       hasStoredLoads && stored?.rampRate != null
         ? stored.rampRate
         : fallback.rampRate;
+    // computeACWR needs per-CALENDAR-DAY aggregates (zero-padded, most
+    // recent first), not one entry per activity — `strainScores` above is
+    // per-activity and only used for the CTL/ATL/hard-days fallback.
+    // `acwrResult` (computed once, near the top of this function, from the
+    // same 10-session window) is reused here so the JSON block and this
+    // prose line never disagree; null below the 14-day quorum rather than
+    // guessing — this short 10-activity window rarely clears it, so the
+    // stored `advanced_metric.acwr` value is almost always what's shown.
     const acwr =
-      hasStoredLoads && stored?.acwr != null
-        ? stored.acwr
-        : computeACWR(strainScores);
+      hasStoredLoads && stored?.acwr != null ? stored.acwr : acwrResult.ratio;
 
     const lines: string[] = ["## Training Load"];
     lines.push(`- CTL (Fitness): ${ctl.toFixed(1)}`);
     lines.push(`- ATL (Fatigue): ${atl.toFixed(1)}`);
     lines.push(`- TSB (Form): ${tsb.toFixed(1)}`);
     lines.push(`- Ramp Rate: ${rampRate.toFixed(1)} pts/week`);
-    lines.push(`- ACWR: ${acwr.toFixed(2)} (${acwrStatus(acwr)})`);
+    lines.push(
+      acwr != null
+        ? `- ACWR: ${acwr.toFixed(2)} (${describeAcwr(acwr, acwrResult.chronicLoad)})`
+        : "- ACWR: insufficient daily history (needs 14+ days)",
+    );
     lines.push(`- Consecutive hard days: ${hardDays}`);
     sections.push(lines.join("\n"));
   }
@@ -780,7 +899,7 @@ export async function buildDataContext(
       );
     if (latestAdv.acwr != null)
       lines.push(
-        `- ACWR: ${latestAdv.acwr.toFixed(2)} (${acwrStatus(latestAdv.acwr)})`,
+        `- ACWR: ${latestAdv.acwr.toFixed(2)} (${describeAcwr(latestAdv.acwr, null)})`,
       );
     if (latestAdv.rampRate != null)
       lines.push(
@@ -1164,16 +1283,10 @@ export async function buildDataContext(
     // ACWR interpretation
     if (latestAdvMetric?.acwr != null) {
       const acwr = latestAdvMetric.acwr;
-      const advice =
-        acwr > 1.5
-          ? ` HIGH injury risk. Immediately reduce acute load. Skip planned intensity.`
-          : acwr > 1.3
-            ? ` CAUTION zone. Reduce intensity this week. Avoid adding new stressors.`
-            : acwr < 0.8
-              ? ` Under-training. Gradually increase training stimulus to avoid detraining.`
-              : ` No action needed — maintain current training approach.`;
+      // Descriptive only. No risk band, no prescription derived from the
+      // ratio alone — see describeAcwr() for why.
       lines.push(
-        `- **ACWR Gauge (Training)**: ${acwr.toFixed(2)} — ${acwrStatus(acwr)}.${advice}`,
+        `- **ACWR (Training)**: ${acwr.toFixed(2)} — ${describeAcwr(acwr, null)}. Read alongside the absolute chronic load; the ratio on its own does not indicate injury risk.`,
       );
     }
 

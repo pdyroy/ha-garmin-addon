@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   computeACWR,
+  computeACWR_EWMA,
   computeDailyPMCSeries,
   computeStrainScore,
   computeTRIMP,
@@ -113,18 +114,22 @@ describe("computeStrainScore", () => {
 });
 
 describe("computeACWR", () => {
-  it("returns 1.0 for balanced load", () => {
-    const strains = [10, 10, 10, 10, 10, 10, 10];
-    expect(computeACWR(strains)).toBe(1);
+  it("returns ratio 1.0 for balanced load (14-day quorum met)", () => {
+    const strains = new Array(14).fill(10) as number[];
+    const result = computeACWR(strains);
+    expect(result.ratio).toBe(1);
+    expect(result.chronicLoad).toBe(10);
   });
 
   it("returns > 1 for high acute load", () => {
-    // Need 28 values to distinguish acute (7d) from chronic (28d)
+    // Need 28 values to distinguish acute (days 1-7) from chronic (days 8-28)
     const strains = [
       18, 18, 18, 18, 18, 18, 18, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
       5, 5, 5, 5, 5, 5,
     ];
-    expect(computeACWR(strains)).toBeGreaterThan(1);
+    const result = computeACWR(strains);
+    expect(result.ratio).toBeGreaterThan(1);
+    expect(result.chronicLoad).toBe(5);
   });
 
   it("returns < 1 for low acute load", () => {
@@ -132,12 +137,65 @@ describe("computeACWR", () => {
       3, 3, 3, 3, 3, 3, 3, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
       15, 15, 15, 15, 15, 15, 15, 15,
     ];
-    expect(computeACWR(strains)).toBeLessThan(1);
+    const result = computeACWR(strains);
+    expect(result.ratio).toBeLessThan(1);
+    expect(result.chronicLoad).toBe(15);
   });
 
-  it("returns 1.0 for insufficient data", () => {
-    expect(computeACWR([10, 10])).toBe(1.0);
-    expect(computeACWR([])).toBe(1.0);
+  it("decouples acute week from chronic denominator", () => {
+    // A pure 7-day spike with nothing before it: the acute week must not
+    // leak into the chronic average it's being compared against.
+    const strains = [
+      20, 20, 20, 20, 20, 20, 20, 0, 0, 0, 0, 0, 0, 0,
+    ];
+    const result = computeACWR(strains);
+    // Chronic window (days 8-14) is all zeros → ratio undefined, not diluted
+    // by folding the acute 20s into a shared 14-day average.
+    expect(result.chronicLoad).toBe(0);
+    expect(result.ratio).toBeNull();
+    expect(result.reason).toBeTruthy();
+  });
+
+  it("returns null ratio/chronicLoad below the 14-day quorum", () => {
+    const short = computeACWR([10, 10]);
+    expect(short.ratio).toBeNull();
+    expect(short.chronicLoad).toBeNull();
+    expect(short.reason).toBeTruthy();
+
+    const empty = computeACWR([]);
+    expect(empty.ratio).toBeNull();
+    expect(empty.chronicLoad).toBeNull();
+  });
+
+  it("returns null ratio (with reason) when chronic load is zero but acute is positive", () => {
+    const strains = [10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0];
+    const result = computeACWR(strains);
+    expect(result.chronicLoad).toBe(0);
+    expect(result.ratio).toBeNull();
+  });
+});
+
+describe("computeACWR_EWMA", () => {
+  it("returns null below the 14-day quorum", () => {
+    const result = computeACWR_EWMA([10, 10, 10]);
+    expect(result.ratio).toBeNull();
+    expect(result.chronicLoad).toBeNull();
+  });
+
+  it("returns ~1.0 ratio for steady load", () => {
+    const loads = new Array(28).fill(10) as number[];
+    const result = computeACWR_EWMA(loads);
+    expect(result.ratio).toBeCloseTo(1, 0);
+  });
+
+  it("returns > 1 when the most recent week ramps above prior history", () => {
+    const loads = [
+      ...new Array(21).fill(5),
+      ...new Array(7).fill(20),
+    ];
+    const result = computeACWR_EWMA(loads);
+    expect(result.ratio).toBeGreaterThan(1);
+    expect(result.chronicLoad).toBeGreaterThan(0);
   });
 });
 
@@ -183,7 +241,8 @@ describe("computeDailyPMCSeries", () => {
     expect(last.ctl).toBeCloseTo(10, 0);
     expect(last.atl).toBeCloseTo(10, 0);
     expect(last.tsb).toBeCloseTo(0, 0);
-    expect(last.acwr).toBeCloseTo(1, 1);
+    expect(last.acwr).not.toBeNull();
+    expect(last.acwr!).toBeCloseTo(1, 1);
   });
 
   it("ACWR spikes when acute load jumps above chronic baseline", () => {
@@ -193,7 +252,8 @@ describe("computeDailyPMCSeries", () => {
     ] as number[];
     const series = computeDailyPMCSeries(loads);
     const last = series[series.length - 1]!;
-    expect(last.acwr).toBeGreaterThan(1.5);
+    expect(last.acwr).not.toBeNull();
+    expect(last.acwr!).toBeGreaterThan(1.5);
   });
 
   it("ACWR drops when athlete tapers", () => {
@@ -203,7 +263,15 @@ describe("computeDailyPMCSeries", () => {
     ] as number[];
     const series = computeDailyPMCSeries(loads);
     const last = series[series.length - 1]!;
-    expect(last.acwr).toBeLessThan(0.7);
+    expect(last.acwr).not.toBeNull();
+    expect(last.acwr!).toBeLessThan(0.7);
+  });
+
+  it("returns null acwr/chronicLoad before the 14-day quorum is met", () => {
+    const loads = new Array(10).fill(10) as number[];
+    const series = computeDailyPMCSeries(loads);
+    expect(series[series.length - 1]!.acwr).toBeNull();
+    expect(series[series.length - 1]!.chronicLoad).toBeNull();
   });
 
   it("latest ACWR matches the standalone computeACWR result", () => {
@@ -215,6 +283,8 @@ describe("computeDailyPMCSeries", () => {
     const latest = series[series.length - 1]!.acwr;
     const reversed = [...loads].reverse();
     const standalone = computeACWR(reversed);
-    expect(latest).toBeCloseTo(standalone, 1);
+    expect(latest).not.toBeNull();
+    expect(standalone.ratio).not.toBeNull();
+    expect(latest!).toBeCloseTo(standalone.ratio!, 1);
   });
 });
