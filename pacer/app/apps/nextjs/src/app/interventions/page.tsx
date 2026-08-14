@@ -9,6 +9,7 @@ import { toast } from "@acme/ui/toast";
 
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
 import { useTRPC } from "~/trpc/react";
+import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
 
 // ---------------------------------------------------------------------------
@@ -142,15 +143,16 @@ export default function InterventionsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-lg space-y-6 px-4 pt-6 pb-24">
+    <PageShell density="reading">
       {/* ---- Header ---- */}
-      <div>
+      <div className="mb-6">
         <h1 className="text-xl font-bold">Interventions</h1>
         <p className="text-muted-foreground text-sm">
           Track what you try and what works
         </p>
       </div>
 
+      <div className="space-y-6">
       {/* ---- Log Form ---- */}
       <div className="bg-card space-y-4 rounded-2xl border p-4">
         <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
@@ -174,7 +176,7 @@ export default function InterventionsPage() {
         {/* Type grid */}
         <div className="space-y-2">
           <p className="text-muted-foreground text-xs font-medium">Type</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid-metrics">
             {INTERVENTION_TYPES.map((t) => (
               <button
                 key={t.key}
@@ -205,7 +207,7 @@ export default function InterventionsPage() {
             placeholder="e.g. 10 min ice bath after long run..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-2.5 text-sm placeholder:text-zinc-500 focus:ring-2 focus:outline-none"
+            className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-2.5 text-sm placeholder:text-muted-foreground focus:ring-2 focus:outline-none"
           />
         </div>
 
@@ -385,7 +387,9 @@ export default function InterventionsPage() {
         )}
       </div>
 
+      </div>
+
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }

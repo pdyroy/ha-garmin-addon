@@ -15,6 +15,7 @@ import {
 
 import { cn } from "@acme/ui";
 
+import { PageShell } from "~/components/page-shell";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
@@ -376,7 +377,8 @@ export default function FitnessPage() {
   }, [trend, trainingLoads.data, workoutCount90d]);
 
   return (
-    <main className="mx-auto max-w-lg space-y-4 px-4 pt-6 pb-24">
+    <PageShell density="data">
+      <div className="space-y-4">
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
@@ -503,14 +505,14 @@ export default function FitnessPage() {
                   <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="date"
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={36}
                 domain={[
                   (dataMin: number) => Math.floor(dataMin - 1),
@@ -520,8 +522,9 @@ export default function FitnessPage() {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #333",
+                  backgroundColor: "var(--popover)",
+                  color: "var(--popover-foreground)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 12,
                 }}
@@ -586,14 +589,14 @@ export default function FitnessPage() {
                   <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="date"
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={36}
                 domain={[
                   (dataMin: number) => Math.floor(dataMin - 1),
@@ -603,8 +606,9 @@ export default function FitnessPage() {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #333",
+                  backgroundColor: "var(--popover)",
+                  color: "var(--popover-foreground)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 12,
                 }}
@@ -660,22 +664,23 @@ export default function FitnessPage() {
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: "#888", fontSize: 10 }}
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                   interval="preserveStartEnd"
                 />
                 <YAxis
-                  tick={{ fill: "#888", fontSize: 10 }}
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                   width={44}
                   domain={["dataMin - 2", "dataMax + 2"]}
                   tickFormatter={(v: number) => v.toFixed(1)}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#18181b",
-                    border: "1px solid #333",
+                    backgroundColor: "var(--popover)",
+                    color: "var(--popover-foreground)",
+                    border: "1px solid var(--border)",
                     borderRadius: 8,
                     fontSize: 12,
                   }}
@@ -754,7 +759,7 @@ export default function FitnessPage() {
                   "flex-1 rounded-lg py-2 text-center text-[10px]",
                   tier.cls,
                   classification === tier.label
-                    ? "ring-2 ring-white/30"
+                    ? "ring-2 ring-ring"
                     : "opacity-60",
                 )}
               >
@@ -797,7 +802,7 @@ export default function FitnessPage() {
               {racePredictions.data.map((pred) => (
                 <div
                   key={pred.distance}
-                  className="flex items-center justify-between rounded-xl bg-zinc-800/60 px-4 py-3"
+                  className="flex items-center justify-between rounded-xl bg-muted/50 px-4 py-3"
                 >
                   <div>
                     <p className="font-semibold">
@@ -835,7 +840,7 @@ export default function FitnessPage() {
             {raceHistory.map((r, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between rounded-xl bg-zinc-800/60 px-4 py-2.5"
+                className="flex items-center justify-between rounded-xl bg-muted/50 px-4 py-2.5"
               >
                 <div>
                   <p className="text-sm font-semibold">{r.distance}</p>
@@ -897,7 +902,7 @@ export default function FitnessPage() {
             ].map((zone) => (
               <div
                 key={zone.label}
-                className="flex items-center justify-between rounded-xl bg-zinc-800/60 px-4 py-2.5"
+                className="flex items-center justify-between rounded-xl bg-muted/50 px-4 py-2.5"
               >
                 <div>
                   <p className="text-sm font-semibold">
@@ -1004,6 +1009,7 @@ export default function FitnessPage() {
       </div>
 
       <BottomNav />
-    </main>
+      </div>
+    </PageShell>
   );
 }

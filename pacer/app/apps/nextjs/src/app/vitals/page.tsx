@@ -18,6 +18,7 @@ import { cn } from "@acme/ui";
 
 import { useUserTimezone } from "~/lib/format-date";
 import { useTRPC } from "~/trpc/react";
+import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
 import { DateRangeSelector } from "../_components/date-range-selector";
 import { SectionHeader } from "../_components/info-button";
@@ -52,7 +53,7 @@ const SPO2_STATUS: StatusConfig = {
   no_data: {
     icon: "📊",
     label: "No Data",
-    cls: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+    cls: "bg-muted text-muted-foreground border-border",
     desc: "No SpO2 data available yet.",
   },
 };
@@ -79,7 +80,7 @@ const RR_STATUS: StatusConfig = {
   no_data: {
     icon: "📊",
     label: "No Data",
-    cls: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+    cls: "bg-muted text-muted-foreground border-border",
     desc: "No respiration rate data available yet.",
   },
 };
@@ -106,7 +107,7 @@ const TEMP_STATUS: StatusConfig = {
   no_data: {
     icon: "📊",
     label: "No Data",
-    cls: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+    cls: "bg-muted text-muted-foreground border-border",
     desc: "No skin temperature data available yet.",
   },
 };
@@ -133,7 +134,7 @@ const RHR_STATUS: StatusConfig = {
   no_data: {
     icon: "📊",
     label: "No Data",
-    cls: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+    cls: "bg-muted text-muted-foreground border-border",
     desc: "No resting heart rate data available yet.",
   },
 };
@@ -160,7 +161,7 @@ const BODY_BATTERY_STATUS: StatusConfig = {
   no_data: {
     icon: "📊",
     label: "No Data",
-    cls: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+    cls: "bg-muted text-muted-foreground border-border",
     desc: "No Body Battery data available yet.",
   },
 };
@@ -187,7 +188,7 @@ const STRESS_STATUS: StatusConfig = {
   no_data: {
     icon: "📊",
     label: "No Data",
-    cls: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+    cls: "bg-muted text-muted-foreground border-border",
     desc: "No stress score data available yet.",
   },
 };
@@ -357,7 +358,7 @@ function VitalMetricSection({
       )}
 
       {metric && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid-metrics">
           <StatCard
             label={latestLabel}
             value={metric.latest != null ? formatNumber(metric.latest) : null}
@@ -391,18 +392,18 @@ function VitalMetricSection({
             >
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="#333"
+                stroke="var(--border)"
                 vertical={false}
               />
               <XAxis
                 dataKey="date"
                 tickFormatter={formatDate}
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 axisLine={false}
               />
               <YAxis
                 domain={yDomain}
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 axisLine={false}
                 width={35}
               />
@@ -413,8 +414,9 @@ function VitalMetricSection({
                   "",
                 ]}
                 contentStyle={{
-                  background: "#1a1a2e",
-                  border: "1px solid #333",
+                  background: "var(--popover)",
+                  color: "var(--popover-foreground)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 12,
                 }}
@@ -422,11 +424,11 @@ function VitalMetricSection({
               {metric.baseline !== null && (
                 <ReferenceLine
                   y={metric.baseline}
-                  stroke="#666"
+                  stroke="var(--muted-foreground)"
                   strokeDasharray="4 4"
                   label={{
                     value: "baseline",
-                    fill: "#666",
+                    fill: "var(--muted-foreground)",
                     fontSize: 10,
                     position: "insideTopRight",
                   }}
@@ -490,8 +492,8 @@ export default function VitalsPage() {
   );
 
   return (
-    <main className="bg-background text-foreground min-h-screen pb-24">
-      <div className="mx-auto max-w-md space-y-6 px-4 pt-6">
+    <PageShell density="data">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
@@ -504,7 +506,7 @@ export default function VitalsPage() {
           </div>
           <Link
             href="/hrv"
-            className="text-primary mt-1 rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-zinc-800"
+            className="text-primary mt-1 rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-accent"
           >
             💓 HRV
           </Link>
@@ -662,6 +664,6 @@ export default function VitalsPage() {
         )}
       </div>
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }

@@ -19,6 +19,7 @@ import { Button } from "@acme/ui/button";
 import { toast } from "@acme/ui/toast";
 
 import { IngressLink as Link } from "~/app/_components/ingress-link";
+import { PageShell } from "~/components/page-shell";
 import {
   formatDateInTz,
   formatTimeInTz,
@@ -371,7 +372,7 @@ function LapTable({
               <tr
                 key={lap.index}
                 className={cn(
-                  "border-b border-zinc-800",
+                  "border-border border-b",
                   isFastest
                     ? "bg-green-500/10"
                     : isSlowest
@@ -465,36 +466,40 @@ export default function ActivityDetailPage({
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="bg-muted h-6 w-32 animate-pulse rounded" />
-        <div className="bg-card h-32 animate-pulse rounded-xl" />
-        <div className="grid grid-cols-2 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-card h-20 animate-pulse rounded-xl" />
-          ))}
+      <PageShell density="data">
+        <div className="space-y-4">
+          <div className="bg-muted h-6 w-32 animate-pulse rounded" />
+          <div className="bg-card h-32 animate-pulse rounded-xl" />
+          <div className="grid-metrics">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-card h-20 animate-pulse rounded-xl" />
+            ))}
+          </div>
         </div>
         <BottomNav />
-      </div>
+      </PageShell>
     );
   }
 
   if (!activity) {
     return (
-      <div className="space-y-4">
-        <Link
-          href="/activities"
-          className="text-primary inline-flex items-center gap-1 text-sm"
-        >
-          ← Back to Activities
-        </Link>
-        <div className="bg-card rounded-xl p-8 text-center">
-          <p className="text-lg font-medium">Activity not found</p>
-          <p className="text-muted-foreground mt-1 text-sm">
-            This activity may have been deleted or doesn&apos;t exist.
-          </p>
+      <PageShell density="data">
+        <div className="space-y-4">
+          <Link
+            href="/activities"
+            className="text-primary inline-flex items-center gap-1 text-sm"
+          >
+            ← Back to Activities
+          </Link>
+          <div className="bg-card rounded-xl p-8 text-center">
+            <p className="text-lg font-medium">Activity not found</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              This activity may have been deleted or doesn&apos;t exist.
+            </p>
+          </div>
         </div>
         <BottomNav />
-      </div>
+      </PageShell>
     );
   }
 
@@ -545,7 +550,8 @@ export default function ActivityDetailPage({
   const hasLaps = laps.length > 0;
 
   return (
-    <div className="space-y-5">
+    <PageShell density="data">
+      <div className="space-y-5">
       {/* Back link */}
       <Link
         href="/activities"
@@ -602,7 +608,7 @@ export default function ActivityDetailPage({
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid-metrics">
         <MetricCard label="Avg HR" value={activity.avgHr} unit="bpm" />
         <MetricCard label="Max HR" value={activity.maxHr} unit="bpm" />
         <MetricCard label="Calories" value={activity.calories} unit="kcal" />
@@ -616,6 +622,9 @@ export default function ActivityDetailPage({
         />
       </div>
 
+      {/* Numeric detail panels — grid-panels so they don't stack in one
+          narrow column on wide viewports. */}
+      <div className="grid-panels">
       {/* Training Effects */}
       {(activity.aerobicTE != null || activity.anaerobicTE != null) && (
         <section className="bg-card space-y-3 rounded-xl p-4">
@@ -662,7 +671,7 @@ export default function ActivityDetailPage({
             </div>
           </div>
 
-          <div className="divide-y divide-zinc-800">
+          <div className="divide-border divide-y">
             <RunningFormRow
               label="Ground Contact Time"
               value={activity.runningFormScore.groundContactTime.value}
@@ -732,7 +741,7 @@ export default function ActivityDetailPage({
           <h2 className="text-sm font-semibold tracking-wider uppercase">
             {hasPower ? "Power & Pace" : "Pace"}
           </h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid-metrics">
             {activity.avgPaceSecPerKm != null && (
               <div>
                 <p className="text-muted-foreground text-xs">Avg Pace</p>
@@ -778,6 +787,7 @@ export default function ActivityDetailPage({
           </div>
         </section>
       )}
+      </div>
 
       {/* Laps */}
       {hasLaps ? (
@@ -797,7 +807,7 @@ export default function ActivityDetailPage({
 
       {/* VO2max / EPOC */}
       {(activity.vo2maxEstimate != null || activity.epocMl != null) && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid-metrics">
           {activity.vo2maxEstimate != null && (
             <MetricCard
               label="VO₂ Max"
@@ -815,6 +825,7 @@ export default function ActivityDetailPage({
         </div>
       )}
 
+      <div className="grid-panels">
       {/* ── Efficiency Analysis ── */}
       {(isRunning || hasPower) && activity.avgHr != null && (
         <section className="bg-card space-y-3 rounded-xl p-4">
@@ -937,6 +948,7 @@ export default function ActivityDetailPage({
             </section>
           );
         })()}
+      </div>
 
       {/* Post-Session Report */}
       <section className="bg-card space-y-4 rounded-2xl border p-4">
@@ -1054,8 +1066,9 @@ export default function ActivityDetailPage({
           {upsertReportMutation.isPending ? "Saving…" : "Save Report"}
         </Button>
       </section>
+      </div>
 
       <BottomNav />
-    </div>
+    </PageShell>
   );
 }

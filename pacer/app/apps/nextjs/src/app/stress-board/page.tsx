@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@acme/ui";
 
+import { PageShell } from "~/components/page-shell";
 import type { EndChoice, InteractionRec } from "./quick-add-lib";
 import { BottomNav } from "../_components/bottom-nav";
 import { getIngressUrl } from "../_components/ingress-provider";
@@ -68,7 +69,7 @@ interface StressStatus {
 function dbpmColor(v: number): string {
   if (v >= 5) return "text-red-400";
   if (v >= 2) return "text-orange-400";
-  if (v > -0.5) return "text-zinc-400";
+  if (v > -0.5) return "text-muted-foreground";
   return "text-green-400";
 }
 
@@ -77,7 +78,7 @@ function labelColor(label: string): string {
   if (label === "mild stressor") return "text-orange-400";
   if (label === "slightly raises HR") return "text-yellow-400";
   if (label === "calming") return "text-green-400";
-  return "text-zinc-400";
+  return "text-muted-foreground";
 }
 
 async function fetchStatus(): Promise<StressStatus> {
@@ -370,17 +371,16 @@ export default function StressBoardPage() {
       : null;
 
   return (
-    <main className="bg-background text-foreground min-h-screen pb-24 font-mono text-sm">
-      <div className="mx-auto max-w-3xl px-4 pt-6">
+    <PageShell density="data" className="font-mono text-sm">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-zinc-100">
+            <h1 className="text-foreground text-lg font-bold">
               STRESS BOARD{" "}
-              <span className="text-xs font-normal text-zinc-500">
+              <span className="text-muted-foreground text-xs font-normal">
                 who spikes my heart rate
               </span>
             </h1>
-            <p className="text-xs text-zinc-500">
+            <p className="text-muted-foreground text-xs">
               {isLoading || !status
                 ? "calendar: checking…"
                 : status.calendar_linked
@@ -402,7 +402,7 @@ export default function StressBoardPage() {
                   "rounded border px-3 py-1.5 text-xs",
                   showCals
                     ? "border-sky-600 text-sky-400"
-                    : "border-zinc-700 text-zinc-400 hover:bg-zinc-800",
+                    : "border-border text-muted-foreground hover:bg-accent",
                 )}
               >
                 📅 calendars
@@ -415,7 +415,7 @@ export default function StressBoardPage() {
                 "rounded border px-3 py-1.5 text-xs",
                 masked
                   ? "border-yellow-600 text-yellow-400"
-                  : "border-zinc-700 text-zinc-400 hover:bg-zinc-800",
+                  : "border-border text-muted-foreground hover:bg-accent",
               )}
             >
               {masked ? "🙈 masked" : "👁 names"}
@@ -424,10 +424,10 @@ export default function StressBoardPage() {
               onClick={() => run.mutate()}
               disabled={status?.running || run.isPending || !hasSource}
               className={cn(
-                "rounded border border-zinc-700 px-3 py-1.5 text-xs",
+                "border-border rounded border px-3 py-1.5 text-xs",
                 status?.running || run.isPending
-                  ? "cursor-wait text-zinc-500"
-                  : "text-zinc-200 hover:bg-zinc-800",
+                  ? "text-muted-foreground cursor-wait"
+                  : "text-foreground hover:bg-accent",
               )}
             >
               {status?.running ? "running…" : "▶ run"}
@@ -450,7 +450,7 @@ export default function StressBoardPage() {
         {status?.calendar_linked && showCals && (
           <div className="mb-3 rounded border border-sky-500/30 bg-sky-500/5 p-3 text-xs">
             <div className="mb-2 flex items-center justify-between">
-              <p className="font-bold text-zinc-200">Google Calendars</p>
+              <p className="text-foreground font-bold">Google Calendars</p>
               <button
                 onClick={() => unlink.mutate()}
                 disabled={unlink.isPending}
@@ -462,14 +462,14 @@ export default function StressBoardPage() {
             {calError ? (
               <p className="text-amber-400">{calError}</p>
             ) : calLoading ? (
-              <p className="text-zinc-500">Loading calendars…</p>
+              <p className="text-muted-foreground">Loading calendars…</p>
             ) : calendars.length === 0 ? (
-              <p className="text-zinc-500">
+              <p className="text-muted-foreground">
                 No calendars found on this account.
               </p>
             ) : (
               <>
-                <p className="mb-2 text-zinc-400">
+                <p className="text-muted-foreground mb-2">
                   Pick which calendars feed the board (events shared across
                   calendars are counted once).
                 </p>
@@ -477,7 +477,7 @@ export default function StressBoardPage() {
                   {calendars.map((c) => (
                     <label
                       key={c.id}
-                      className="flex cursor-pointer items-center gap-2 text-zinc-300"
+                      className="text-foreground flex cursor-pointer items-center gap-2"
                     >
                       <input
                         type="checkbox"
@@ -495,7 +495,7 @@ export default function StressBoardPage() {
                       />
                       <span>{c.summary}</span>
                       {c.primary && (
-                        <span className="text-zinc-600">(primary)</span>
+                        <span className="text-muted-foreground">(primary)</span>
                       )}
                     </label>
                   ))}
@@ -503,7 +503,7 @@ export default function StressBoardPage() {
                 <button
                   onClick={() => saveCals.mutate()}
                   disabled={saveCals.isPending || selected.size === 0}
-                  className="rounded border border-zinc-700 px-3 py-1.5 text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:text-zinc-600"
+                  className="border-border text-foreground hover:bg-accent disabled:text-muted-foreground rounded border px-3 py-1.5 disabled:cursor-not-allowed"
                 >
                   {saveCals.isPending ? "saving…" : "Save selection"}
                 </button>
@@ -513,10 +513,10 @@ export default function StressBoardPage() {
         )}
 
         {addonHealthy && ixSupported && (
-          <div className="mb-3 rounded border border-zinc-800 bg-zinc-900 p-3 text-xs">
-            <p className="mb-2 font-bold tracking-widest text-zinc-100">
+          <div className="border-border bg-card mb-3 rounded border p-3 text-xs">
+            <p className="text-foreground mb-2 font-bold tracking-widest">
               LOG INTERACTION{" "}
-              <span className="font-normal tracking-normal text-zinc-500">
+              <span className="text-muted-foreground font-normal tracking-normal">
                 off-calendar chat, call, drop-by
               </span>
             </p>
@@ -535,14 +535,14 @@ export default function StressBoardPage() {
                 aria-label="Person you interacted with"
                 autoComplete="off"
                 autoCapitalize="off"
-                className="w-36 rounded border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-zinc-200 placeholder:text-zinc-600"
+                className="border-border bg-muted text-foreground placeholder:text-muted-foreground w-36 rounded border px-2 py-1.5"
               />
               <datalist id="known-people">
                 {(results?.people ?? []).map((p) => (
                   <option key={p.attendee} value={p.attendee} />
                 ))}
               </datalist>
-              <span className="flex overflow-hidden rounded border border-zinc-700">
+              <span className="border-border flex overflow-hidden rounded border">
                 {DURATION_CHIPS.map((m) => (
                   <button
                     key={m}
@@ -551,8 +551,8 @@ export default function StressBoardPage() {
                     className={cn(
                       "px-2 py-1.5",
                       minutes === m
-                        ? "bg-zinc-700 font-bold text-zinc-100"
-                        : "text-zinc-400 hover:bg-zinc-800",
+                        ? "bg-accent text-accent-foreground font-bold"
+                        : "text-muted-foreground hover:bg-accent",
                     )}
                   >
                     {m}m
@@ -563,7 +563,7 @@ export default function StressBoardPage() {
                 value={endChoice}
                 onChange={(e) => setEndChoice(e.target.value as EndChoice)}
                 aria-label="When the interaction ended"
-                className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-zinc-300"
+                className="border-border bg-muted text-foreground rounded border px-2 py-1.5"
               >
                 {END_CHOICES.map((c) => (
                   <option key={c.key} value={c.key}>
@@ -574,7 +574,7 @@ export default function StressBoardPage() {
               <button
                 type="submit"
                 disabled={!canLog}
-                className="rounded border border-zinc-700 px-3 py-1.5 text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:text-zinc-600"
+                className="border-border text-foreground hover:bg-accent disabled:text-muted-foreground rounded border px-3 py-1.5 disabled:cursor-not-allowed"
               >
                 {addInteraction.isPending ? "logging…" : "+ log"}
               </button>
@@ -584,9 +584,9 @@ export default function StressBoardPage() {
                 {recent.slice(0, 6).map((r) => (
                   <li
                     key={r.id}
-                    className="flex items-center gap-2 text-zinc-500"
+                    className="text-muted-foreground flex items-center gap-2"
                   >
-                    <span className="text-zinc-300">{person(r.person)}</span>
+                    <span className="text-foreground">{person(r.person)}</span>
                     <span>
                       {r.minutes}m · ended {fmtEnd(r.end)}
                     </span>
@@ -595,7 +595,7 @@ export default function StressBoardPage() {
                       disabled={deleteInteraction.isPending}
                       title="Remove this interaction"
                       aria-label={`Remove interaction with ${person(r.person)}`}
-                      className="rounded px-1 text-zinc-600 hover:bg-red-500/10 hover:text-red-400"
+                      className="text-muted-foreground rounded px-1 hover:bg-red-500/10 hover:text-red-400"
                     >
                       ×
                     </button>
@@ -607,7 +607,7 @@ export default function StressBoardPage() {
         )}
 
         {!showSetup && !results && !isLoading && (
-          <p className="rounded border border-zinc-800 bg-zinc-900 p-4 text-xs text-zinc-400">
+          <p className="border-border bg-card text-muted-foreground rounded border p-4 text-xs">
             {status?.unsupported
               ? "Addon does not expose meeting stress yet — update to v0.20.0+."
               : status?.unreachable
@@ -617,17 +617,17 @@ export default function StressBoardPage() {
         )}
 
         {showSetup && (
-          <div className="rounded border border-zinc-800 bg-zinc-900 p-4 text-xs text-zinc-400">
-            <p className="mb-2 font-bold text-zinc-300">
+          <div className="border-border bg-card text-muted-foreground rounded border p-4 text-xs">
+            <p className="text-foreground mb-2 font-bold">
               Connect Google Calendar
             </p>
             <p className="mb-2">
               On your computer, mint a read-only token with{" "}
-              <code className="text-zinc-200">
+              <code className="text-foreground">
                 scripts/generate-gcal-token.py
               </code>{" "}
               (addon repo), then paste the contents of the resulting{" "}
-              <code className="text-zinc-200">gcal-token.json</code> here:
+              <code className="text-foreground">gcal-token.json</code> here:
             </p>
             <textarea
               value={tokenText}
@@ -640,20 +640,20 @@ export default function StressBoardPage() {
               data-1p-ignore
               data-lpignore="true"
               placeholder='{"client_id":"…","client_secret":"…","refresh_token":"…"}'
-              className="mb-2 w-full rounded border border-zinc-700 bg-zinc-950 p-2 font-mono text-[11px] text-zinc-200 placeholder:text-zinc-600"
+              className="border-border bg-muted text-foreground placeholder:text-muted-foreground mb-2 w-full rounded border p-2 font-mono text-[11px]"
             />
             <button
               onClick={() => link.mutate()}
               disabled={link.isPending || tokenText.trim().length === 0}
-              className="rounded border border-zinc-700 px-3 py-1.5 text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:text-zinc-600"
+              className="border-border text-foreground hover:bg-accent disabled:text-muted-foreground rounded border px-3 py-1.5 disabled:cursor-not-allowed"
             >
               {link.isPending ? "connecting…" : "Connect"}
             </button>
-            <p className="mt-3 text-zinc-500">
+            <p className="text-muted-foreground mt-3">
               Prefer files? Drop the token in{" "}
-              <code className="text-zinc-400">/share/pacer/</code>, or
+              <code className="text-muted-foreground">/share/pacer/</code>, or
               export an ICS and convert it with{" "}
-              <code className="text-zinc-400">scripts/ics_to_events.py</code>.
+              <code className="text-muted-foreground">scripts/ics_to_events.py</code>.
             </p>
           </div>
         )}
@@ -662,15 +662,15 @@ export default function StressBoardPage() {
           <>
             {/* PER-PERSON leaderboard — the headline, like the post */}
             <section className="mb-6">
-              <h2 className="mb-1 border-b border-zinc-800 pb-1 text-xs font-bold tracking-widest text-zinc-100">
+              <h2 className="border-border text-foreground mb-1 border-b pb-1 text-xs font-bold tracking-widest">
                 PER-PERSON{" "}
-                <span className="font-normal text-zinc-500">
+                <span className="text-muted-foreground font-normal">
                   ranked by ridge marginal effect (bpm)
                 </span>
               </h2>
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left text-zinc-500">
+                  <tr className="text-muted-foreground text-left">
                     <th className="py-1 pr-2 font-normal">attendee</th>
                     <th className="pr-2 text-right font-normal">n</th>
                     <th className="pr-2 text-right font-normal">naive</th>
@@ -687,7 +687,7 @@ export default function StressBoardPage() {
                     );
                     return (
                       <tr key={p.attendee} className="align-middle">
-                        <td className="py-0.5 pr-2 font-bold text-zinc-100">
+                        <td className="text-foreground py-0.5 pr-2 font-bold">
                           {person(p.attendee)}
                         </td>
                         <td className="pr-2 text-right">{p.n}</td>
@@ -702,7 +702,7 @@ export default function StressBoardPage() {
                         >
                           {p.ridge.toFixed(2)}
                         </td>
-                        <td className="pr-2 text-zinc-500">{p.reliability}</td>
+                        <td className="text-muted-foreground pr-2">{p.reliability}</td>
                         <td className="pr-2">
                           <div className="flex h-3 w-28 items-center">
                             <div className="flex w-14 justify-end">
@@ -713,7 +713,7 @@ export default function StressBoardPage() {
                                 />
                               )}
                             </div>
-                            <div className="h-3 w-px bg-zinc-600" />
+                            <div className="bg-border h-3 w-px" />
                             <div className="w-14">
                               {p.ridge > 0 && (
                                 <div
@@ -734,15 +734,15 @@ export default function StressBoardPage() {
 
             {/* MEETING STRESS table */}
             <section className="mb-6">
-              <h2 className="mb-1 border-b border-zinc-800 pb-1 text-xs font-bold tracking-widest text-zinc-100">
+              <h2 className="border-border text-foreground mb-1 border-b pb-1 text-xs font-bold tracking-widest">
                 MEETING STRESS{" "}
-                <span className="font-normal text-zinc-500">
+                <span className="text-muted-foreground font-normal">
                   mean HR over surrounding baseline
                 </span>
               </h2>
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left text-zinc-500">
+                  <tr className="text-muted-foreground text-left">
                     <th className="py-1 pr-2 text-right font-normal">dbpm</th>
                     <th className="pr-2 text-right font-normal">z</th>
                     <th className="pr-2 text-right font-normal">elev</th>
@@ -766,10 +766,10 @@ export default function StressBoardPage() {
                       <td className="pr-2 text-right">
                         {Math.round(m.elev * 100)}%
                       </td>
-                      <td className="max-w-40 truncate pr-2 text-zinc-100">
+                      <td className="text-foreground max-w-40 truncate pr-2">
                         {title(m.title, i)}
                       </td>
-                      <td className="text-zinc-500">
+                      <td className="text-muted-foreground">
                         {m.attendees.map(person).join(", ")}
                       </td>
                     </tr>
@@ -778,14 +778,13 @@ export default function StressBoardPage() {
               </table>
             </section>
 
-            <p className="text-[10px] text-zinc-600">
+            <p className="text-muted-foreground text-[10px]">
               correlation ≠ causation — a leaderboard for laughs, not HR. thin
               data (n &lt; 3) ranks are noise.
             </p>
           </>
         )}
-      </div>
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }

@@ -8,6 +8,7 @@ import { toast } from "@acme/ui/toast";
 
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
 import { useTRPC } from "~/trpc/react";
+import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
 import { SectionHeader } from "../_components/info-button";
 import { WhatsWorkingCard } from "../_components/whats-working-card";
@@ -154,7 +155,7 @@ function ProactiveInsightCard({
 
       {/* Action suggestion */}
       {insight.actionSuggestion && (
-        <div className="mt-3 rounded-xl bg-white/5 px-3 py-2 text-sm">
+        <div className="mt-3 rounded-xl bg-muted px-3 py-2 text-sm">
           <span className="mr-1">💡</span>
           <span className="text-foreground/80">
             Suggested action: {insight.actionSuggestion}
@@ -166,7 +167,7 @@ function ProactiveInsightCard({
       {!insight.isRead && (
         <button
           onClick={() => onMarkRead(insight.id)}
-          className="text-muted-foreground mt-3 text-xs underline underline-offset-2 hover:text-white"
+          className="text-muted-foreground mt-3 text-xs underline underline-offset-2 hover:text-foreground"
         >
           Mark as read
         </button>
@@ -550,7 +551,8 @@ export default function InsightsPage() {
 
   return (
     <div className="bg-background min-h-screen">
-      <main className="mx-auto max-w-lg space-y-4 px-4 pt-6 pb-24">
+      <PageShell density="reading">
+        <div className="space-y-4">
         {/* ── Header ── */}
         <div>
           <h1 className="pl-12 text-2xl font-bold">Insights</h1>
@@ -616,7 +618,7 @@ export default function InsightsPage() {
         {summary.isLoading ? (
           <div className="bg-card animate-pulse rounded-2xl border p-4">
             <div className="bg-muted h-4 w-32 rounded" />
-            <div className="mt-3 grid grid-cols-3 gap-3">
+            <div className="mt-3 grid-metrics">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="bg-muted h-14 rounded-lg" />
               ))}
@@ -629,7 +631,7 @@ export default function InsightsPage() {
               info="Weekly summary comparing key metrics against your 30-day personal baselines. Green = better than average, red = below. Method: Current week's mean vs 30-day EMA baseline for each metric (sleep, activity, RHR, stress, HRV). Threshold: >0.5 SD difference flagged. Citation: Individual monitoring using z-scores (Buchheit 2014)."
               className="mb-3"
             />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid-metrics">
               {summaryData.totalDays != null && (
                 <div className="bg-muted/60 rounded-xl p-3 text-center">
                   <p className="text-xl font-bold text-blue-400">
@@ -713,8 +715,10 @@ export default function InsightsPage() {
           </div>
         )}
 
+        </div>
+
         <BottomNav />
-      </main>
+      </PageShell>
     </div>
   );
 }

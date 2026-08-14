@@ -8,6 +8,7 @@ import { Button } from "@acme/ui/button";
 import { Input } from "@acme/ui/input";
 import { Label } from "@acme/ui/label";
 
+import { PageShell } from "~/components/page-shell";
 import { VersionBadge } from "~/components/version-badge";
 import { env } from "~/env";
 import {
@@ -143,7 +144,7 @@ function ProfileEditor() {
             Edit
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="grid-metrics text-sm">
           <div>
             <span className="text-muted-foreground">Age:</span>{" "}
             {profile?.age ?? "—"}
@@ -170,7 +171,7 @@ function ProfileEditor() {
       <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
         Athlete Profile
       </h2>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid-metrics">
         <div>
           <Label>Age</Label>
           <Input
@@ -946,11 +947,9 @@ function GarminConnection() {
           </Button>
         )}
         <Button
-          variant="outline"
           size="sm"
           onClick={handleRecompute}
           disabled={recomputing || !status?.connected}
-          className="border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
         >
           {recomputing ? "Computing..." : "🔄 Recompute Metrics"}
         </Button>
@@ -1059,46 +1058,49 @@ export default function SettingsPage() {
   const buildTime = env.NEXT_PUBLIC_BUILD_TIME;
 
   return (
-    <main className="mx-auto max-w-lg space-y-6 px-4 pt-6 pb-24">
+    <PageShell density="reading">
       <h1 className="pl-12 text-2xl font-bold">Settings</h1>
 
-      {/* Athlete Profile */}
-      <ProfileEditor />
+      <div className="mt-6 space-y-6">
+        {/* Athlete Profile */}
+        <ProfileEditor />
 
-      {/* Health & Safety */}
-      <HealthProfile />
+        {/* Health & Safety */}
+        <HealthProfile />
 
-      {/* Timezone */}
-      <TimezoneSettings />
+        {/* Timezone */}
+        <TimezoneSettings />
 
-      {/* Garmin Connection — must work for data sync */}
-      <GarminConnection />
+        {/* Garmin Connection — must work for data sync */}
+        <GarminConnection />
 
-      {/* Data & Privacy */}
-      <div className="bg-card space-y-3 rounded-2xl border p-4">
-        <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-          Data & Privacy
-        </h2>
-        <p className="text-muted-foreground text-xs">
-          Your Garmin data is stored securely and used only to compute your
-          readiness score and workout recommendations. We never share your data.
-        </p>
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-          <p className="text-xs text-amber-700 dark:text-amber-400">
-            <strong>⚠️ Medical Disclaimer:</strong> Pacer provides
-            AI-generated fitness guidance and is not a substitute for
-            professional medical advice, diagnosis, or treatment. Always consult
-            a qualified healthcare professional before starting or modifying any
-            exercise program. Individual results may vary.
+        {/* Data & Privacy */}
+        <div className="bg-card space-y-3 rounded-2xl border p-4">
+          <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
+            Data & Privacy
+          </h2>
+          <p className="text-muted-foreground text-xs">
+            Your Garmin data is stored securely and used only to compute your
+            readiness score and workout recommendations. We never share your
+            data.
           </p>
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              <strong>⚠️ Medical Disclaimer:</strong> Pacer provides
+              AI-generated fitness guidance and is not a substitute for
+              professional medical advice, diagnosis, or treatment. Always
+              consult a qualified healthcare professional before starting or
+              modifying any exercise program. Individual results may vary.
+            </p>
+          </div>
+        </div>
+
+        <div className="pb-2 text-center">
+          <VersionBadge version={version} buildTime={buildTime} fullText />
         </div>
       </div>
 
-      <div className="pb-2 text-center">
-        <VersionBadge version={version} buildTime={buildTime} fullText />
-      </div>
-
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }

@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@acme/ui/button";
 import { toast } from "@acme/ui/toast";
 
+import { PageShell } from "~/components/page-shell";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 
@@ -95,7 +96,7 @@ const RVC_STATUS_STYLE: Record<RvcRow["status"], string> = {
   match: "bg-green-100 text-green-700",
   minor: "bg-yellow-100 text-yellow-700",
   diverged: "bg-red-100 text-red-700",
-  invalid: "bg-zinc-200 text-zinc-600",
+  invalid: "bg-muted text-muted-foreground",
 };
 
 const RVC_STATUS_LABEL: Record<RvcRow["status"], string> = {
@@ -237,18 +238,16 @@ export default function ValidationPage() {
   }
 
   return (
-    <div className="bg-background text-foreground min-h-screen pb-20">
-      {/* Header */}
-      <div className="bg-card sticky top-0 z-10 border-b px-4 py-4 shadow-sm">
-        <h1 className="text-foreground pl-12 text-xl font-bold">
-          Data Validation
-        </h1>
-        <p className="text-muted-foreground mt-0.5 pl-12 text-sm">
+    <PageShell density="data">
+      {/* Header (custom: pl-12 clears the fixed mobile hamburger button) */}
+      <div className="mb-8">
+        <h1 className="pl-12 text-2xl font-bold">Data Validation</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
           Compare Garmin estimates against reference measurements
         </p>
       </div>
 
-      <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
+      <div className="space-y-4">
         {/* Engine vs Garmin — raw vs computed transparency */}
         {rawVsComputed && rawVsComputed.summary.comparedPairs > 0 && (
           <div className="bg-card rounded-xl border p-4 shadow-sm">
@@ -293,7 +292,7 @@ export default function ValidationPage() {
           </h2>
           <form onSubmit={handleSubmit} className="space-y-3">
             {/* Type selector */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid-metrics">
               {MEASUREMENT_TYPES.map((t) => (
                 <button
                   key={t.key}
@@ -512,6 +511,6 @@ export default function ValidationPage() {
       </div>
 
       <BottomNav />
-    </div>
+    </PageShell>
   );
 }

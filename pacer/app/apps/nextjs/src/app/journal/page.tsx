@@ -10,6 +10,7 @@ import { toast } from "@acme/ui/toast";
 import { IngressLink as Link } from "~/app/_components/ingress-link";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
 import { useTRPC } from "~/trpc/react";
+import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
 
 // ---------------------------------------------------------------------------
@@ -373,15 +374,16 @@ export default function JournalPage() {
   const topCorrelations = (correlationsQuery.data ?? []).slice(0, 3);
 
   return (
-    <main className="mx-auto max-w-lg space-y-6 px-4 pt-6 pb-24">
+    <PageShell density="reading">
       {/* ---- Header ---- */}
-      <div>
+      <div className="mb-6">
         <h1 className="text-xl font-bold">Journal</h1>
         <p className="text-muted-foreground text-sm">
           Track factors that affect your performance
         </p>
       </div>
 
+      <div className="space-y-6">
       {/* ---- Date Selector ---- */}
       <div className="flex items-center justify-between">
         <Button variant="outline" size="sm" onClick={() => shiftDate(-1)}>
@@ -573,7 +575,7 @@ export default function JournalPage() {
           Lifestyle
         </h2>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid-metrics">
           {TAGS.map((tag) => {
             const active = tags[tag.key] !== undefined;
             const value = tags[tag.key];
@@ -596,7 +598,7 @@ export default function JournalPage() {
                 <span className="text-base">{tag.emoji}</span>
                 <span className="font-medium">{tag.label}</span>
                 {active && typeof value === "string" && (
-                  <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[10px]">
+                  <span className="bg-foreground/10 rounded-full px-1.5 py-0.5 text-[10px]">
                     {value}
                   </span>
                 )}
@@ -611,7 +613,7 @@ export default function JournalPage() {
             Notes
           </h2>
           <textarea
-            className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-3 text-sm placeholder:text-zinc-500 focus:ring-2 focus:outline-none"
+            className="bg-secondary/50 border-border focus:ring-primary/40 w-full rounded-xl border p-3 text-sm placeholder:text-muted-foreground focus:ring-2 focus:outline-none"
             rows={3}
             placeholder="How are you feeling today?"
             value={notes}
@@ -738,7 +740,7 @@ export default function JournalPage() {
                                 className={cn(
                                   "rounded-full border px-2 py-0.5 text-[10px] font-medium",
                                   TAG_COLORS[key] ??
-                                    "bg-zinc-700/50 text-zinc-400",
+                                    "bg-muted text-muted-foreground",
                                 )}
                               >
                                 {tagDef.emoji}{" "}
@@ -865,7 +867,7 @@ export default function JournalPage() {
                       ? "bg-green-500/20 text-green-400"
                       : c.strength === "moderate"
                         ? "bg-yellow-500/20 text-yellow-400"
-                        : "bg-zinc-700/50 text-zinc-400",
+                        : "bg-muted text-muted-foreground",
                   )}
                 >
                   {c.strength}
@@ -876,7 +878,9 @@ export default function JournalPage() {
         )}
       </div>
 
+      </div>
+
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }

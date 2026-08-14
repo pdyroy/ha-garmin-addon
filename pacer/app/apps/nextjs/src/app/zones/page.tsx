@@ -20,6 +20,7 @@ import {
 
 import { cn } from "@acme/ui";
 
+import { PageShell } from "~/components/page-shell";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { SectionHeader } from "../_components/info-button";
@@ -72,8 +73,9 @@ const SPORT_COLORS: Record<string, string> = {
 };
 
 const TOOLTIP_STYLE = {
-  backgroundColor: "#18181b",
-  border: "1px solid #333",
+  backgroundColor: "var(--popover)",
+  color: "var(--popover-foreground)",
+  border: "1px solid var(--border)",
   borderRadius: 8,
   fontSize: 12,
 };
@@ -175,7 +177,7 @@ function percentZones(
 }
 
 function heatColor(minutes: number): string {
-  if (minutes === 0) return "bg-zinc-800";
+  if (minutes === 0) return "bg-muted";
   if (minutes < 30) return "bg-green-900";
   if (minutes < 60) return "bg-green-700";
   if (minutes < 90) return "bg-green-600";
@@ -193,7 +195,7 @@ function piLabel(pi: number): { text: string; color: string } {
 function ChartSkeleton({ h = 300 }: { h?: number }) {
   return (
     <div
-      className="animate-pulse rounded-lg bg-zinc-800"
+      className="bg-muted animate-pulse rounded-lg"
       style={{ height: h }}
     />
   );
@@ -201,9 +203,9 @@ function ChartSkeleton({ h = 300 }: { h?: number }) {
 
 function CardSkeleton() {
   return (
-    <div className="animate-pulse space-y-2 rounded-xl bg-zinc-800 p-4">
-      <div className="mx-auto h-5 w-24 rounded bg-zinc-700" />
-      <div className="mx-auto h-3 w-40 rounded bg-zinc-700" />
+    <div className="bg-card animate-pulse space-y-2 rounded-xl border p-4">
+      <div className="bg-muted mx-auto h-5 w-24 rounded" />
+      <div className="bg-muted mx-auto h-3 w-40 rounded" />
     </div>
   );
 }
@@ -514,67 +516,69 @@ export default function ZoneAnalysisPage() {
     zoneTrendChartData.length === 0;
 
   return (
-    <main className="mx-auto max-w-4xl space-y-6 px-4 pt-6 pb-24">
+    <PageShell density="data">
       {/* ── Header ── */}
-      <div>
+      <div className="mb-8">
         <h1 className="pl-12 text-2xl font-bold">Zone Analysis</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           HR zone distribution, polarization tracking, and efficiency trends
         </p>
       </div>
 
-      {/* ── Period & Sport selectors ── */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex gap-1 rounded-lg bg-zinc-800 p-1">
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => setPeriod(p.value)}
-              className={cn(
-                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                period === p.value
-                  ? "bg-zinc-600 text-white"
-                  : "text-zinc-400 hover:text-zinc-200",
-              )}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <div className="rounded-lg bg-zinc-800 p-1">
-          <select
-            value={sport}
-            onChange={(e) => setSport(e.target.value)}
-            className={cn(
-              "appearance-none rounded-md bg-zinc-700 px-3 py-1 text-xs font-medium text-white",
-              "focus:ring-2 focus:ring-zinc-500 focus:outline-none",
-            )}
-            aria-label="Filter by sport"
-          >
-            {sportOptions.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
+      <div className="space-y-6">
+        {/* ── Period & Sport selectors ── */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="bg-muted flex gap-1 rounded-lg p-1">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={cn(
+                  "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                  period === p.value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {p.label}
+              </button>
             ))}
-          </select>
+          </div>
+          <div className="bg-muted rounded-lg p-1">
+            <select
+              value={sport}
+              onChange={(e) => setSport(e.target.value)}
+              className={cn(
+                "border-border bg-background text-foreground appearance-none rounded-md border px-3 py-1 text-xs font-medium",
+                "focus:ring-ring focus:ring-2 focus:outline-none",
+              )}
+              aria-label="Filter by sport"
+            >
+              {sportOptions.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
 
-      {/* ── Global no-data ── */}
-      {allEmpty && !allLoading && (
-        <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-8 text-center">
-          <p className="text-lg font-medium text-zinc-300">
-            No zone data available
-          </p>
-          <p className="text-muted-foreground mt-2 text-sm">
-            Record activities with a heart rate monitor to see zone analysis.
-            Garmin, Apple Watch, and Polar devices all provide HR zone data.
-          </p>
-        </div>
-      )}
+        {/* ── Global no-data ── */}
+        {allEmpty && !allLoading && (
+          <div className="bg-card rounded-2xl border p-8 text-center">
+            <p className="text-foreground text-lg font-medium">
+              No zone data available
+            </p>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Record activities with a heart rate monitor to see zone
+              analysis. Garmin, Apple Watch, and Polar devices all provide HR
+              zone data.
+            </p>
+          </div>
+        )}
 
-      {/* ═══════════ Section 1: Weekly Zone Distribution ═══════════ */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+        {/* ═══════════ Section 1: Weekly Zone Distribution ═══════════ */}
+        <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
           title="Weekly Time in Zones"
           info="Shows minutes spent in each heart rate zone per week. Zones are from Garmin's Firstbeat HR zone classification. Zone 1 (Recovery) and Zone 2 (Aerobic) build your base — aim for 80% here. Zone 3 (Tempo) improves lactate threshold. Zones 4-5 boost VO2max. Method: Sum of hrZoneMinutes JSON field per activity, grouped by ISO week."
@@ -585,21 +589,21 @@ export default function ZoneAnalysisPage() {
         ) : weeklyZoneChartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={weeklyZoneChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="week"
                 tickFormatter={formatWeek}
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={40}
                 label={{
                   value: "min",
                   angle: -90,
                   position: "insideLeft",
-                  fill: "#666",
+                  fill: "var(--muted-foreground)",
                   fontSize: 10,
                 }}
               />
@@ -643,7 +647,7 @@ export default function ZoneAnalysisPage() {
       </div>
 
       {/* ═══════════ Section 2: Polarization Index ═══════════ */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
           title="Training Polarization (Seiler 80/20 Model)"
           info="Measures how well your training follows the 80/20 rule. Formula: PI = ln(1/Σpi²) where pi = fraction of time in each zone bucket (easy/moderate/hard). PI > 2.0 = well polarized, 1.5-2.0 = pyramidal, < 1.5 = threshold-heavy (higher injury risk). Citation: Seiler S, Polarized Training Distribution."
@@ -669,16 +673,16 @@ export default function ZoneAnalysisPage() {
                   <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="week"
                 tickFormatter={formatWeek}
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 interval="preserveStartEnd"
               />
               <YAxis
                 yAxisId="pct"
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={48}
                 domain={[0, 100]}
                 ticks={[0, 25, 50, 75, 100]}
@@ -688,14 +692,14 @@ export default function ZoneAnalysisPage() {
               <YAxis
                 yAxisId="pi"
                 orientation="right"
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={36}
                 domain={[0, 4]}
                 label={{
                   value: "PI",
                   angle: 90,
                   position: "insideRight",
-                  fill: "#666",
+                  fill: "var(--muted-foreground)",
                   fontSize: 10,
                 }}
               />
@@ -761,7 +765,7 @@ export default function ZoneAnalysisPage() {
                 yAxisId="pi"
                 type="monotone"
                 dataKey="polarizationIndex"
-                stroke="#ffffff"
+                stroke="var(--foreground)"
                 strokeWidth={2}
                 strokeDasharray="6 3"
                 dot={false}
@@ -777,7 +781,7 @@ export default function ZoneAnalysisPage() {
       </div>
 
       {/* ═══════════ Section 3: Monthly Zone Trend ═══════════ */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
           title="Monthly Zone Distribution Shift"
           info="Tracks zone distribution evolution month-over-month as a stacked area chart showing percentage of time in each zone. A healthy progression shows increasing Zone 2 percentage over time with periodic high-intensity blocks. Method: Monthly aggregation of zone minutes converted to percentages. Citation: Long-term training structure analysis."
@@ -811,14 +815,14 @@ export default function ZoneAnalysisPage() {
                   </linearGradient>
                 ))}
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="month"
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={48}
                 domain={[0, 100]}
                 ticks={[0, 25, 50, 75, 100]}
@@ -868,7 +872,7 @@ export default function ZoneAnalysisPage() {
       </div>
 
       {/* ═══════════ Section 4: Efficiency Trend ═══════════ */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
           title="Pace / HR Efficiency (higher = fitter)"
           info="Cardiac efficiency index measures aerobic fitness improvement over time. Formula: Efficiency = (speed in m/s ÷ avgHR) × 1000. Higher values = more ground covered per heartbeat. Trend line uses linear regression (y = mx + b) to show improvement percentage. Citation: Running economy as speed per unit HR cost."
@@ -889,24 +893,24 @@ export default function ZoneAnalysisPage() {
         ) : efficiencyChartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <ComposedChart data={efficiencyChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="date"
                 tickFormatter={formatWeek}
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 interval="preserveStartEnd"
                 name="Date"
               />
               <YAxis
                 dataKey="efficiencyIndex"
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={48}
                 name="Efficiency"
                 label={{
                   value: "Efficiency Index (m·bpm⁻¹ × 1000)",
                   angle: -90,
                   position: "insideLeft",
-                  fill: "#666",
+                  fill: "var(--muted-foreground)",
                   fontSize: 10,
                   offset: 0,
                   style: { textAnchor: "middle" },
@@ -958,7 +962,7 @@ export default function ZoneAnalysisPage() {
                           ? efficiencyTrendLine.last.y
                           : null,
                   }))}
-                  stroke="#ffffff"
+                  stroke="var(--foreground)"
                   strokeWidth={2}
                   strokeDasharray="6 3"
                   dot={false}
@@ -976,7 +980,7 @@ export default function ZoneAnalysisPage() {
       </div>
 
       {/* ═══════════ Section 5: Activity Calendar ═══════════ */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
           title="Training Consistency"
           info="GitHub-style heatmap showing daily training activity. Color intensity = total training minutes that day. Consistency is the #1 predictor of fitness gains. Gaps >7 days lead to measurable detraining. Method: Daily aggregation of activity duration with sport type classification. Data: activityCalendar query grouped by date."
@@ -994,7 +998,7 @@ export default function ZoneAnalysisPage() {
       </div>
 
       {/* ═══════════ Section 6: Weekly Volume by Sport ═══════════ */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
           title="Weekly Training Volume by Sport"
           info="Stacked bar chart of total training minutes per week, broken down by sport type (running, walking, strength, yoga, tennis, other). Method: Sum of duration minutes per activity grouped by ISO week and sport type. Gradual weekly increases of 5-10% recommended to avoid overuse injuries. Citation: Progressive overload principle."
@@ -1005,21 +1009,21 @@ export default function ZoneAnalysisPage() {
         ) : volumeChartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={volumeChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="week"
                 tickFormatter={formatWeek}
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={40}
                 label={{
                   value: "min",
                   angle: -90,
                   position: "insideLeft",
-                  fill: "#666",
+                  fill: "var(--muted-foreground)",
                   fontSize: 10,
                 }}
               />
@@ -1070,7 +1074,7 @@ export default function ZoneAnalysisPage() {
             {insights.map((item, i) => (
               <div key={i} className={cn("rounded-xl border p-4", item.color)}>
                 <span className="mr-2 text-lg">{item.icon}</span>
-                <span className="text-sm leading-relaxed text-zinc-200">
+                <span className="text-foreground text-sm leading-relaxed">
                   {item.text}
                 </span>
               </div>
@@ -1088,8 +1092,10 @@ export default function ZoneAnalysisPage() {
         </div>
       )}
 
+      </div>
+
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }
 
@@ -1176,7 +1182,7 @@ function CalendarHeatmap({ data }: { data: CalendarDay[] }) {
           {DAYS.map((d, i) => (
             <div
               key={d}
-              className="flex h-[12px] items-center text-[9px] text-zinc-500"
+              className="text-muted-foreground flex h-[12px] items-center text-[9px]"
             >
               {i % 2 === 0 ? d : ""}
             </div>
@@ -1190,7 +1196,7 @@ function CalendarHeatmap({ data }: { data: CalendarDay[] }) {
         <div className="min-w-0 flex-1 overflow-x-auto">
           {/* Month labels row */}
           <div
-            className="relative h-3 text-[10px] text-zinc-500"
+            className="text-muted-foreground relative h-3 text-[10px]"
             style={{ width: `${weeks.length * 14}px` }}
           >
             {monthLabels.map((m, i) => (
@@ -1242,9 +1248,9 @@ function CalendarHeatmap({ data }: { data: CalendarDay[] }) {
       </div>
 
       {/* Legend */}
-      <div className="mt-2 flex items-center justify-end gap-1 text-[9px] text-zinc-500">
+      <div className="text-muted-foreground mt-2 flex items-center justify-end gap-1 text-[9px]">
         <span>Less</span>
-        <div className="h-[10px] w-[10px] rounded-[2px] bg-zinc-800" />
+        <div className="bg-muted h-[10px] w-[10px] rounded-[2px]" />
         <div className="h-[10px] w-[10px] rounded-[2px] bg-green-900" />
         <div className="h-[10px] w-[10px] rounded-[2px] bg-green-700" />
         <div className="h-[10px] w-[10px] rounded-[2px] bg-green-600" />
@@ -1255,32 +1261,32 @@ function CalendarHeatmap({ data }: { data: CalendarDay[] }) {
       {/* Tooltip */}
       {tooltip && (
         <div
-          className="pointer-events-none fixed z-50 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs shadow-lg"
+          className="border-border bg-popover pointer-events-none fixed z-50 rounded-lg border px-3 py-2 text-xs shadow-lg"
           style={{
             left: tooltip.x,
             top: tooltip.y,
             transform: "translate(-50%, -100%)",
           }}
         >
-          <p className="font-medium text-zinc-200">
+          <p className="text-popover-foreground font-medium">
             {formatDateStr(tooltip.date)}
           </p>
           {tooltip.day ? (
             <>
-              <p className="text-zinc-400">
+              <p className="text-muted-foreground">
                 {tooltip.day.totalMinutes.toFixed(0)} min
                 {tooltip.day.primarySport
                   ? ` · ${tooltip.day.primarySport}`
                   : ""}
               </p>
               {tooltip.day.maxStrain > 0 && (
-                <p className="text-zinc-400">
+                <p className="text-muted-foreground">
                   Strain: {tooltip.day.maxStrain.toFixed(1)}
                 </p>
               )}
             </>
           ) : (
-            <p className="text-zinc-500">No activity</p>
+            <p className="text-muted-foreground">No activity</p>
           )}
         </div>
       )}

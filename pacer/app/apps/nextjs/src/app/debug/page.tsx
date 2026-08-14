@@ -19,6 +19,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 
+import { PageShell } from "~/components/page-shell";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { DataFreshness } from "../_components/data-freshness";
@@ -101,7 +102,8 @@ export default function DebugPage() {
   const error = loads.error ?? pmc.error;
 
   return (
-    <main className="mx-auto max-w-2xl space-y-4 px-4 pt-6 pb-24">
+    <PageShell density="data">
+      <div className="space-y-4">
       <div>
         <h1 className="pl-12 text-2xl font-bold">
           🔧 Debug — Data Consistency
@@ -132,6 +134,7 @@ export default function DebugPage() {
 
       {!isLoading && !error && (
         <>
+          <div className="grid-panels">
           <section className="rounded-lg border bg-card p-4">
             <h2 className="text-lg font-semibold">
               ACWR (Acute:Chronic Workload Ratio)
@@ -234,6 +237,7 @@ export default function DebugPage() {
               </tbody>
             </table>
           </section>
+          </div>
 
           <section className="rounded-lg border bg-primary/10 p-4 text-sm">
             <h2 className="mb-2 font-semibold">📖 How to interpret</h2>
@@ -259,8 +263,9 @@ export default function DebugPage() {
           </section>
         </>
       )}
+      </div>
 
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }

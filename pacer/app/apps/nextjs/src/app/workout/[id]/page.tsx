@@ -3,17 +3,11 @@
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
-import { cn } from "@acme/ui";
 import { Button } from "@acme/ui/button";
 
 import { IngressLink as Link } from "~/app/_components/ingress-link";
+import { PageShell } from "~/components/page-shell";
 import { useTRPC } from "~/trpc/react";
-
-const phaseColors: Record<string, string> = {
-  warmup: "border-l-yellow-500",
-  main: "border-l-red-500",
-  cooldown: "border-l-blue-500",
-};
 
 export default function WorkoutDetailPage() {
   const params = useParams<{ id: string }>();
@@ -27,21 +21,25 @@ export default function WorkoutDetailPage() {
 
   if (workout.isLoading) {
     return (
-      <main className="mx-auto max-w-lg space-y-4 px-4 py-6">
-        <div className="bg-muted h-8 w-48 animate-pulse rounded" />
-        <div className="bg-muted h-64 animate-pulse rounded-2xl" />
-      </main>
+      <PageShell density="data">
+        <div className="space-y-4">
+          <div className="bg-muted h-8 w-48 animate-pulse rounded" />
+          <div className="bg-muted h-64 animate-pulse rounded-2xl" />
+        </div>
+      </PageShell>
     );
   }
 
   if (!w) {
     return (
-      <main className="mx-auto max-w-lg px-4 py-6 text-center">
-        <p className="text-muted-foreground">Workout not found.</p>
-        <Link href="/" className="text-primary mt-4 inline-block text-sm">
-          ← Back to Today
-        </Link>
-      </main>
+      <PageShell density="data">
+        <div className="text-center">
+          <p className="text-muted-foreground">Workout not found.</p>
+          <Link href="/" className="text-primary mt-4 inline-block text-sm">
+            ← Back to Today
+          </Link>
+        </div>
+      </PageShell>
     );
   }
 
@@ -54,7 +52,8 @@ export default function WorkoutDetailPage() {
     }[]) ?? [];
 
   return (
-    <main className="mx-auto max-w-lg space-y-6 px-4 pt-6 pb-8">
+    <PageShell density="data">
+      <div className="space-y-6">
       {/* Back */}
       <Link href="/" className="text-muted-foreground text-sm hover:underline">
         ← Back
@@ -88,13 +87,7 @@ export default function WorkoutDetailPage() {
           Workout Structure
         </h2>
         {structure.map((block, i) => (
-          <div
-            key={i}
-            className={cn(
-              "bg-card rounded-xl border-l-4 p-4",
-              phaseColors[block.phase] ?? "border-l-gray-500",
-            )}
-          >
+          <div key={i} className="bg-card rounded-xl border p-4">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground text-xs font-semibold uppercase">
                 {block.phase === "warmup"
@@ -118,7 +111,7 @@ export default function WorkoutDetailPage() {
         <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
           Target Metrics
         </h2>
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid-metrics text-sm">
           <div>
             <span className="text-muted-foreground">Duration</span>
             <p className="font-medium">
@@ -152,6 +145,7 @@ export default function WorkoutDetailPage() {
       <Button className="w-full" size="lg">
         🎯 Start Workout
       </Button>
-    </main>
+      </div>
+    </PageShell>
   );
 }

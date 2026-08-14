@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@acme/ui";
 
 import { IngressLink as Link } from "~/app/_components/ingress-link";
+import { PageShell } from "~/components/page-shell";
 import { formatTimeInTz, useUserTimezone } from "~/lib/format-date";
 import { useTRPC } from "~/trpc/react";
 
@@ -178,7 +179,7 @@ function renderMarkdown(text: string) {
       return (
         <hr
           key={li}
-          className="my-2 border-0 border-t border-zinc-700/60"
+          className="my-2 border-0 border-t border-border/60"
           aria-hidden="true"
         />
       );
@@ -186,13 +187,13 @@ function renderMarkdown(text: string) {
     // Headers
     if (trimmed.startsWith("### "))
       return (
-        <h4 key={li} className="mt-3 mb-1 text-sm font-bold text-zinc-200">
+        <h4 key={li} className="mt-3 mb-1 text-sm font-bold text-foreground">
           {renderInline(trimmed.slice(4))}
         </h4>
       );
     if (trimmed.startsWith("## "))
       return (
-        <h3 key={li} className="mt-3 mb-1 text-sm font-bold text-zinc-100">
+        <h3 key={li} className="mt-3 mb-1 text-sm font-bold text-foreground">
           {renderInline(trimmed.slice(3))}
         </h3>
       );
@@ -286,7 +287,9 @@ function ChatBubble({
         <div
           className={cn(
             "rounded-2xl px-4 py-2.5",
-            isUser ? "bg-indigo-600 text-white" : "bg-zinc-700 text-zinc-100",
+            isUser
+              ? "bg-indigo-600 text-primary-foreground"
+              : "bg-muted text-foreground",
           )}
         >
           {isUser ? (
@@ -297,7 +300,7 @@ function ChatBubble({
         </div>
         <p
           className={cn(
-            "text-[10px] text-zinc-500",
+            "text-[10px] text-muted-foreground",
             isUser ? "text-right" : "text-left",
           )}
         >
@@ -387,33 +390,39 @@ export default function CoachPage() {
   }
 
   return (
-    <div className="bg-background flex h-dvh flex-col">
+    <PageShell density="reading">
+      {/* PageShell's own pt-6 + pb-10 (4rem total) is subtracted here so this
+          chat shell still fills exactly one viewport, matching the fixed
+          header/input behavior it had before the migration. */}
+      <div className="bg-background flex h-[calc(100dvh-4rem)] flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900 px-4 py-3 pl-16">
+      <header className="border-border bg-card flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="text-zinc-400 transition-colors hover:text-zinc-200"
+            className="text-muted-foreground hover:text-foreground transition-colors"
           >
             ← Back
           </Link>
           <div>
-            <h1 className="text-base font-semibold text-zinc-100">
+            <h1 className="text-foreground text-base font-semibold">
               {agentConfig.icon} AI {agentConfig.label}
             </h1>
-            <p className="text-xs text-zinc-500">Powered by your Garmin data</p>
+            <p className="text-muted-foreground text-xs">
+              Powered by your Garmin data
+            </p>
           </div>
         </div>
         <button
           onClick={() => setShowClearConfirm(true)}
-          className="rounded-lg px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+          className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg px-2 py-1 text-xs transition-colors"
         >
           Clear
         </button>
       </header>
 
       {/* Agent Selector Tabs */}
-      <div className="flex [scrollbar-width:thin] gap-1 overflow-x-auto border-b border-zinc-800 bg-zinc-900/60 px-3 py-2">
+      <div className="border-border bg-card/60 flex [scrollbar-width:thin] gap-1 overflow-x-auto border-b px-3 py-2">
         {AGENTS.map((agent) => (
           <button
             key={agent.id}
@@ -422,8 +431,8 @@ export default function CoachPage() {
             className={cn(
               "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3",
               activeAgent === agent.id
-                ? cn(agent.accentBg, "text-white")
-                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
+                ? cn(agent.accentBg, "text-primary-foreground")
+                : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
             <span aria-hidden="true">{agent.icon}</span>
@@ -435,19 +444,19 @@ export default function CoachPage() {
 
       {/* Clear confirmation dialog */}
       {showClearConfirm && (
-        <div className="border-b border-zinc-800 bg-zinc-900/80 px-4 py-3">
-          <p className="text-sm text-zinc-300">Clear all chat history?</p>
+        <div className="border-border bg-card/80 border-b px-4 py-3">
+          <p className="text-foreground text-sm">Clear all chat history?</p>
           <div className="mt-2 flex gap-2">
             <button
               onClick={() => clearMutation.mutate()}
               disabled={clearMutation.isPending}
-              className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-500 disabled:opacity-50"
+              className="text-primary-foreground rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium hover:bg-red-500 disabled:opacity-50"
             >
               {clearMutation.isPending ? "Clearing…" : "Yes, clear"}
             </button>
             <button
               onClick={() => setShowClearConfirm(false)}
-              className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700"
+              className="bg-muted text-foreground hover:bg-accent rounded-lg px-3 py-1.5 text-xs"
             >
               Cancel
             </button>
@@ -460,7 +469,7 @@ export default function CoachPage() {
         {messages.length === 0 && !history.isLoading ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <p className="text-4xl">{agentConfig.icon}</p>
-            <p className="mt-3 max-w-xs text-sm leading-relaxed text-zinc-400">
+            <p className="text-muted-foreground mt-3 max-w-xs text-sm leading-relaxed">
               {agentConfig.welcome}
             </p>
           </div>
@@ -516,7 +525,7 @@ export default function CoachPage() {
                   </div>
                   <button
                     onClick={() => setSendError(null)}
-                    className="text-[10px] text-zinc-500 transition-colors hover:text-zinc-300"
+                    className="text-muted-foreground hover:text-foreground text-[10px] transition-colors"
                   >
                     Dismiss
                   </button>
@@ -529,7 +538,7 @@ export default function CoachPage() {
 
       {/* Quick Actions — always visible above input */}
       {!history.isLoading && (
-        <div className="flex flex-wrap gap-2 border-t border-zinc-800/50 px-4 py-2">
+        <div className="border-border flex flex-wrap gap-2 border-t px-4 py-2">
           {agentConfig.quickActions.map((action) => (
             <button
               key={action.label}
@@ -538,7 +547,7 @@ export default function CoachPage() {
               className={cn(
                 "max-w-full rounded-full border px-3 py-1.5 text-left text-xs whitespace-normal transition-colors disabled:opacity-50",
                 agentConfig.accentBorder,
-                "bg-zinc-800 text-zinc-300 hover:bg-zinc-700",
+                "bg-muted text-foreground hover:bg-accent",
               )}
             >
               {action.label}
@@ -548,7 +557,7 @@ export default function CoachPage() {
       )}
 
       {/* Input Area */}
-      <div className="border-t border-zinc-800 bg-zinc-900 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <div className="border-border bg-card border-t px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -564,16 +573,16 @@ export default function CoachPage() {
             placeholder={`Ask the ${agentConfig.label}…`}
             disabled={sendMutation.isPending}
             className={cn(
-              "flex-1 rounded-xl border bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none disabled:opacity-50",
+              "bg-muted text-foreground placeholder:text-muted-foreground flex-1 rounded-xl border px-4 py-2.5 text-sm focus:outline-none disabled:opacity-50",
               `focus:${agentConfig.accentBorder}`,
-              "border-zinc-700",
+              "border-border",
             )}
           />
           <button
             type="submit"
             disabled={!input.trim() || sendMutation.isPending}
             className={cn(
-              "rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-50",
+              "text-primary-foreground rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50",
               agentConfig.accentBg,
             )}
           >
@@ -581,6 +590,7 @@ export default function CoachPage() {
           </button>
         </form>
       </div>
-    </div>
+      </div>
+    </PageShell>
   );
 }

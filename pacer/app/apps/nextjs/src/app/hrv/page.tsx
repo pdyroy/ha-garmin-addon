@@ -16,6 +16,7 @@ import {
 
 import { cn } from "@acme/ui";
 
+import { PageShell } from "~/components/page-shell";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
@@ -50,7 +51,7 @@ const STATUS_CONFIG: Record<
   insufficient_data: {
     icon: "📊",
     label: "Insufficient Data",
-    cls: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+    cls: "bg-muted text-muted-foreground border-border",
     description: "Need more HRV data to determine recovery status.",
   },
 };
@@ -139,7 +140,8 @@ export default function HrvPage() {
   }, [data, timezone]);
 
   return (
-    <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 pt-6 pb-24">
+    <PageShell density="data">
+      <div className="flex flex-col gap-4">
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
@@ -186,7 +188,7 @@ export default function HrvPage() {
                   ? "text-yellow-400"
                   : data.status === "strained"
                     ? "text-red-400"
-                    : "text-zinc-400",
+                    : "text-muted-foreground",
             )}
           >
             {data.summary.current.toFixed(0)}
@@ -225,7 +227,7 @@ export default function HrvPage() {
 
       {/* ── Quick Stats Row ── */}
       {data?.summary && (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid-metrics">
           <div className="bg-card rounded-xl border p-3 text-center">
             <p className="text-muted-foreground text-[10px] font-medium uppercase">
               Current
@@ -301,21 +303,22 @@ export default function HrvPage() {
                   <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="label"
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={36}
                 domain={["dataMin - 5", "dataMax + 5"]}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #333",
+                  backgroundColor: "var(--popover)",
+                  color: "var(--popover-foreground)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 12,
                 }}
@@ -382,21 +385,22 @@ export default function HrvPage() {
               data={cvData}
               margin={{ top: 5, right: 5, left: -10, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="label"
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fill: "#888", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                 width={36}
                 domain={[0, "dataMax + 5"]}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #333",
+                  backgroundColor: "var(--popover)",
+                  color: "var(--popover-foreground)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 12,
                 }}
@@ -441,7 +445,7 @@ export default function HrvPage() {
             info="Summary statistics for the selected date range. Min/Max show the full range of your HRV values. Days with data indicates measurement consistency — aim for daily readings for the most reliable analysis."
             className="mb-3"
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid-metrics">
             <div className="bg-muted/50 rounded-lg p-3">
               <p className="text-muted-foreground text-[10px] font-medium uppercase">
                 Min
@@ -479,6 +483,7 @@ export default function HrvPage() {
       )}
 
       <BottomNav />
-    </main>
+      </div>
+    </PageShell>
   );
 }

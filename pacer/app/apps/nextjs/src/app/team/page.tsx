@@ -7,6 +7,7 @@ import { cn } from "@acme/ui";
 import { Button } from "@acme/ui/button";
 import { toast } from "@acme/ui/toast";
 
+import { PageShell } from "~/components/page-shell";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 
@@ -100,7 +101,8 @@ export default function TeamPage() {
   const acwr = loads.data?.acwr ?? null;
 
   return (
-    <main className="mx-auto max-w-lg space-y-4 px-4 pt-6 pb-24">
+    <PageShell density="reading">
+      <div className="space-y-4">
       {/* ── Header ── */}
       <div>
         <h1 className="pl-12 text-2xl font-bold">Team</h1>
@@ -150,7 +152,7 @@ export default function TeamPage() {
         )}
 
         {/* Quick Stats */}
-        <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+        <div className="grid-metrics mt-4 text-center">
           <div className="bg-secondary/40 rounded-xl p-3">
             <p
               className={cn(
@@ -293,7 +295,9 @@ export default function TeamPage() {
         </p>
       </div>
 
+      </div>
+
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }

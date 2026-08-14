@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@acme/ui";
 import { Button } from "@acme/ui/button";
 
+import { PageShell } from "~/components/page-shell";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { SectionHeader } from "../_components/info-button";
@@ -49,23 +50,23 @@ const METRIC_LABELS: Record<string, string> = {
 function rValueColor(r: number): string {
   const abs = Math.abs(r);
   if (r > 0) {
-    if (abs >= 0.7) return "bg-green-600 text-white";
+    if (abs >= 0.7) return "bg-green-600 text-primary-foreground";
     if (abs >= 0.4) return "bg-green-500/40 text-green-200";
     return "bg-green-500/15 text-green-300";
   }
   if (r < 0) {
-    if (abs >= 0.7) return "bg-red-600 text-white";
+    if (abs >= 0.7) return "bg-red-600 text-primary-foreground";
     if (abs >= 0.4) return "bg-red-500/40 text-red-200";
     return "bg-red-500/15 text-red-300";
   }
-  return "bg-zinc-800 text-zinc-400";
+  return "bg-muted text-muted-foreground";
 }
 
 function rValueBorder(r: number): string {
   const abs = Math.abs(r);
   if (abs >= 0.7) return r > 0 ? "border-green-500/60" : "border-red-500/60";
   if (abs >= 0.4) return r > 0 ? "border-green-500/30" : "border-red-500/30";
-  return "border-zinc-700/50";
+  return "border-border";
 }
 
 function strengthBadge(strength: string): { bg: string; text: string } {
@@ -73,7 +74,7 @@ function strengthBadge(strength: string): { bg: string; text: string } {
     return { bg: "bg-green-500/20", text: "text-green-400" };
   if (strength === "moderate")
     return { bg: "bg-yellow-500/20", text: "text-yellow-400" };
-  return { bg: "bg-zinc-700/50", text: "text-zinc-400" };
+  return { bg: "bg-muted", text: "text-muted-foreground" };
 }
 
 function insightSentiment(
@@ -108,7 +109,7 @@ function insightSentiment(
 function sentimentColor(s: "beneficial" | "detrimental" | "neutral"): string {
   if (s === "beneficial") return "border-green-500/40 bg-green-500/5";
   if (s === "detrimental") return "border-red-500/40 bg-red-500/5";
-  return "border-zinc-700 bg-zinc-800/30";
+  return "border-border bg-muted/30";
 }
 
 // ---------------------------------------------------------------------------
@@ -137,15 +138,12 @@ export default function CorrelationsPage() {
   }, [pairs]);
 
   return (
-    <main className="mx-auto max-w-lg space-y-6 px-4 pt-6 pb-24">
-      {/* ---- Header ---- */}
-      <div>
-        <h1 className="text-xl font-bold">Correlation Insights</h1>
-        <p className="text-muted-foreground text-sm">
-          How your metrics relate to each other
-        </p>
-      </div>
-
+    <PageShell
+      density="data"
+      title="Correlation Insights"
+      description="How your metrics relate to each other"
+    >
+      <div className="space-y-6">
       {/* ---- Period Selector ---- */}
       <div className="bg-card inline-flex rounded-xl border p-1">
         {PERIODS.map((p) => (
@@ -213,7 +211,7 @@ export default function CorrelationsPage() {
                       return (
                         <div
                           key={`${row}-${col}`}
-                          className="flex aspect-square items-center justify-center rounded-md bg-zinc-700/30 text-[10px] text-zinc-500"
+                          className="flex aspect-square items-center justify-center rounded-md bg-muted text-[10px] text-muted-foreground"
                         >
                           1.00
                         </div>
@@ -224,7 +222,7 @@ export default function CorrelationsPage() {
                       return (
                         <div
                           key={`${row}-${col}`}
-                          className="flex aspect-square items-center justify-center rounded-md bg-zinc-800/50 text-[10px] text-zinc-600"
+                          className="flex aspect-square items-center justify-center rounded-md bg-muted/50 text-[10px] text-muted-foreground"
                         >
                           —
                         </div>
@@ -259,7 +257,7 @@ export default function CorrelationsPage() {
                 Moderate −
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2.5 w-2.5 rounded bg-zinc-700/50" />
+                <span className="inline-block h-2.5 w-2.5 rounded bg-muted" />
                 Weak
               </span>
               <span className="flex items-center gap-1">
@@ -337,7 +335,7 @@ export default function CorrelationsPage() {
                           ? "text-green-400"
                           : c.direction === "negative"
                             ? "text-red-400"
-                            : "text-zinc-400",
+                            : "text-muted-foreground",
                       )}
                     >
                       {c.direction === "positive"
@@ -394,7 +392,7 @@ export default function CorrelationsPage() {
 
             <div className="space-y-1.5">
               <h3 className="font-semibold">Strength Guide</h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid-metrics">
                 <div className="rounded-lg bg-green-500/10 p-2 text-center">
                   <p className="font-mono text-green-400">|r| &gt; 0.7</p>
                   <p className="text-muted-foreground text-[10px]">Strong</p>
@@ -403,8 +401,8 @@ export default function CorrelationsPage() {
                   <p className="font-mono text-yellow-400">0.4 – 0.7</p>
                   <p className="text-muted-foreground text-[10px]">Moderate</p>
                 </div>
-                <div className="rounded-lg bg-zinc-700/30 p-2 text-center">
-                  <p className="font-mono text-zinc-400">|r| &lt; 0.4</p>
+                <div className="rounded-lg bg-muted p-2 text-center">
+                  <p className="font-mono text-muted-foreground">|r| &lt; 0.4</p>
                   <p className="text-muted-foreground text-[10px]">Weak</p>
                 </div>
               </div>
@@ -432,7 +430,8 @@ export default function CorrelationsPage() {
         )}
       </div>
 
+      </div>
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }

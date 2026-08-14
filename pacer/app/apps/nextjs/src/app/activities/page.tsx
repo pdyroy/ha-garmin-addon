@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@acme/ui";
 
 import { IngressLink as Link } from "~/app/_components/ingress-link";
+import { PageShell } from "~/components/page-shell";
 import {
   formatDateInTz,
   formatTimeInTz,
@@ -118,7 +119,8 @@ export default function ActivitiesPage() {
   );
 
   return (
-    <div className="space-y-4">
+    <PageShell density="data">
+      <div className="space-y-4">
       {/* Header */}
       <div>
         <h1 className="pl-12 text-2xl font-bold">Activities</h1>
@@ -160,64 +162,133 @@ export default function ActivitiesPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {activities.map((a) => (
-            <Link
-              key={a.id}
-              href={`/activities/${a.id}`}
-              className="bg-card hover:bg-accent flex items-center gap-3 rounded-xl p-3 transition-colors"
-            >
-              {/* Sport Icon */}
-              <div className="bg-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg">
-                {sportIcon(a.sportType)}
-              </div>
+        <>
+          {/* Mobile: card list */}
+          <div className="space-y-2 sm:hidden">
+            {activities.map((a) => (
+              <Link
+                key={a.id}
+                href={`/activities/${a.id}`}
+                className="bg-card hover:bg-accent flex items-center gap-3 rounded-xl p-3 transition-colors"
+              >
+                {/* Sport Icon */}
+                <div className="bg-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg">
+                  {sportIcon(a.sportType)}
+                </div>
 
-              {/* Info */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="truncate font-medium">
-                    {sportLabel(a.sportType)}
-                  </span>
-                  {a.subType && !/^\d+$/.test(a.subType) && (
-                    <span className="text-muted-foreground truncate text-xs">
-                      {sportLabel(a.subType)}
+                {/* Info */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="truncate font-medium">
+                      {sportLabel(a.sportType)}
                     </span>
-                  )}
+                    {a.subType && !/^\d+$/.test(a.subType) && (
+                      <span className="text-muted-foreground truncate text-xs">
+                        {sportLabel(a.subType)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-muted-foreground flex flex-wrap gap-x-3 text-xs">
+                    <span>
+                      {formatDateInTz(a.startedAt, timezone)} ·{" "}
+                      {formatTimeInTz(a.startedAt, timezone)}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-muted-foreground flex flex-wrap gap-x-3 text-xs">
-                  <span>
-                    {formatDateInTz(a.startedAt, timezone)} ·{" "}
-                    {formatTimeInTz(a.startedAt, timezone)}
-                  </span>
-                </div>
-              </div>
 
-              {/* Stats */}
-              <div className="shrink-0 text-right">
-                <div className="text-sm font-semibold">
-                  {formatDuration(a.durationMinutes)}
+                {/* Stats */}
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-semibold">
+                    {formatDuration(a.durationMinutes)}
+                  </div>
+                  <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                    {a.distanceMeters != null && a.distanceMeters > 0 && (
+                      <span>{formatDistance(a.distanceMeters)}</span>
+                    )}
+                    {a.avgPaceSecPerKm != null && a.avgPaceSecPerKm > 0 && (
+                      <span>{formatPace(a.avgPaceSecPerKm)}</span>
+                    )}
+                  </div>
+                  <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                    {a.avgHr != null && <span>❤️ {a.avgHr}</span>}
+                    {a.strainScore != null && (
+                      <span>🔥 {Math.round(a.strainScore)}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                  {a.distanceMeters != null && a.distanceMeters > 0 && (
-                    <span>{formatDistance(a.distanceMeters)}</span>
-                  )}
-                  {a.avgPaceSecPerKm != null && a.avgPaceSecPerKm > 0 && (
-                    <span>{formatPace(a.avgPaceSecPerKm)}</span>
-                  )}
-                </div>
-                <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                  {a.avgHr != null && <span>❤️ {a.avgHr}</span>}
-                  {a.strainScore != null && (
-                    <span>🔥 {Math.round(a.strainScore)}</span>
-                  )}
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Wide viewport: dense table — a list of records reads better
+              as a table than a column of cards once there's room for one. */}
+          <div className="bg-card hidden overflow-x-auto rounded-xl border sm:block">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted-foreground border-border border-b text-left text-xs">
+                  <th className="px-3 py-2 font-medium">Activity</th>
+                  <th className="px-3 py-2 font-medium">Date</th>
+                  <th className="px-3 py-2 font-medium">Duration</th>
+                  <th className="px-3 py-2 font-medium">Distance</th>
+                  <th className="px-3 py-2 font-medium">Pace</th>
+                  <th className="px-3 py-2 font-medium">HR</th>
+                  <th className="px-3 py-2 font-medium">Strain</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activities.map((a) => (
+                  <tr
+                    key={a.id}
+                    className="border-border hover:bg-accent border-b transition-colors last:border-0"
+                  >
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/activities/${a.id}`}
+                        className="flex items-center gap-2 font-medium"
+                      >
+                        <span className="bg-muted flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm">
+                          {sportIcon(a.sportType)}
+                        </span>
+                        <span className="truncate">
+                          {sportLabel(a.sportType)}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="text-muted-foreground px-3 py-2 whitespace-nowrap">
+                      {formatDateInTz(a.startedAt, timezone)} ·{" "}
+                      {formatTimeInTz(a.startedAt, timezone)}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {formatDuration(a.durationMinutes)}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {a.distanceMeters != null && a.distanceMeters > 0
+                        ? formatDistance(a.distanceMeters)
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {a.avgPaceSecPerKm != null && a.avgPaceSecPerKm > 0
+                        ? formatPace(a.avgPaceSecPerKm)
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {a.avgHr != null ? `❤️ ${a.avgHr}` : "—"}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {a.strainScore != null
+                        ? `🔥 ${Math.round(a.strainScore)}`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
+      </div>
 
       <BottomNav />
-    </div>
+    </PageShell>
   );
 }

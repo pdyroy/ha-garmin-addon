@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@acme/ui/button";
 import { toast } from "@acme/ui/toast";
 
+import { PageShell } from "~/components/page-shell";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
@@ -163,7 +164,8 @@ export default function ExportPage() {
   }
 
   return (
-    <main className="mx-auto max-w-lg space-y-4 px-4 pt-6 pb-24">
+    <PageShell density="reading">
+      <div className="space-y-4">
       {/* ── Header ── */}
       <div>
         <h1 className="pl-12 text-2xl font-bold">Data Export</h1>
@@ -180,7 +182,7 @@ export default function ExportPage() {
         {activities.isLoading ? (
           <div className="bg-muted h-12 animate-pulse rounded-lg" />
         ) : (
-          <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-3">
+          <div className="grid-metrics text-center">
             <div className="bg-secondary/40 rounded-xl p-3">
               <p className="text-xl font-bold">{activityCount}</p>
               <p className="text-muted-foreground text-xs">Activities</p>
@@ -189,7 +191,7 @@ export default function ExportPage() {
               <p className="text-xl font-bold">{journalCount}</p>
               <p className="text-muted-foreground text-xs">Journal entries</p>
             </div>
-            <div className="bg-secondary/40 col-span-2 rounded-xl p-3 sm:col-span-1">
+            <div className="bg-secondary/40 rounded-xl p-3">
               <p className="truncate text-sm font-bold">
                 {earliestDate
                   ? formatDateInTz(earliestDate, timezone, {
@@ -205,7 +207,7 @@ export default function ExportPage() {
       </div>
 
       {/* ── Export Cards ── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid-panels">
         <div className="bg-card space-y-3 rounded-2xl border p-4">
           <div>
             <p className="font-semibold">Daily Metrics</p>
@@ -326,8 +328,9 @@ export default function ExportPage() {
           backups exported from this app.
         </p>
       </div>
+      </div>
 
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }

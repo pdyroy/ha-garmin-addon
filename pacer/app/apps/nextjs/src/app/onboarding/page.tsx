@@ -9,6 +9,7 @@ import { Button } from "@acme/ui/button";
 import { Input } from "@acme/ui/input";
 import { Label } from "@acme/ui/label";
 
+import { PageShell } from "~/components/page-shell";
 import { useTRPC } from "~/trpc/react";
 
 const HEALTH_CONDITIONS = [
@@ -162,7 +163,7 @@ export default function OnboardingPage() {
       <p className="text-muted-foreground text-sm">
         Help us personalize your training.
       </p>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid-metrics">
         <div>
           <Label>Age</Label>
           <Input
@@ -320,7 +321,7 @@ export default function OnboardingPage() {
       {/* Health conditions */}
       <div>
         <Label className="text-sm font-medium">Any health conditions?</Label>
-        <div className="mt-2 grid grid-cols-1 gap-2">
+        <div className="mt-2 grid-wide">
           {HEALTH_CONDITIONS.map((c) => (
             <button
               key={c.id}
@@ -463,7 +464,8 @@ export default function OnboardingPage() {
   ];
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-8">
+    <PageShell density="reading">
+      <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center">
       {/* Progress */}
       <div className="mb-6 flex gap-1">
         {steps.map((_, i) => (
@@ -500,6 +502,7 @@ export default function OnboardingPage() {
           </Button>
         )}
       </div>
-    </main>
+      </div>
+    </PageShell>
   );
 }

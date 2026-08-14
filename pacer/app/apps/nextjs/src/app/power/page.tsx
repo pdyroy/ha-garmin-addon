@@ -15,6 +15,7 @@ import {
 
 import { cn } from "@acme/ui";
 
+import { PageShell } from "~/components/page-shell";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { SectionHeader } from "../_components/info-button";
@@ -139,7 +140,8 @@ export default function PowerPage() {
   const showNoPowerMeterHero = queriesSettledOk && !hasAnyPowerData;
 
   return (
-    <main className="mx-auto max-w-lg space-y-4 px-4 pt-6 pb-24">
+    <PageShell density="data">
+      <div className="space-y-4">
       {/* ── Header ── */}
       <div>
         <h1 className="pl-12 text-2xl font-bold">Power &amp; CP Analytics</h1>
@@ -175,7 +177,7 @@ export default function PowerPage() {
               className="mb-3"
             />
             {latest.isLoading ? (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid-metrics">
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
@@ -184,7 +186,7 @@ export default function PowerPage() {
                 ))}
               </div>
             ) : hasCpData ? (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid-metrics">
                 <div className="bg-secondary/40 rounded-xl p-3 text-center">
                   <p className="text-xl font-bold text-blue-400">
                     {Math.round(cp)}W
@@ -233,20 +235,21 @@ export default function PowerPage() {
                   data={pdCurveData}
                   margin={{ top: 5, right: 5, left: -10, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis
                     dataKey="label"
-                    tick={{ fill: "#888", fontSize: 10 }}
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                   />
                   <YAxis
-                    tick={{ fill: "#888", fontSize: 10 }}
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                     width={40}
                     unit="W"
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#18181b",
-                      border: "1px solid #333",
+                      backgroundColor: "var(--popover)",
+                      color: "var(--popover-foreground)",
+                      border: "1px solid var(--border)",
                       borderRadius: 8,
                       fontSize: 12,
                     }}
@@ -291,24 +294,25 @@ export default function PowerPage() {
               />
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart margin={{ top: 5, right: 5, left: -5, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis
                     type="number"
                     dataKey="t"
                     name="Time"
                     unit="s"
-                    tick={{ fill: "#888", fontSize: 10 }}
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                     allowDuplicatedCategory={false}
                   />
                   <YAxis
-                    tick={{ fill: "#888", fontSize: 10 }}
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                     width={36}
                     unit="kJ"
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#18181b",
-                      border: "1px solid #333",
+                      backgroundColor: "var(--popover)",
+                      color: "var(--popover-foreground)",
+                      border: "1px solid var(--border)",
                       borderRadius: 8,
                       fontSize: 12,
                     }}
@@ -424,6 +428,7 @@ export default function PowerPage() {
       )}
 
       <BottomNav />
-    </main>
+      </div>
+    </PageShell>
   );
 }
