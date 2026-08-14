@@ -11,7 +11,7 @@
  *
  * Environment variables:
  *   OPENROUTER_API_KEY  – required to enable this backend (sk-or-...)
- *   OPENROUTER_MODEL    – model slug (default anthropic/claude-sonnet-4.5)
+ *   OPENROUTER_MODEL    – model slug (default google/gemini-2.5-flash-lite)
  *   OPENROUTER_BASE_URL – API base (default https://openrouter.ai/api/v1)
  */
 
@@ -28,9 +28,10 @@ export interface OpenRouterChatOptions {
   timeoutMs?: number;
 }
 
-// anthropic/claude-3.5-sonnet was the previous default and now 404s on
-// OpenRouter, so an install that never set a model got no AI at all.
-const DEFAULT_MODEL = "anthropic/claude-sonnet-4.5";
+// Default chosen by measurement against the ZDR-only provider pool: fastest
+// (~5s on a full coaching prompt), cheapest, and it answers in full. The
+// previous default anthropic/claude-3.5-sonnet no longer exists and 404s.
+const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
 
 // Reasoning models spend their token budget on an internal chain of thought
@@ -86,11 +87,24 @@ export async function openRouterChat(
         stream: false,
         temperature: options?.temperature ?? 0.7,
         max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
+        // The prompt carries the athlete's health history — sleep, heart rate,
+        // and whatever they wrote in their journal. Restrict routing to
+        // providers that retain neither prompts nor completions. Without this
+        // OpenRouter is free to pick any provider, including ones that keep
+        // the data for training.
+        provider: { zdr: true },
       }),
     });
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
+      if (response.status === 404 && body.includes("data policy")) {
+        throw new Error(
+          `Model "${model}" has no zero-data-retention provider on OpenRouter. ` +
+            `Pick a model whose provider offers ZDR (google/gemini-2.5-flash-lite, ` +
+            `openai/gpt-4o-mini and anthropic models do).`,
+        );
+      }
       throw new Error(
         `OpenRouter error ${response.status}: ${body.slice(0, 200)}`,
       );

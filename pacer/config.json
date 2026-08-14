@@ -27,7 +27,7 @@
     "strava_refresh_token": "",
     "ai_backend": "none",
     "openrouter_api_key": "",
-    "openrouter_model": "anthropic/claude-sonnet-4.5",
+    "openrouter_model": "google/gemini-2.5-flash-lite",
     "ollama_url": "",
     "ollama_embed_model": "nomic-embed-text",
     "sync_interval_minutes": 60,
