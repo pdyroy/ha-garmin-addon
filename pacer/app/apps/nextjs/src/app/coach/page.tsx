@@ -355,6 +355,23 @@ export default function CoachPage() {
 
   const messages = history.data ?? [];
 
+  // A coaching answer takes tens of seconds — a reasoning model on a pinned
+  // provider was measured between 34s and 94s. Static dots give no sign that
+  // anything is still happening over that long, so count the seconds.
+  const [waitedSeconds, setWaitedSeconds] = useState(0);
+  useEffect(() => {
+    if (!sendMutation.isPending) {
+      setWaitedSeconds(0);
+      return;
+    }
+    const started = Date.now();
+    const id = setInterval(
+      () => setWaitedSeconds(Math.round((Date.now() - started) / 1000)),
+      1000,
+    );
+    return () => clearInterval(id);
+  }, [sendMutation.isPending]);
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
@@ -467,11 +484,12 @@ export default function CoachPage() {
                   >
                     {agentConfig.icon} {agentConfig.label}
                   </span>
-                  <div className="rounded-2xl bg-zinc-700 px-4 py-3 text-sm text-zinc-300">
+                  <div className="bg-muted text-foreground rounded-2xl px-4 py-3 text-sm">
                     <span className="mr-2">
-                      {agentConfig.label} is thinking…
+                      {agentConfig.label} denkt nach…
+                      {waitedSeconds > 0 && ` ${waitedSeconds}s`}
                     </span>
-                    <span className="inline-flex gap-1">
+                    <span className="inline-flex gap-1" aria-hidden="true">
                       <span className="animate-bounce">●</span>
                       <span className="animate-bounce [animation-delay:0.15s]">
                         ●
@@ -480,6 +498,12 @@ export default function CoachPage() {
                         ●
                       </span>
                     </span>
+                    {waitedSeconds >= 20 && (
+                      <p className="text-muted-foreground mt-2 text-xs">
+                        Das Modell denkt intern, bevor es antwortet — das dauert
+                        meist 30–90 Sekunden.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

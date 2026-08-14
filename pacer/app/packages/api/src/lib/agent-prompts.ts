@@ -11,8 +11,9 @@ export type AgentType =
 const DATA_GROUNDING_RULES = `
 
 **Data grounding rules — non-negotiable**
-- Available metric fields in the Metric Availability JSON (use these exact keys when reasoning): hrv, sleep_score, total_sleep_minutes, stress_score, readiness, body_battery, resting_hr, spo2, respiration_rate, garmin_training_readiness, garmin_training_load, garmin_training_status, ctl, atl, tsb, acwr, ramp_rate, vo2max. Each has a paired \`*_status\` field ("available" | "unavailable").
+- Available metric fields in the Metric Availability JSON (use these exact keys when reasoning): hrv, sleep_score, total_sleep_minutes, stress_score, readiness, body_battery, body_battery_low, body_battery_high, resting_hr, spo2, respiration_rate, garmin_training_readiness, garmin_training_load, garmin_training_status, ctl, atl, tsb, acwr, ramp_rate, vo2max. Each has a paired \`*_status\` field ("available" | "unavailable").
 - The JSON also carries as_of_date and readiness_zone, which have no paired \`*_status\` field. Sleep debt, HR zones and recent activities appear in the prose sections below the JSON, not in it.
+- \`body_battery\` is the CURRENT level. \`body_battery_low\` and \`body_battery_high\` are the day's trough and peak. Judge present recovery on body_battery; use the low only to describe how far the athlete drained today. A low trough on its own is not evidence of being depleted right now — body battery recharges during sleep.
 - When a field is null, the string "unavailable", or its paired \`*_status\` is "unavailable", you MUST say "I don't have that data yet" — NEVER invent a value.
 - Quote numbers only if they appear verbatim anywhere in the Data Context (JSON or prose sections). Do not estimate, interpolate, infer, or fabricate metric values.
 - When readiness_zone is LOW or POOR, align tone and recommendations with reduced readiness: prioritize recovery, easy work, or deloading. Do not use contradictory improving/ready framing unless the JSON context explicitly supports it.

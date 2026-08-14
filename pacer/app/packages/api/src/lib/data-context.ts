@@ -330,8 +330,16 @@ export async function buildDataContext(
     stress_score_status: statusFor(todayMetric?.stressScore),
     resting_hr: numericOrNull(todayMetric?.restingHr),
     resting_hr_status: statusFor(todayMetric?.restingHr),
+    // Two different questions: how depleted is the athlete right now, and how
+    // far down did they go today. Passing only the trough made every morning
+    // read as critically drained, because body battery recharges overnight and
+    // the day's low is whatever it was before waking.
     body_battery: numericOrNull(todayMetric?.bodyBatteryEnd),
     body_battery_status: statusFor(todayMetric?.bodyBatteryEnd),
+    body_battery_low: numericOrNull(todayMetric?.bodyBatteryLow),
+    body_battery_low_status: statusFor(todayMetric?.bodyBatteryLow),
+    body_battery_high: numericOrNull(todayMetric?.bodyBatteryHigh),
+    body_battery_high_status: statusFor(todayMetric?.bodyBatteryHigh),
     spo2: numericOrNull(todayMetric?.spo2),
     spo2_status: statusFor(todayMetric?.spo2),
     respiration_rate: numericOrNull(todayMetric?.respirationRate),
@@ -664,8 +672,13 @@ export async function buildDataContext(
       );
     }
     if (today) {
-      if (today.bodyBatteryEnd != null)
-        lines.push(`- Body Battery: ${today.bodyBatteryEnd}%`);
+      if (today.bodyBatteryEnd != null) {
+        const range =
+          today.bodyBatteryHigh != null && today.bodyBatteryLow != null
+            ? ` (today's range ${today.bodyBatteryLow}-${today.bodyBatteryHigh}%)`
+            : "";
+        lines.push(`- Body Battery: ${today.bodyBatteryEnd}% now${range}`);
+      }
       if (today.stressScore != null)
         lines.push(`- Stress: ${today.stressScore}`);
       if (today.hrv != null)

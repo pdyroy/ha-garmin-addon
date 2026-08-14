@@ -427,6 +427,43 @@ def _fetch_dedicated_skin_temp(client: Any, date_str: str) -> float | None:
     return None
 
 
+_BB_KEYS_LOGGED = False
+
+
+def _extract_body_battery(stats, date_str):
+    """Return (highest, lowest, current) body battery levels for the day.
+
+    Garmin exposes the daily peak and trough under stable names, but the field
+    holding the *latest* reading has varied between API versions, so try the
+    known spellings in order. The first call logs which bodyBattery* keys the
+    payload actually contains, so the candidate list can be trimmed to what
+    this account really returns instead of guessed at.
+    """
+    global _BB_KEYS_LOGGED
+    if not _BB_KEYS_LOGGED:
+        present = {k: v for k, v in stats.items() if "bodyBattery" in k}
+        print(f"  [body-battery] fields for {date_str}: {present}", file=sys.stderr)
+        _BB_KEYS_LOGGED = True
+
+    high = stats.get("bodyBatteryHighestValue")
+    low = stats.get("bodyBatteryLowestValue")
+    current = None
+    for key in (
+        "bodyBatteryMostRecentValue",
+        "bodyBatteryCurrentValue",
+        "currentBodyBattery",
+        "bodyBatteryLatestValue",
+    ):
+        if stats.get(key) is not None:
+            current = stats[key]
+            break
+    # Without a "latest" field the trough is the closest thing to a current
+    # reading, since body battery only drains during waking hours.
+    if current is None:
+        current = low
+    return high, low, current
+
+
 def sync_daily_stats(client: Any, db: Any, date_str: str) -> bool:
     """Sync daily health stats for a given date."""
     cur = db.cursor()
@@ -563,6 +600,8 @@ def sync_daily_stats(client: Any, db: Any, date_str: str) -> bool:
             END $$;
         """)
 
+        bb_high, bb_low, bb_current = _extract_body_battery(stats, date_str)
+
         cur.execute(
             """
             INSERT INTO daily_metric (
@@ -570,12 +609,13 @@ def sync_daily_stats(client: Any, db: Any, date_str: str) -> bool:
                 total_sleep_minutes, deep_sleep_minutes, rem_sleep_minutes,
                 light_sleep_minutes, awake_minutes, sleep_score,
                 hrv, stress_score, body_battery_start, body_battery_end,
+                body_battery_high, body_battery_low,
                 floors_climbed, intensity_minutes,
                 sleep_start_time, sleep_end_time, sleep_need_minutes, sleep_debt_minutes,
                 spo2, respiration_rate, skin_temp,
                 weight_kg, body_fat_pct,
                 synced_at, data_quality
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (user_id, date) DO UPDATE SET
                 steps = EXCLUDED.steps,
                 calories = EXCLUDED.calories,
@@ -591,6 +631,8 @@ def sync_daily_stats(client: Any, db: Any, date_str: str) -> bool:
                 stress_score = EXCLUDED.stress_score,
                 body_battery_start = EXCLUDED.body_battery_start,
                 body_battery_end = EXCLUDED.body_battery_end,
+                body_battery_high = EXCLUDED.body_battery_high,
+                body_battery_low = EXCLUDED.body_battery_low,
                 floors_climbed = EXCLUDED.floors_climbed,
                 intensity_minutes = EXCLUDED.intensity_minutes,
                 sleep_start_time = COALESCE(EXCLUDED.sleep_start_time, daily_metric.sleep_start_time),
@@ -631,8 +673,10 @@ def sync_daily_stats(client: Any, db: Any, date_str: str) -> bool:
                 # a well-rested day (charged 80, drained 5) look like it ended
                 # at 5, which drove the recovery and rest-day recommendations
                 # the wrong way. Highest/Lowest are the actual levels.
-                stats.get("bodyBatteryHighestValue"),
-                stats.get("bodyBatteryLowestValue"),
+                bb_high,
+                bb_current,
+                bb_high,
+                bb_low,
                 stats.get("floorsAscended"),
                 stats.get("intensityMinutesGoal"),
                 _extract_sleep_time(sleep_dto, "sleepStartTimestampLocal"),
