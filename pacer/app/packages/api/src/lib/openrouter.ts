@@ -55,6 +55,26 @@ export function isOpenRouterConfigured(): boolean {
 }
 
 /**
+ * Reasoning control for models that think before answering.
+ *
+ * OPENROUTER_REASONING: "off" (default), or one of the model's supported
+ * effort levels. Measured on deepseek-v4-flash via Inceptron with a full
+ * coaching prompt: 62s at the model's default effort, 62s at "low" — the
+ * provider ignores the effort hint and spends the tokens anyway — and 20s
+ * with reasoning disabled outright. The coaching prompt already arrives as
+ * structured, pre-computed metrics, so an internal chain of thought buys
+ * little for the wait it costs.
+ */
+function reasoningSetting(): Record<string, unknown> | undefined {
+  const mode = (process.env.OPENROUTER_REASONING ?? "off").trim().toLowerCase();
+  if (!mode || mode === "off" || mode === "false" || mode === "none") {
+    return { enabled: false };
+  }
+  if (mode === "default" || mode === "auto") return undefined;
+  return { effort: mode };
+}
+
+/**
  * Build OpenRouter's provider-routing object.
  *
  * zdr restricts routing to endpoints that retain neither prompts nor
@@ -113,6 +133,7 @@ export async function openRouterChat(
         // The prompt carries the athlete's health history, so routing is
         // constrained — see providerRouting().
         provider: providerRouting(),
+        ...(reasoningSetting() ? { reasoning: reasoningSetting() } : {}),
       }),
     });
 

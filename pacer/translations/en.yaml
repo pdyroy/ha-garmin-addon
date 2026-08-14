@@ -71,6 +71,10 @@
     "strava_refresh_token": {
       "name": "Strava Refresh Token",
       "description": "Strava OAuth refresh token."
+    },
+    "openrouter_reasoning": {
+      "name": "OpenRouter Reasoning",
+      "description": "Reasoning models think before answering, which triples the wait. 'off' disables it (measured 20s instead of 62s on deepseek-v4-flash). 'low'/'high'/'max' request an effort level, though some providers ignore the hint. 'default' leaves it to the model."
     }
   }
 }
