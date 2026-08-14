@@ -22,6 +22,7 @@ import {
 
 import { cn } from "@acme/ui";
 
+import { PageShell } from "~/components/page-shell";
 import { useTRPC } from "~/trpc/react";
 import { BottomNav } from "../_components/bottom-nav";
 import { DataFreshness } from "../_components/data-freshness";
@@ -48,10 +49,21 @@ const LOAD_FOCUS_COLORS: Record<string, string> = {
   mixed: "#a855f7",
 };
 
+// Recharts tooltips render outside the themed DOM tree, so contentStyle
+// needs explicit token values (not Tailwind classes) to stay readable in
+// both themes instead of the previous hardcoded dark-only colors.
+const TOOLTIP_STYLE = {
+  backgroundColor: "var(--popover)",
+  color: "var(--popover-foreground)",
+  border: "1px solid var(--border)",
+  borderRadius: 8,
+};
+
 /* ─────────────── ACWR helpers ─────────────── */
 
 function acwrStatus(value: number): { label: string; color: string } {
-  if (value < 0.8) return { label: "Under-training", color: "text-zinc-400" };
+  if (value < 0.8)
+    return { label: "Under-training", color: "text-muted-foreground" };
   if (value <= 1.3) return { label: "Optimal", color: "text-green-400" };
   if (value <= 1.5) return { label: "Caution", color: "text-yellow-400" };
   return { label: "⚠️ High Risk", color: "text-red-400" };
@@ -121,628 +133,611 @@ export default function TrainingLoadPage() {
     loads.data?.acwr ?? pmcChartData[pmcChartData.length - 1]?.acwr ?? null;
 
   return (
-    <main className="mx-auto max-w-lg space-y-4 px-4 pt-6 pb-24">
+    <PageShell density="data">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <h1 className="pl-12 text-2xl font-bold">Training</h1>
-        {status.data ? (
-          <span
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-semibold capitalize",
-              STATUS_COLORS[status.data.status] ??
-                "bg-muted text-muted-foreground",
-            )}
-          >
-            {status.data.status}
-          </span>
-        ) : status.isLoading ? (
-          <div className="bg-muted h-6 w-20 animate-pulse rounded-full" />
-        ) : null}
-      </div>
-
-      {status.data && (
-        <p className="text-muted-foreground text-sm">
-          {status.data.explanation}
-        </p>
-      )}
-
-      {/* ── Garmin Training Summary (native readings) ── */}
-      <GarminTrainingSummary />
-
-      {/* ── What-if: today's training-choice simulation ── */}
-      <WhatIfCard />
-
-      {/* ── PMC — Performance Management Chart ── */}
-      <div className="bg-card rounded-2xl border p-4">
-        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <SectionHeader
-            title="Performance Management Chart"
-            info="CTL (Chronic Training Load) = fitness built over 42 days. ATL (Acute Training Load) = fatigue over 7 days. TSB (Training Stress Balance) = CTL - ATL = form. ACWR (Acute:Chronic Workload Ratio) = optimal 0.8–1.3. Citation: Banister (1991), Hulin et al. (2016)."
-          />
-          <DateRangeSelector
-            value={pmcDays}
-            onChange={setPmcDays}
-            presets={[
-              { label: "42d", days: 42 },
-              { label: "90d", days: 90 },
-              { label: "180d", days: 180 },
-            ]}
-          />
-        </div>
-
-        {pmcData.isLoading ? (
-          <div className="bg-muted h-52 animate-pulse rounded-lg" />
-        ) : pmcChartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={220}>
-            <ComposedChart
-              data={pmcChartData}
-              margin={{ top: 5, right: 40, left: -10, bottom: 0 }}
+      <div className="mb-8 space-y-2">
+        <div className="flex items-center justify-between">
+          <h1 className="pl-12 text-2xl font-bold">Training</h1>
+          {status.data ? (
+            <span
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold capitalize",
+                STATUS_COLORS[status.data.status] ??
+                  "bg-muted text-muted-foreground",
+              )}
             >
-              <defs>
-                <linearGradient id="tsbPosGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#4ade80" stopOpacity={0.05} />
-                </linearGradient>
-                <linearGradient id="tsbNegGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.05} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: "#888", fontSize: 10 }}
-                interval={0}
-              />
-              <YAxis
-                yAxisId="left"
-                tick={{ fill: "#888", fontSize: 10 }}
-                width={32}
-                domain={[
-                  (dataMin: number) => Math.floor(dataMin) - 5,
-                  (dataMax: number) => Math.ceil(dataMax) + 5,
-                ]}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                tick={{ fill: "#f97316", fontSize: 10 }}
-                width={32}
-                domain={[0, 2]}
-              />
-              <ReferenceLine
-                yAxisId="left"
-                y={0}
-                stroke="#555"
-                strokeDasharray="4 2"
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #333",
-                  borderRadius: 8,
-                  fontSize: 11,
-                }}
-                formatter={(value: unknown, name: unknown) => {
-                  const v = Number(value);
-                  const n = String(name);
-                  if (n === "ACWR") {
-                    const s = acwrStatus(v);
-                    return `${v.toFixed(2)} (${s.label})`;
-                  }
-                  return !isNaN(v) ? v.toFixed(1) : String(value);
-                }}
-                labelFormatter={(label, payload) => {
-                  const p = payload?.[0]?.payload as
-                    | { fullDate?: string }
-                    | undefined;
-                  return p?.fullDate ?? String(label);
-                }}
-              />
-              {/* TSB filled areas */}
-              <Area
-                isAnimationActive={false}
-                yAxisId="left"
-                type="monotone"
-                dataKey="tsbPos"
-                fill="url(#tsbPosGrad)"
-                stroke="none"
-                name="TSB+"
-                legendType="none"
-              />
-              <Area
-                isAnimationActive={false}
-                yAxisId="left"
-                type="monotone"
-                dataKey="tsbNeg"
-                fill="url(#tsbNegGrad)"
-                stroke="none"
-                name="TSB-"
-                legendType="none"
-              />
-              {/* CTL / ATL lines */}
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="ctl"
-                stroke="#60a5fa"
-                strokeWidth={2.5}
-                dot={false}
-                name="CTL"
-              />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="atl"
-                stroke="#c084fc"
-                strokeWidth={2.5}
-                dot={false}
-                name="ATL"
-              />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="tsb"
-                stroke="#4ade80"
-                strokeWidth={2}
-                strokeDasharray="4 2"
-                dot={false}
-                name="TSB"
-              />
-              {/* ACWR on right axis */}
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="acwr"
-                stroke="#fb923c"
-                strokeWidth={2}
-                strokeDasharray="6 3"
-                dot={false}
-                name="ACWR"
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-muted-foreground py-8 text-center text-sm">
-            No PMC data yet. Complete some workouts to see your chart.
-          </p>
-        )}
-
-        {/* Legend */}
-        <div className="mt-2 flex flex-wrap gap-3 text-[10px]">
-          {[
-            { color: "#60a5fa", label: "CTL (Fitness)" },
-            { color: "#c084fc", label: "ATL (Fatigue)" },
-            { color: "#4ade80", label: "TSB (Form)" },
-            { color: "#fb923c", label: "ACWR (right)" },
-          ].map((l) => (
-            <span key={l.label} className="flex items-center gap-1">
-              <span
-                className="inline-block h-0.5 w-5 rounded"
-                style={{ background: l.color }}
-              />
-              <span className="text-muted-foreground">{l.label}</span>
+              {status.data.status}
             </span>
-          ))}
+          ) : status.isLoading ? (
+            <div className="bg-muted h-6 w-20 animate-pulse rounded-full" />
+          ) : null}
         </div>
-      </div>
 
-      {/* ── ACWR Gauge (enhanced) ── */}
-      <div className="bg-card rounded-2xl border p-4">
-        <div className="mb-3 flex items-baseline justify-between">
-          <SectionHeader
-            title="ACWR Gauge"
-            info="Current Acute:Chronic Workload Ratio with risk zones. Sweet spot 0.8–1.3 = lowest injury risk. Source: Hulin BT et al. (2016)."
-          />
-          <DataFreshness computedAt={loads.data?.computedAt} />
-        </div>
-        {currentAcwr != null ? (
-          <ACWRGaugeEnhanced value={currentAcwr} />
-        ) : loads.isLoading ? (
-          <div className="bg-muted h-12 animate-pulse rounded-lg" />
-        ) : (
-          <p className="text-muted-foreground py-4 text-center text-sm">
-            No data yet
+        {status.data && (
+          <p className="text-muted-foreground text-sm">
+            {status.data.explanation}
           </p>
         )}
       </div>
 
-      {/* ── Risk Zone Legend ── */}
-      <div className="bg-card rounded-2xl border p-4">
-        <h3 className="mb-3 text-sm font-semibold">Risk Zone Legend</h3>
-        <div className="flex flex-wrap gap-3 text-xs">
-          <span className="flex items-center gap-1.5">
-            <span className="text-base">⚫</span>
-            <span className="text-muted-foreground">
-              &lt;0.8 — Under-training
-            </span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="text-base">🟢</span>
-            <span className="text-muted-foreground">0.8–1.3 — Optimal</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="text-base">🟡</span>
-            <span className="text-muted-foreground">1.3–1.5 — Caution</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="text-base">🔴</span>
-            <span className="text-muted-foreground">&gt;1.5 — High Risk</span>
-          </span>
+      <div className="space-y-4">
+        {/* ── Garmin Training Summary (native readings) ── */}
+        <GarminTrainingSummary />
+
+        {/* ── What-if: today's training-choice simulation ── */}
+        <WhatIfCard />
+
+        {/* ── PMC — Performance Management Chart ── */}
+        <div className="bg-card rounded-2xl border p-4">
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <SectionHeader
+              title="Performance Management Chart"
+              info="CTL (Chronic Training Load) = fitness built over 42 days. ATL (Acute Training Load) = fatigue over 7 days. TSB (Training Stress Balance) = CTL - ATL = form. ACWR (Acute:Chronic Workload Ratio) = optimal 0.8–1.3. Citation: Banister (1991), Hulin et al. (2016)."
+            />
+            <DateRangeSelector
+              value={pmcDays}
+              onChange={setPmcDays}
+              presets={[
+                { label: "42d", days: 42 },
+                { label: "90d", days: 90 },
+                { label: "180d", days: 180 },
+              ]}
+            />
+          </div>
+
+          {pmcData.isLoading ? (
+            <div className="bg-muted h-52 animate-pulse rounded-lg" />
+          ) : pmcChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart
+                data={pmcChartData}
+                margin={{ top: 5, right: 40, left: -10, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="tsbPosGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#4ade80" stopOpacity={0.05} />
+                  </linearGradient>
+                  <linearGradient id="tsbNegGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.05} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                  interval={0}
+                />
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                  width={32}
+                  domain={[
+                    (dataMin: number) => Math.floor(dataMin) - 5,
+                    (dataMax: number) => Math.ceil(dataMax) + 5,
+                  ]}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fill: "#f97316", fontSize: 10 }}
+                  width={32}
+                  domain={[0, 2]}
+                />
+                <ReferenceLine
+                  yAxisId="left"
+                  y={0}
+                  stroke="#555"
+                  strokeDasharray="4 2"
+                />
+                <Tooltip
+                  contentStyle={{ ...TOOLTIP_STYLE, fontSize: 11 }}
+                  formatter={(value: unknown, name: unknown) => {
+                    const v = Number(value);
+                    const n = String(name);
+                    if (n === "ACWR") {
+                      const s = acwrStatus(v);
+                      return `${v.toFixed(2)} (${s.label})`;
+                    }
+                    return !isNaN(v) ? v.toFixed(1) : String(value);
+                  }}
+                  labelFormatter={(label, payload) => {
+                    const p = payload?.[0]?.payload as
+                      | { fullDate?: string }
+                      | undefined;
+                    return p?.fullDate ?? String(label);
+                  }}
+                />
+                {/* TSB filled areas */}
+                <Area
+                  isAnimationActive={false}
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="tsbPos"
+                  fill="url(#tsbPosGrad)"
+                  stroke="none"
+                  name="TSB+"
+                  legendType="none"
+                />
+                <Area
+                  isAnimationActive={false}
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="tsbNeg"
+                  fill="url(#tsbNegGrad)"
+                  stroke="none"
+                  name="TSB-"
+                  legendType="none"
+                />
+                {/* CTL / ATL lines */}
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="ctl"
+                  stroke="#60a5fa"
+                  strokeWidth={2.5}
+                  dot={false}
+                  name="CTL"
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="atl"
+                  stroke="#c084fc"
+                  strokeWidth={2.5}
+                  dot={false}
+                  name="ATL"
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="tsb"
+                  stroke="#4ade80"
+                  strokeWidth={2}
+                  strokeDasharray="4 2"
+                  dot={false}
+                  name="TSB"
+                />
+                {/* ACWR on right axis */}
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="acwr"
+                  stroke="#fb923c"
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                  dot={false}
+                  name="ACWR"
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-muted-foreground py-8 text-center text-sm">
+              No PMC data yet. Complete some workouts to see your chart.
+            </p>
+          )}
+
+          {/* Legend */}
+          <div className="mt-2 flex flex-wrap gap-3 text-[10px]">
+            {[
+              { color: "#60a5fa", label: "CTL (Fitness)" },
+              { color: "#c084fc", label: "ATL (Fatigue)" },
+              { color: "#4ade80", label: "TSB (Form)" },
+              { color: "#fb923c", label: "ACWR (right)" },
+            ].map((l) => (
+              <span key={l.label} className="flex items-center gap-1">
+                <span
+                  className="inline-block h-0.5 w-5 rounded"
+                  style={{ background: l.color }}
+                />
+                <span className="text-muted-foreground">{l.label}</span>
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* ── Strain Trend (Activity Load, 0-21 Scale) ── */}
-      <div className="bg-card rounded-2xl border p-4">
-        <SectionHeader
-          title="Training Strain — 42 Day Trend"
-          info="Activity-based training strain (0–21 scale) computed from TRIMP (Training Impulse). Measures cardiovascular load per workout using HR zones. Higher = harder session. Based on Banister (1991) exponential HR model. Different from Garmin Stress — this tracks workout intensity, not body stress."
-          className="mb-3"
-        />
-        {strainChart.isLoading ? (
-          <div className="bg-muted h-48 animate-pulse rounded-lg" />
-        ) : strainChart.data &&
-          strainChart.data.length > 0 &&
-          strainChart.data.some((d) => (d.value ?? 0) > 0) ? (
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart
-              data={strainChart.data.map((d) => ({
-                date: d.date.slice(5),
-                value: d.value ?? null,
-              }))}
-            >
-              <defs>
-                <linearGradient id="strainFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: "#888", fontSize: 10 }}
-                interval="preserveStartEnd"
+        {/* ── ACWR Gauge + Risk Zone Legend ── */}
+        <div className="grid-panels">
+          <div className="bg-card rounded-2xl border p-4">
+            <div className="mb-3 flex items-baseline justify-between">
+              <SectionHeader
+                title="ACWR Gauge"
+                info="Current Acute:Chronic Workload Ratio with risk zones. Sweet spot 0.8–1.3 = lowest injury risk. Source: Hulin BT et al. (2016)."
               />
-              <YAxis
-                tick={{ fill: "#888", fontSize: 10 }}
-                width={32}
-                domain={[0, 21]}
-                ticks={[0, 5, 10, 15, 20]}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #333",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-              />
-              <Area
-                isAnimationActive={false}
-                type="monotone"
-                dataKey="value"
-                stroke="#ef4444"
-                fill="url(#strainFill)"
-                strokeWidth={2}
-                name="Strain"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-muted-foreground py-8 text-center text-sm">
-            No training strain data — complete a workout with HR to populate
-          </p>
-        )}
-      </div>
-
-      {/* ── Daily Stress (Garmin HRV-based, 0-100) ── */}
-      <div className="bg-card rounded-2xl border p-4">
-        <SectionHeader
-          title="Body Stress — 42 Day Trend"
-          info="Garmin daily stress score (0–100) derived from heart rate variability. Lower = calmer, higher = more stressed. Shows how your body handles training + life stress over 6 weeks. Useful for detecting accumulated fatigue before it becomes overtraining."
-          className="mb-3"
-        />
-        {stressChart.isLoading ? (
-          <div className="bg-muted h-48 animate-pulse rounded-lg" />
-        ) : stressChart.data &&
-          stressChart.data.length > 0 &&
-          stressChart.data.some((d) => (d.value ?? 0) > 0) ? (
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart
-              data={stressChart.data.map((d) => ({
-                date: d.date.slice(5),
-                value: d.value ?? null,
-              }))}
-            >
-              <defs>
-                <linearGradient id="stressFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: "#888", fontSize: 10 }}
-                interval="preserveStartEnd"
-              />
-              <YAxis tick={{ fill: "#888", fontSize: 10 }} width={32} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #333",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-              />
-              <Area
-                isAnimationActive={false}
-                type="monotone"
-                dataKey="value"
-                stroke="#3b82f6"
-                fill="url(#stressFill)"
-                strokeWidth={2}
-                name="Stress"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-muted-foreground py-8 text-center text-sm">
-            No stress data yet
-          </p>
-        )}
-      </div>
-
-      {/* ── Key Metric Cards ── */}
-      {loads.isLoading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="bg-card animate-pulse rounded-xl border p-4"
-            >
-              <div className="bg-muted mx-auto h-8 w-14 rounded" />
-              <div className="bg-muted mx-auto mt-2 h-3 w-20 rounded" />
+              <DataFreshness computedAt={loads.data?.computedAt} />
             </div>
-          ))}
-        </div>
-      ) : loads.data ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {/* CTL */}
-          <div className="bg-card rounded-xl border p-4 text-center">
-            <p className="text-2xl font-bold text-blue-500">
-              {loads.data.ctl.toFixed(1)}
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">CTL — Fitness</p>
-            <p className="text-muted-foreground mt-0.5 text-[10px]">
-              42-day chronic load
-            </p>
+            {currentAcwr != null ? (
+              <ACWRGaugeEnhanced value={currentAcwr} />
+            ) : loads.isLoading ? (
+              <div className="bg-muted h-12 animate-pulse rounded-lg" />
+            ) : (
+              <p className="text-muted-foreground py-4 text-center text-sm">
+                No data yet
+              </p>
+            )}
           </div>
 
-          {/* ATL */}
-          <div className="bg-card rounded-xl border p-4 text-center">
-            <p className="text-2xl font-bold text-red-500">
-              {loads.data.atl.toFixed(1)}
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">ATL — Fatigue</p>
-            <p className="text-muted-foreground mt-0.5 text-[10px]">
-              7-day acute load
-            </p>
-          </div>
-
-          {/* TSB */}
-          <div className="bg-card rounded-xl border p-4 text-center">
-            <p
-              className={cn(
-                "text-2xl font-bold",
-                loads.data.tsb >= 0 ? "text-green-500" : "text-red-500",
-              )}
-            >
-              {loads.data.tsb >= 0 ? "+" : ""}
-              {loads.data.tsb.toFixed(1)}
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">TSB — Form</p>
-            <p className="text-muted-foreground mt-0.5 text-[10px]">
-              {loads.data.tsb >= 0 ? "Fresh" : "Fatigued"}
-            </p>
-          </div>
-
-          {/* Ramp Rate */}
-          <div className="bg-card rounded-xl border p-4 text-center">
-            <p
-              className={cn(
-                "text-2xl font-bold",
-                loads.data.rampRate > 8 ? "text-orange-500" : "text-foreground",
-              )}
-            >
-              {loads.data.rampRate.toFixed(1)}
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">Ramp Rate</p>
-            <p className="text-muted-foreground mt-0.5 text-[10px]">
-              {loads.data.rampRate > 8 ? "⚠ High — injury risk" : "pts/week"}
-            </p>
+          <div className="bg-card rounded-2xl border p-4">
+            <h3 className="mb-3 text-sm font-semibold">Risk Zone Legend</h3>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span className="text-base">⚫</span>
+                <span className="text-muted-foreground">
+                  &lt;0.8 — Under-training
+                </span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-base">🟢</span>
+                <span className="text-muted-foreground">0.8–1.3 — Optimal</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-base">🟡</span>
+                <span className="text-muted-foreground">1.3–1.5 — Caution</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-base">🔴</span>
+                <span className="text-muted-foreground">
+                  &gt;1.5 — High Risk
+                </span>
+              </span>
+            </div>
           </div>
         </div>
-      ) : null}
 
-      {/* ── Load Focus ── */}
-      <div className="bg-card rounded-2xl border p-4">
-        <SectionHeader
-          title="Load Focus"
-          info="Balance between training intensities derived from zone distribution of recent activities. Shows percentage split between aerobic (Z1-2), threshold (Z3), and high-intensity (Z4-5) work. Endurance athletes should see >70% aerobic. Method: Zone minute aggregation over selected period."
-          className="mb-3"
-        />
+        {/* ── Strain Trend + Body Stress (42 day) ── */}
+        <div className="grid-panels">
+          <div className="bg-card rounded-2xl border p-4">
+            <SectionHeader
+              title="Training Strain — 42 Day Trend"
+              info="Activity-based training strain (0–21 scale) computed from TRIMP (Training Impulse). Measures cardiovascular load per workout using HR zones. Higher = harder session. Based on Banister (1991) exponential HR model. Different from Garmin Stress — this tracks workout intensity, not body stress."
+              className="mb-3"
+            />
+            {strainChart.isLoading ? (
+              <div className="bg-muted h-48 animate-pulse rounded-lg" />
+            ) : strainChart.data &&
+              strainChart.data.length > 0 &&
+              strainChart.data.some((d) => (d.value ?? 0) > 0) ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart
+                  data={strainChart.data.map((d) => ({
+                    date: d.date.slice(5),
+                    value: d.value ?? null,
+                  }))}
+                >
+                  <defs>
+                    <linearGradient id="strainFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                    width={32}
+                    domain={[0, 21]}
+                    ticks={[0, 5, 10, 15, 20]}
+                  />
+                  <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontSize: 12 }} />
+                  <Area
+                    isAnimationActive={false}
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#ef4444"
+                    fill="url(#strainFill)"
+                    strokeWidth={2}
+                    name="Strain"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                No training strain data — complete a workout with HR to populate
+              </p>
+            )}
+          </div>
+
+          <div className="bg-card rounded-2xl border p-4">
+            <SectionHeader
+              title="Body Stress — 42 Day Trend"
+              info="Garmin daily stress score (0–100) derived from heart rate variability. Lower = calmer, higher = more stressed. Shows how your body handles training + life stress over 6 weeks. Useful for detecting accumulated fatigue before it becomes overtraining."
+              className="mb-3"
+            />
+            {stressChart.isLoading ? (
+              <div className="bg-muted h-48 animate-pulse rounded-lg" />
+            ) : stressChart.data &&
+              stressChart.data.length > 0 &&
+              stressChart.data.some((d) => (d.value ?? 0) > 0) ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart
+                  data={stressChart.data.map((d) => ({
+                    date: d.date.slice(5),
+                    value: d.value ?? null,
+                  }))}
+                >
+                  <defs>
+                    <linearGradient id="stressFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} width={32} />
+                  <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontSize: 12 }} />
+                  <Area
+                    isAnimationActive={false}
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#3b82f6"
+                    fill="url(#stressFill)"
+                    strokeWidth={2}
+                    name="Stress"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                No stress data yet
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ── Key Metric Cards ── */}
         {loads.isLoading ? (
-          <div className="flex items-center justify-center py-6">
-            <div className="bg-muted h-28 w-28 animate-pulse rounded-full" />
+          <div className="grid-metrics">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="bg-card animate-pulse rounded-xl border p-4"
+              >
+                <div className="bg-muted mx-auto h-8 w-14 rounded" />
+                <div className="bg-muted mx-auto mt-2 h-3 w-20 rounded" />
+              </div>
+            ))}
           </div>
         ) : loads.data ? (
-          <LoadFocusChart focus={loads.data.loadFocus} />
-        ) : (
-          <p className="text-muted-foreground py-4 text-center text-sm">
-            No data yet
-          </p>
-        )}
-      </div>
+          <div className="grid-metrics">
+            {/* CTL */}
+            <div className="bg-card rounded-xl border p-4 text-center">
+              <p className="text-2xl font-bold text-blue-500">
+                {loads.data.ctl.toFixed(1)}
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                CTL — Fitness
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-[10px]">
+                42-day chronic load
+              </p>
+            </div>
 
-      {/* ── Recovery Time ── */}
-      <div className="bg-card rounded-2xl border p-4">
-        <SectionHeader
-          title="Recovery Estimate"
-          info="Estimated hours until full recovery based on recent strain, sleep quality, HRV trend, and resting heart rate. Higher strain + poor sleep = longer recovery. Light Zone 1 activity during recovery promotes blood flow and speeds adaptation. Method: Composite of TRIMP decay + recovery markers."
-          className="mb-3"
-        />
-        {recovery.isLoading ? (
-          <div className="space-y-2">
-            <div className="bg-muted mx-auto h-10 w-20 animate-pulse rounded" />
-            <div className="bg-muted mx-auto h-3 w-40 animate-pulse rounded" />
+            {/* ATL */}
+            <div className="bg-card rounded-xl border p-4 text-center">
+              <p className="text-2xl font-bold text-red-500">
+                {loads.data.atl.toFixed(1)}
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                ATL — Fatigue
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-[10px]">
+                7-day acute load
+              </p>
+            </div>
+
+            {/* TSB */}
+            <div className="bg-card rounded-xl border p-4 text-center">
+              <p
+                className={cn(
+                  "text-2xl font-bold",
+                  loads.data.tsb >= 0 ? "text-green-500" : "text-red-500",
+                )}
+              >
+                {loads.data.tsb >= 0 ? "+" : ""}
+                {loads.data.tsb.toFixed(1)}
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">TSB — Form</p>
+              <p className="text-muted-foreground mt-0.5 text-[10px]">
+                {loads.data.tsb >= 0 ? "Fresh" : "Fatigued"}
+              </p>
+            </div>
+
+            {/* Ramp Rate */}
+            <div className="bg-card rounded-xl border p-4 text-center">
+              <p
+                className={cn(
+                  "text-2xl font-bold",
+                  loads.data.rampRate > 8
+                    ? "text-orange-500"
+                    : "text-foreground",
+                )}
+              >
+                {loads.data.rampRate.toFixed(1)}
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">Ramp Rate</p>
+              <p className="text-muted-foreground mt-0.5 text-[10px]">
+                {loads.data.rampRate > 8 ? "⚠ High — injury risk" : "pts/week"}
+              </p>
+            </div>
           </div>
-        ) : recovery.data ? (
-          <div className="space-y-3">
-            <p className="text-center text-3xl font-bold">
-              {recovery.data.hoursUntilRecovered}
-              <span className="text-muted-foreground ml-1 text-base font-normal">
-                hours
-              </span>
-            </p>
-            {recovery.data.factors.length > 0 && (
-              <ul className="space-y-1">
-                {recovery.data.factors.map((f, i) => (
-                  <li
-                    key={i}
-                    className="text-muted-foreground text-center text-xs"
-                  >
-                    {f}
-                  </li>
-                ))}
-              </ul>
+        ) : null}
+
+        {/* ── Load Focus + Recovery Time ── */}
+        <div className="grid-panels">
+          <div className="bg-card rounded-2xl border p-4">
+            <SectionHeader
+              title="Load Focus"
+              info="Balance between training intensities derived from zone distribution of recent activities. Shows percentage split between aerobic (Z1-2), threshold (Z3), and high-intensity (Z4-5) work. Endurance athletes should see >70% aerobic. Method: Zone minute aggregation over selected period."
+              className="mb-3"
+            />
+            {loads.isLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="bg-muted h-28 w-28 animate-pulse rounded-full" />
+              </div>
+            ) : loads.data ? (
+              <LoadFocusChart focus={loads.data.loadFocus} />
+            ) : (
+              <p className="text-muted-foreground py-4 text-center text-sm">
+                No data yet
+              </p>
             )}
           </div>
-        ) : (
-          <p className="text-muted-foreground py-4 text-center text-sm">
-            No data yet
-          </p>
-        )}
-      </div>
 
-      {/* ── Recent Strain (14-day Bar Chart — Activity Load) ── */}
-      <div className="bg-card rounded-2xl border p-4">
-        <SectionHeader
-          title="Daily Strain — Last 14 Days"
-          info="Activity training strain (0–21) per day over the past 2 weeks. Computed from TRIMP (HR zone intensity × duration). Shows max strain per day. Days without workouts won't appear. Compare with Body Stress below to see how training load affects recovery."
-          className="mb-3"
-        />
-        {recentStrain.isLoading ? (
-          <div className="bg-muted h-40 animate-pulse rounded-lg" />
-        ) : recentStrain.data && recentStrain.data.length > 0 ? (
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart
-              data={recentStrain.data.map((d) => ({
-                date: d.date.slice(5),
-                value: d.value ?? 0,
-              }))}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: "#888", fontSize: 10 }}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                tick={{ fill: "#888", fontSize: 10 }}
-                width={28}
-                domain={[0, 21]}
-                ticks={[0, 5, 10, 15, 20]}
-                tickFormatter={(v: number) => Math.round(v).toString()}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #333",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-              />
-              <Bar
-                isAnimationActive={false}
-                dataKey="value"
-                fill="#ef4444"
-                radius={[4, 4, 0, 0]}
-                name="Strain"
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-muted-foreground py-8 text-center text-sm">
-            No training strain data — workouts with HR needed
-          </p>
-        )}
-      </div>
-
-      {/* ── Recent Body Stress (14-day Bar Chart — HRV-based) ── */}
-      <div className="bg-card rounded-2xl border p-4">
-        <SectionHeader
-          title="Daily Stress — Last 14 Days"
-          info="Garmin daily stress score (0–100) over the past 2 weeks. Derived from HRV analysis. High values on rest days may indicate incomplete recovery, illness, or life stress. Look for a downward trend after deload weeks."
-          className="mb-3"
-        />
-        {recentStress.isLoading ? (
-          <div className="bg-muted h-40 animate-pulse rounded-lg" />
-        ) : recentStress.data && recentStress.data.length > 0 ? (
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart
-              data={recentStress.data.map((d) => ({
-                date: d.date.slice(5),
-                value: d.value ?? 0,
-              }))}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: "#888", fontSize: 10 }}
-                interval="preserveStartEnd"
-              />
-              <YAxis tick={{ fill: "#888", fontSize: 10 }} width={28} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #333",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-              />
-              <Bar
-                isAnimationActive={false}
-                dataKey="value"
-                fill="#6366f1"
-                radius={[4, 4, 0, 0]}
-                name="Stress"
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-muted-foreground py-8 text-center text-sm">
-            No stress data yet
-          </p>
-        )}
-      </div>
-
-      {/* ── Recommendation ── */}
-      {status.data?.recommendation && (
-        <div className="bg-card rounded-2xl border p-4">
-          <SectionHeader
-            title="Recommendation"
-            info="AI-generated training recommendation combining: ACWR (injury risk), TSB (freshness = CTL - ATL), sleep quality score, and recent strain pattern. Suggests push/maintain/rest based on composite readiness. Method: Rule-based engine with sport science thresholds."
-            className="mb-2"
-          />
-          <p className="text-sm leading-relaxed">
-            {status.data.recommendation}
-          </p>
+          <div className="bg-card rounded-2xl border p-4">
+            <SectionHeader
+              title="Recovery Estimate"
+              info="Estimated hours until full recovery based on recent strain, sleep quality, HRV trend, and resting heart rate. Higher strain + poor sleep = longer recovery. Light Zone 1 activity during recovery promotes blood flow and speeds adaptation. Method: Composite of TRIMP decay + recovery markers."
+              className="mb-3"
+            />
+            {recovery.isLoading ? (
+              <div className="space-y-2">
+                <div className="bg-muted mx-auto h-10 w-20 animate-pulse rounded" />
+                <div className="bg-muted mx-auto h-3 w-40 animate-pulse rounded" />
+              </div>
+            ) : recovery.data ? (
+              <div className="space-y-3">
+                <p className="text-center text-3xl font-bold">
+                  {recovery.data.hoursUntilRecovered}
+                  <span className="text-muted-foreground ml-1 text-base font-normal">
+                    hours
+                  </span>
+                </p>
+                {recovery.data.factors.length > 0 && (
+                  <ul className="space-y-1">
+                    {recovery.data.factors.map((f, i) => (
+                      <li
+                        key={i}
+                        className="text-muted-foreground text-center text-xs"
+                      >
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <p className="text-muted-foreground py-4 text-center text-sm">
+                No data yet
+              </p>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* ── Recent Strain + Recent Body Stress (14 day bar charts) ── */}
+        <div className="grid-panels">
+          <div className="bg-card rounded-2xl border p-4">
+            <SectionHeader
+              title="Daily Strain — Last 14 Days"
+              info="Activity training strain (0–21) per day over the past 2 weeks. Computed from TRIMP (HR zone intensity × duration). Shows max strain per day. Days without workouts won't appear. Compare with Body Stress below to see how training load affects recovery."
+              className="mb-3"
+            />
+            {recentStrain.isLoading ? (
+              <div className="bg-muted h-40 animate-pulse rounded-lg" />
+            ) : recentStrain.data && recentStrain.data.length > 0 ? (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart
+                  data={recentStrain.data.map((d) => ({
+                    date: d.date.slice(5),
+                    value: d.value ?? 0,
+                  }))}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                    width={28}
+                    domain={[0, 21]}
+                    ticks={[0, 5, 10, 15, 20]}
+                    tickFormatter={(v: number) => Math.round(v).toString()}
+                  />
+                  <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontSize: 12 }} />
+                  <Bar
+                    isAnimationActive={false}
+                    dataKey="value"
+                    fill="#ef4444"
+                    radius={[4, 4, 0, 0]}
+                    name="Strain"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                No training strain data — workouts with HR needed
+              </p>
+            )}
+          </div>
+
+          <div className="bg-card rounded-2xl border p-4">
+            <SectionHeader
+              title="Daily Stress — Last 14 Days"
+              info="Garmin daily stress score (0–100) over the past 2 weeks. Derived from HRV analysis. High values on rest days may indicate incomplete recovery, illness, or life stress. Look for a downward trend after deload weeks."
+              className="mb-3"
+            />
+            {recentStress.isLoading ? (
+              <div className="bg-muted h-40 animate-pulse rounded-lg" />
+            ) : recentStress.data && recentStress.data.length > 0 ? (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart
+                  data={recentStress.data.map((d) => ({
+                    date: d.date.slice(5),
+                    value: d.value ?? 0,
+                  }))}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} width={28} />
+                  <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontSize: 12 }} />
+                  <Bar
+                    isAnimationActive={false}
+                    dataKey="value"
+                    fill="#6366f1"
+                    radius={[4, 4, 0, 0]}
+                    name="Stress"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                No stress data yet
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ── Recommendation ── */}
+        {status.data?.recommendation && (
+          <div className="bg-card rounded-2xl border p-4">
+            <SectionHeader
+              title="Recommendation"
+              info="AI-generated training recommendation combining: ACWR (injury risk), TSB (freshness = CTL - ATL), sleep quality score, and recent strain pattern. Suggests push/maintain/rest based on composite readiness. Method: Rule-based engine with sport science thresholds."
+              className="mb-2"
+            />
+            <p className="text-sm leading-relaxed">
+              {status.data.recommendation}
+            </p>
+          </div>
+        )}
+      </div>
 
       <BottomNav />
-    </main>
+    </PageShell>
   );
 }
 
@@ -774,7 +769,7 @@ function ACWRGaugeEnhanced({ value }: { value: number }) {
         </div>
         {/* Marker */}
         <div
-          className="absolute top-0 h-full w-1.5 rounded-full bg-white shadow-lg transition-all"
+          className="bg-foreground absolute top-0 h-full w-1.5 rounded-full shadow-lg transition-all"
           style={{ left: `calc(${pct}% - 3px)` }}
         />
       </div>
@@ -833,7 +828,7 @@ function ACWRGauge({ value }: { value: number }) {
         />
         {/* Marker */}
         <div
-          className="absolute top-0 h-full w-1 rounded-full bg-white shadow-md transition-all"
+          className="bg-foreground absolute top-0 h-full w-1 rounded-full shadow-md transition-all"
           style={{ left: `${pct}%` }}
         />
       </div>
@@ -879,14 +874,7 @@ function LoadFocusChart({ focus }: { focus: string }) {
               <Cell key={i} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "#18181b",
-              border: "1px solid #333",
-              borderRadius: 8,
-              fontSize: 12,
-            }}
-          />
+          <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontSize: 12 }} />
         </PieChart>
       </ResponsiveContainer>
 

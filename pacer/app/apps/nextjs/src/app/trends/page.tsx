@@ -18,6 +18,7 @@ import { cn } from "@acme/ui";
 import { IngressLink as Link } from "~/app/_components/ingress-link";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
 import { useTRPC } from "~/trpc/react";
+import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
 import { SectionHeader } from "../_components/info-button";
 
@@ -161,13 +162,13 @@ function directionArrow(d: string | undefined): string {
 function directionColor(d: string | undefined): string {
   if (d === "improving") return "text-green-400";
   if (d === "declining") return "text-red-400";
-  return "text-zinc-400";
+  return "text-muted-foreground";
 }
 
 function strengthColor(s: string | undefined): string {
   if (s === "strong") return "border-green-500/60 bg-green-500/10";
   if (s === "moderate") return "border-yellow-500/60 bg-yellow-500/10";
-  return "border-zinc-700 bg-zinc-800/50";
+  return "border-border bg-muted/50";
 }
 
 // ---------------------------------------------------------------------------
@@ -367,9 +368,9 @@ export default function TrendsPage() {
 
   // ---------------------------------------------------------------------------
   return (
-    <main className="mx-auto max-w-4xl space-y-6 px-4 pt-6 pb-24">
-      {/* Header */}
-      <div>
+    <PageShell density="data">
+      {/* Header (custom: pl-12 clears the fixed mobile hamburger button) */}
+      <div className="mb-8">
         <h1 className="pl-12 text-2xl font-bold">Trends &amp; Analytics</h1>
         <p className="text-muted-foreground text-sm">
           {PERIODS.find((x) => x.value === period)?.label ?? period} overview
@@ -377,6 +378,7 @@ export default function TrendsPage() {
         </p>
       </div>
 
+      <div className="space-y-6">
       {/* Period selector */}
       <div className="bg-muted flex gap-1 rounded-lg p-0.5">
         {PERIODS.map((p) => (
@@ -397,7 +399,7 @@ export default function TrendsPage() {
 
       {/* ---- Summary Stats Row ---- */}
       {summary.isLoading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid-metrics">
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
@@ -409,7 +411,7 @@ export default function TrendsPage() {
           ))}
         </div>
       ) : s ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid-metrics">
           <SummaryCard
             label="Avg Readiness"
             value={s.avgReadiness != null ? String(s.avgReadiness) : "—"}
@@ -439,6 +441,7 @@ export default function TrendsPage() {
       ) : null}
 
       {/* ---- Multi-Metric Overlay Chart ---- */}
+      <div className="grid-panels">
       <div className="bg-card rounded-2xl border p-4">
         <SectionHeader
           title="Multi-Metric Trend"
@@ -480,18 +483,18 @@ export default function TrendsPage() {
                   </linearGradient>
                 ))}
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="label"
-                tick={{ fill: "#a1a1aa", fontSize: 11 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: "#3f3f46" }}
+                axisLine={{ stroke: "var(--border)" }}
                 interval="preserveStartEnd"
               />
               <YAxis
                 yAxisId="readiness"
                 domain={[0, 100]}
-                tick={{ fill: "#a1a1aa", fontSize: 11 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 width={40}
@@ -500,7 +503,7 @@ export default function TrendsPage() {
                 yAxisId="sleep"
                 orientation="right"
                 domain={["auto", "auto"]}
-                tick={{ fill: "#a1a1aa", fontSize: 11 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 width={35}
@@ -528,12 +531,13 @@ export default function TrendsPage() {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #3f3f46",
+                  backgroundColor: "var(--popover)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 12,
+                  color: "var(--popover-foreground)",
                 }}
-                labelStyle={{ color: "#a1a1aa" }}
+                labelStyle={{ color: "var(--muted-foreground)" }}
                 formatter={(value: unknown, name: unknown) => {
                   const v = value as number;
                   const n = name as string;
@@ -600,6 +604,7 @@ export default function TrendsPage() {
           </ResponsiveContainer>
         )}
       </div>
+      </div>
 
       {/* ---- Trend Analysis Cards ---- */}
       <div>
@@ -608,7 +613,7 @@ export default function TrendsPage() {
           info="Statistical direction and strength of change for each metric. Method: Linear regression (y = mx + b) over selected period. R² indicates trend reliability. Arrows show direction; percentage shows magnitude. Longer periods give more reliable trends. Citation: Standard statistical regression analysis."
           className="mb-3"
         />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid-metrics">
           {trendItems.map(({ key, query }) => {
             const t = query.data as {
               direction: string;
@@ -650,7 +655,7 @@ export default function TrendsPage() {
                             ? "text-green-400"
                             : t.significance === "medium"
                               ? "text-yellow-400"
-                              : "text-zinc-500",
+                              : "text-muted-foreground",
                         )}
                       >
                         {t.significance} significance
@@ -719,7 +724,7 @@ export default function TrendsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       {category && (
                         <span
-                          className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300"
+                          className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px]"
                           title={`${category.label} category`}
                           aria-label={`${category.label} category`}
                         >
@@ -758,7 +763,7 @@ export default function TrendsPage() {
             className="mb-3"
           />
           {correlations.isLoading ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid-wide">
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
@@ -774,7 +779,7 @@ export default function TrendsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid-wide">
               {topCorrelations.map((c, i) => (
                 <div
                   key={i}
@@ -794,7 +799,7 @@ export default function TrendsPage() {
                           ? "bg-green-500/20 text-green-400"
                           : c.strength === "moderate"
                             ? "bg-yellow-500/20 text-yellow-400"
-                            : "bg-zinc-700/50 text-zinc-400",
+                            : "bg-muted text-muted-foreground",
                       )}
                     >
                       {c.strength}
@@ -804,7 +809,9 @@ export default function TrendsPage() {
                     r = {c.rValue.toFixed(2)} · {c.direction} · n={c.sampleSize}
                   </p>
                   {c.insight && (
-                    <p className="mt-1 text-xs text-zinc-300">{c.insight}</p>
+                    <p className="text-foreground mt-1 text-xs">
+                      {c.insight}
+                    </p>
                   )}
                 </div>
               ))}
@@ -821,7 +828,8 @@ export default function TrendsPage() {
       </div>
 
       <BottomNav />
-    </main>
+      </div>
+    </PageShell>
   );
 }
 

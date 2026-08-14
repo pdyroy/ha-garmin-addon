@@ -147,8 +147,8 @@ export function DashboardHome({ userId }: { userId: string }) {
   ];
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
+    <div className="space-y-6">
+      {/* Header (pl-12 clears the fixed mobile hamburger button) */}
       <div>
         <h1 className="pl-12 text-2xl font-bold">{greeting}</h1>
         <p className="text-muted-foreground text-sm">
@@ -160,13 +160,7 @@ export function DashboardHome({ userId }: { userId: string }) {
         </p>
       </div>
 
-      {/* Today's Recommendation */}
-      <TodayRecommendationCard userId={userId} />
-
-      {/* Adherence Trend */}
-      <AdherenceTrendCard userId={userId} />
-
-      {/* Readiness */}
+      {/* Readiness — the lede: how ready am I today */}
       <ReadinessCard
         score={(r?.score as number) ?? null}
         zone={(r?.zone as string) ?? null}
@@ -185,37 +179,44 @@ export function DashboardHome({ userId }: { userId: string }) {
         isLoading={readiness.isLoading}
       />
 
-      {/* WHOOP-style Daily Outlook — target day-strain band */}
-      <DailyOutlookCard
-        targetStrain={
-          (r?.targetStrain as import("@acme/engine").TargetStrainBand) ?? null
-        }
-        isLoading={readiness.isLoading}
-      />
+      {/* Today's Recommendation — what to do about it */}
+      <TodayRecommendationCard userId={userId} />
 
-      {/* Today's Workout */}
-      <WorkoutCard
-        id={w?.id as string | undefined}
-        title={(w?.title as string) ?? null}
-        description={(w?.description as string) ?? null}
-        sportType={(w?.sportType as string) ?? null}
-        targetDurationMin={(w?.targetDurationMin as number) ?? null}
-        targetDurationMax={(w?.targetDurationMax as number) ?? null}
-        targetHrZoneLow={(w?.targetHrZoneLow as number) ?? null}
-        targetHrZoneHigh={(w?.targetHrZoneHigh as number) ?? null}
-        explanation={(w?.explanation as string) ?? null}
-        isLoading={workout.isLoading}
-        onAdjust={(direction) => adjustMutation.mutate({ direction })}
-      />
-
-      {/* Quick Stats */}
+      {/* Component breakdown */}
       <QuickStats stats={stats} />
 
+      {/* Supporting panels — evenly weighted, no single card dominant */}
+      <div className="grid-panels">
+        <DailyOutlookCard
+          targetStrain={
+            (r?.targetStrain as import("@acme/engine").TargetStrainBand) ??
+            null
+          }
+          isLoading={readiness.isLoading}
+        />
+
+        <WorkoutCard
+          id={w?.id as string | undefined}
+          title={(w?.title as string) ?? null}
+          description={(w?.description as string) ?? null}
+          sportType={(w?.sportType as string) ?? null}
+          targetDurationMin={(w?.targetDurationMin as number) ?? null}
+          targetDurationMax={(w?.targetDurationMax as number) ?? null}
+          targetHrZoneLow={(w?.targetHrZoneLow as number) ?? null}
+          targetHrZoneHigh={(w?.targetHrZoneHigh as number) ?? null}
+          explanation={(w?.explanation as string) ?? null}
+          isLoading={workout.isLoading}
+          onAdjust={(direction) => adjustMutation.mutate({ direction })}
+        />
+
+        <AdherenceTrendCard userId={userId} />
+      </div>
+
       {/* Quick Navigation */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid-panels">
         <Link
           href="/fitness"
-          className="bg-card flex items-center gap-3 rounded-xl border p-4 transition-colors hover:bg-zinc-800/80"
+          className="bg-card hover:bg-accent flex items-center gap-3 rounded-xl border p-4 transition-colors"
         >
           <span className="text-2xl">🏃</span>
           <div>
@@ -227,7 +228,7 @@ export function DashboardHome({ userId }: { userId: string }) {
         </Link>
         <Link
           href="/insights"
-          className="bg-card flex items-center gap-3 rounded-xl border p-4 transition-colors hover:bg-zinc-800/80"
+          className="bg-card hover:bg-accent flex items-center gap-3 rounded-xl border p-4 transition-colors"
         >
           <span className="text-2xl">💡</span>
           <div>
@@ -241,11 +242,9 @@ export function DashboardHome({ userId }: { userId: string }) {
 
       {/* Recent Activities */}
       {recentActivities.data && recentActivities.data.length > 0 && (
-        <section className="space-y-2">
+        <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold tracking-wider uppercase">
-              Recent Activities
-            </h2>
+            <h2 className="text-sm font-semibold">Recent Activities</h2>
             <Link
               href="/activities"
               className="text-primary text-xs font-medium"
@@ -253,54 +252,56 @@ export function DashboardHome({ userId }: { userId: string }) {
               View all →
             </Link>
           </div>
-          {recentActivities.data.slice(0, 3).map((a) => {
-            const mins = a.durationMinutes;
-            const dur =
-              mins != null
-                ? mins >= 60
-                  ? `${Math.floor(mins / 60)}h ${Math.round(mins % 60)}m`
-                  : `${Math.round(mins)} min`
-                : "—";
-            const dist =
-              a.distanceMeters != null && a.distanceMeters > 0
-                ? `${(a.distanceMeters / 1000).toFixed(1)} km`
-                : null;
-            const sport = a.sportType
-              ? a.sportType
-                  .replace(/_/g, " ")
-                  .replace(/\b\w/g, (c: string) => c.toUpperCase())
-              : "Activity";
-            const date = formatDateInTz(a.startedAt, timezone, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            });
-            return (
-              <Link
-                key={a.id}
-                href={`/activities/${a.id}`}
-                className="bg-card hover:bg-accent flex items-center gap-3 rounded-xl p-3 transition-colors"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{sport}</p>
-                  <p className="text-muted-foreground text-xs">{date}</p>
-                </div>
-                <div className="shrink-0 text-right text-sm">
-                  <p className="font-semibold">{dur}</p>
-                  {dist && (
-                    <p className="text-muted-foreground text-xs">{dist}</p>
-                  )}
-                </div>
-              </Link>
-            );
-          })}
+          <div className="space-y-2">
+            {recentActivities.data.slice(0, 3).map((a) => {
+              const mins = a.durationMinutes;
+              const dur =
+                mins != null
+                  ? mins >= 60
+                    ? `${Math.floor(mins / 60)}h ${Math.round(mins % 60)}m`
+                    : `${Math.round(mins)} min`
+                  : "—";
+              const dist =
+                a.distanceMeters != null && a.distanceMeters > 0
+                  ? `${(a.distanceMeters / 1000).toFixed(1)} km`
+                  : null;
+              const sport = a.sportType
+                ? a.sportType
+                    .replace(/_/g, " ")
+                    .replace(/\b\w/g, (c: string) => c.toUpperCase())
+                : "Activity";
+              const date = formatDateInTz(a.startedAt, timezone, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              });
+              return (
+                <Link
+                  key={a.id}
+                  href={`/activities/${a.id}`}
+                  className="bg-card hover:bg-accent flex items-center gap-3 rounded-xl p-3 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{sport}</p>
+                    <p className="text-muted-foreground text-xs">{date}</p>
+                  </div>
+                  <div className="shrink-0 text-right text-sm">
+                    <p className="font-semibold">{dur}</p>
+                    {dist && (
+                      <p className="text-muted-foreground text-xs">{dist}</p>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </section>
       )}
 
       {/* Coach FAB */}
       <Link
         href="/coach"
-        className="fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-2xl shadow-lg transition-colors hover:bg-indigo-500"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full text-2xl shadow-lg transition-colors"
       >
         🏋️
       </Link>
