@@ -33,8 +33,10 @@ let _aiAbortController: AbortController | null = null;
 
 // 45s was not enough for a reasoning model: the chain of thought alone can
 // run well past it on a full coaching prompt, and the request was aborted
-// before any answer text existed.
-const AI_TIMEOUT_MS = 150_000;
+// before any answer text existed. Measured on a pinned EU provider the same
+// prompt ranged from 53s to 93s across runs, so leave roughly double the
+// observed worst case.
+const AI_TIMEOUT_MS = 200_000;
 const ACTIVITY_NAME_SLUG_PATTERN =
   /\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+\b/g;
 

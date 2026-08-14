@@ -54,6 +54,29 @@ export function isOpenRouterConfigured(): boolean {
   return hasKey && backendOk;
 }
 
+/**
+ * Build OpenRouter's provider-routing object.
+ *
+ * zdr restricts routing to endpoints that retain neither prompts nor
+ * completions. OPENROUTER_PROVIDERS narrows it further to named providers,
+ * which is how data residency is achieved without an enterprise plan:
+ * OpenRouter publishes each provider's datacenter countries, so an allowlist
+ * of EU-only providers keeps the request inside the EU.
+ *
+ * Both are advertised policy, not something the API proves. Pinning a single
+ * provider also removes failover — if it is down, the request fails rather
+ * than going somewhere else.
+ */
+function providerRouting(): Record<string, unknown> {
+  const routing: Record<string, unknown> = { zdr: true };
+  const only = (process.env.OPENROUTER_PROVIDERS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (only.length > 0) routing.only = only;
+  return routing;
+}
+
 export async function openRouterChat(
   messages: OpenRouterMessage[],
   options?: OpenRouterChatOptions,
@@ -87,12 +110,9 @@ export async function openRouterChat(
         stream: false,
         temperature: options?.temperature ?? 0.7,
         max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
-        // The prompt carries the athlete's health history — sleep, heart rate,
-        // and whatever they wrote in their journal. Restrict routing to
-        // providers that retain neither prompts nor completions. Without this
-        // OpenRouter is free to pick any provider, including ones that keep
-        // the data for training.
-        provider: { zdr: true },
+        // The prompt carries the athlete's health history, so routing is
+        // constrained — see providerRouting().
+        provider: providerRouting(),
       }),
     });
 
@@ -103,6 +123,13 @@ export async function openRouterChat(
           `Model "${model}" has no zero-data-retention provider on OpenRouter. ` +
             `Pick a model whose provider offers ZDR (google/gemini-2.5-flash-lite, ` +
             `openai/gpt-4o-mini and anthropic models do).`,
+        );
+      }
+      if (response.status === 404 && body.includes("No allowed providers")) {
+        throw new Error(
+          `Model "${model}" is not served by any of the allowed providers ` +
+            `(${process.env.OPENROUTER_PROVIDERS}). Either pick a model one of ` +
+            `them serves, or widen the provider allowlist.`,
         );
       }
       throw new Error(

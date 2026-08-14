@@ -114,6 +114,7 @@ STRAVA_REFRESH_TOKEN=$(bashio::config 'strava_refresh_token' || echo "")
 AI_BACKEND=$(bashio::config 'ai_backend' || echo "none")
 OPENROUTER_API_KEY=$(bashio::config 'openrouter_api_key' || echo "")
 OPENROUTER_MODEL=$(bashio::config 'openrouter_model' || echo "google/gemini-2.5-flash-lite")
+OPENROUTER_PROVIDERS=$(bashio::config 'openrouter_providers' || echo "")
 OLLAMA_URL=$(bashio::config 'ollama_url' || echo "")
 OLLAMA_EMBED_MODEL=$(bashio::config 'ollama_embed_model' || echo "nomic-embed-text")
 SYNC_INTERVAL=$(bashio::config 'sync_interval_minutes' || echo "60")
@@ -123,6 +124,7 @@ export GARMIN_EMAIL GARMIN_PASSWORD
 export STRAVA_CLIENT_ID STRAVA_CLIENT_SECRET STRAVA_REFRESH_TOKEN
 export AI_BACKEND
 export OPENROUTER_API_KEY
+export OPENROUTER_PROVIDERS
 export OPENROUTER_MODEL="${OPENROUTER_MODEL:-google/gemini-2.5-flash-lite}"
 export OLLAMA_URL
 export OLLAMA_MODEL="${OLLAMA_MODEL:-gpt-oss:20b}"
@@ -444,6 +446,10 @@ case "${AI_BACKEND}" in
         if [ -n "${OPENROUTER_API_KEY}" ]; then
             bashio::log.info "AI backend: OpenRouter (model: ${OPENROUTER_MODEL})"
             bashio::log.info "  Direct OpenRouter API — no HA conversation agent required"
+            bashio::log.info "  Routing: zero-data-retention endpoints only"
+            if [ -n "${OPENROUTER_PROVIDERS}" ]; then
+                bashio::log.info "  Routing: restricted to ${OPENROUTER_PROVIDERS} — no failover if unavailable"
+            fi
         else
             bashio::log.warning "AI backend set to openrouter but no API key configured — falling back to rules-based"
             export AI_BACKEND="none"

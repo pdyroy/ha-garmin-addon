@@ -10,7 +10,7 @@
     },
     "ai_backend": {
       "name": "AI Backend",
-      "description": "AI engine: 'ha_conversation' (requires a conversation agent in HA), 'ollama' (local), 'none' (rules-based)"
+      "description": "AI engine: 'openrouter' (direct OpenRouter API, recommended), 'ha_conversation' (uses a conversation agent configured in Home Assistant), 'ollama' (local), 'none' (rules-based, no LLM)"
     },
     "ollama_url": {
       "name": "Ollama URL",
@@ -47,6 +47,30 @@
     "meeting_rescore_interval_minutes": {
       "name": "Stress Board Auto-Rescore (minutes)",
       "description": "How often (minutes) the Stress Board re-scores in the background so meetings and interactions show once Garmin syncs their heart rate (0-1440, default 360). 0 disables it."
+    },
+    "openrouter_api_key": {
+      "name": "OpenRouter API Key",
+      "description": "OpenRouter key (sk-or-...). Required for the 'openrouter' AI backend."
+    },
+    "openrouter_model": {
+      "name": "OpenRouter Model",
+      "description": "Model slug, e.g. deepseek/deepseek-v4-flash-0731 or google/gemini-2.5-flash-lite. Reasoning models are slower; the coach allows up to 200 seconds."
+    },
+    "openrouter_providers": {
+      "name": "OpenRouter Providers (allowlist)",
+      "description": "Comma-separated provider slugs the request may use, e.g. 'inceptron' for EU-only routing (datacenter in Finland). Leave empty to allow any provider. Requests are always restricted to zero-data-retention endpoints. Pinning a provider means there is no failover if it is unavailable."
+    },
+    "strava_client_id": {
+      "name": "Strava Client ID",
+      "description": "Strava API client ID. Optional — only needed to sync Strava activities."
+    },
+    "strava_client_secret": {
+      "name": "Strava Client Secret",
+      "description": "Strava API client secret."
+    },
+    "strava_refresh_token": {
+      "name": "Strava Refresh Token",
+      "description": "Strava OAuth refresh token."
     }
   }
 }
