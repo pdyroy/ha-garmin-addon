@@ -1,0 +1,41 @@
+Pacer
+Copyright 2026 pdyroy <35566277+pdyroy@users.noreply.github.com>
+
+This product is a fork and includes software developed by others.
+
+
+Upstream works
+--------------
+
+  ha-garmin-fitness-coach-addon
+  ha-garmin-fitness-coach-app
+  Copyright 2025-2026 Anil Belur <askb23@gmail.com>
+  Licensed under the Apache License, Version 2.0, with individual files
+  under the MIT License as marked by their SPDX headers.
+  https://github.com/askb/ha-garmin-fitness-coach-addon
+  https://github.com/askb/ha-garmin-fitness-coach-app
+
+  create-t3-turbo (MIT), on which the bundled application is based.
+  https://github.com/t3-oss/create-t3-turbo
+
+
+Statement of changes (Apache License 2.0, section 4(b))
+-------------------------------------------------------
+
+This repository was forked from ha-garmin-fitness-coach-addon at upstream
+commit 0091b9356 on 2026-08-13, and files carried over from the upstream
+projects have been modified since. The add-on was renamed to Pacer, the
+application source was vendored into pacer/app/ and is built from there,
+and the coaching engine, the web interface and the add-on's boot path have
+all been changed.
+
+The changes are listed in pacer/CHANGELOG.md. Per-file authorship remains
+visible in the Git history.
+
+
+Licensing
+---------
+
+The full license texts are in LICENSES/. Per-file copyright and license
+information follows the REUSE specification: see the SPDX headers in the
+files themselves and the aggregate declarations in REUSE.toml.

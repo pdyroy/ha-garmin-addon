@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.1.0
+
+- **Security:** Home Assistant ingress is now verified instead of assumed.
+  The add-on used to run with the session guard switched off entirely
+  (`DEV_BYPASS_AUTH=true`) while the ingress proxy listened on
+  `0.0.0.0:3000` in the shared hassio bridge network, so any other add-on
+  could read the full health history and overwrite the Garmin tokens
+  without a credential. The proxy now refuses peers other than the
+  Supervisor and stamps a per-boot token on what it forwards; the app grants
+  its single-user session only to requests carrying that token.
+  `node scripts/test-ingress-proxy.js` checks the gate.
+- **Security:** each process only receives the secrets it uses. The Garmin
+  and Strava credentials are no longer in the environment of the Next.js
+  server, and the internet-facing proxy now runs without any secret at all —
+  previously every one of them, including the Garmin plaintext password,
+  was exported process-wide and inherited by both.
+- Added a fitness age: VO2max expressed as an age against the HUNT3
+  reference cohort (Loe et al., PLoS One 2013), on the Fitness page and as
+  `sensor.pacer_fitness_age`.
+- Added a target bedtime and wake window, anchored on the chronotype where
+  one is computable, as `sensor.pacer_bedtime_target` /
+  `sensor.pacer_wake_window` plus a wind-down reminder blueprint.
+- Added the Energiekonto page: the intraday Body Battery curve with every
+  charge and drain attributed to sleep, an activity, or a part of the day.
+  The intraday series comes from the Garmin stress payload the sync already
+  fetched, so it costs no extra API call.
+- Fixed the sleep page reading a field the engine does not return, which
+  left "tonight's recommendation" blank and silently fell back to a
+  hard-coded 8 h in the sleep-debt chart.
+- Added NOTICE and per-file copyright for the files written in this fork.
+- Removed the internal review reports from docs/.
+
 ## 1.0.0
 
 First release under the name Pacer. Versioning restarts here; releases

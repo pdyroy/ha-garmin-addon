@@ -5,7 +5,9 @@
 > and [ha-garmin-fitness-coach-app](https://github.com/askb/ha-garmin-fitness-coach-app)
 > by Anil Belur (Apache-2.0 / MIT), which in turn build on
 > [create-t3-turbo](https://github.com/t3-oss/create-t3-turbo) (MIT).
-> Renamed to Pacer and adapted for private use.
+> Renamed to Pacer and adapted for private use. Attribution and the
+> statement of changes required by Apache-2.0 §4(b) are in [NOTICE](NOTICE);
+> the changes themselves are listed in [pacer/CHANGELOG.md](pacer/CHANGELOG.md).
 
 AI-powered sport scientist that turns your Garmin data into actionable
 coaching, training analysis, and recovery optimization — running entirely on
@@ -364,13 +366,16 @@ Pacer authenticates with Garmin Connect using a **web-based auth flow**:
 | `sensor.pacer_injury_risk` | Risk level: Low / Moderate / High / Very High |
 | `sensor.pacer_body_battery` | Current Garmin Body Battery value |
 | `sensor.pacer_sleep_debt` | Accumulated sleep debt (hours) |
+| `sensor.pacer_fitness_age` | VO2max expressed as an age against the HUNT3 reference cohort, with `delta_years` |
+| `sensor.pacer_bedtime_target` | Next target bedtime as a timestamp, with `local_time` and `anchor` |
+| `sensor.pacer_wake_window` | Wake window as `HH:MM-HH:MM`, with `start` / `end` / `target` |
 | `sensor.pacer_data_quality` | Unresolved sync-gap count, with `missing_days_14d` / `stale_days` / `field_gaps` / `status` attributes |
 
 ## Automation Blueprints & Templates
 
 ### HA Blueprints (importable)
 
-Five ready-to-import Home Assistant blueprints are included in
+Six ready-to-import Home Assistant blueprints are included in
 `pacer/rootfs/app/blueprints/`. Import them via **Settings → Automations
 → Blueprints → Import Blueprint** using the raw GitHub URL:
 
@@ -381,6 +386,7 @@ Five ready-to-import Home Assistant blueprints are included in
 | **Injury Risk Alert** | Risk level → high or critical | Urgent push notification, optional DND toggle |
 | **Training Freshness Reminder** | TSB (form) > threshold | Push notification to train when body is fresh |
 | **Weekly Training Summary** | Configurable day/time | Weekly CTL, ATL, TSB, ACWR, risk, body battery summary |
+| **Wind-Down Reminder** | Configurable offset before `sensor.pacer_bedtime_target` | Push reminder with tonight's target bedtime and wake window, optional scene + dimmed lights |
 
 All blueprints use configurable inputs (thresholds, notification targets,
 scenes) with sensible defaults for Pacer sensor entities.

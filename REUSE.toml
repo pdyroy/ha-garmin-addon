@@ -35,3 +35,33 @@ path = ["**/*.png", "**/*.ico", "**/*.svg"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025 Anil Belur <askb23@gmail.com>"
 SPDX-License-Identifier = "Apache-2.0"
+
+# Files written for this fork. "override" rather than "aggregate": these are
+# not derived from the upstream projects, so the upstream copyright above
+# must not be added to them. Files carried over from upstream keep their own
+# copyright even where this fork has modified them heavily — see NOTICE.
+[[annotations]]
+path = [
+    "NOTICE",
+    "CLAUDE.md",
+    "docs/design/**",
+    "docs/research/**",
+    "scripts/test-ingress-proxy.js",
+    "pacer/CHANGELOG.md",
+    "pacer/rootfs/app/blueprints/winddown_reminder.yaml",
+    "pacer/app/apps/nextjs/src/app/energy/**",
+    "pacer/app/apps/nextjs/src/components/page-shell.tsx",
+    "pacer/app/apps/nextjs/src/lib/sport-labels.ts",
+    "pacer/app/packages/api/src/lib/ingress.ts",
+    "pacer/app/packages/api/src/lib/openrouter.ts",
+    "pacer/app/packages/engine/src/energy-bank/**",
+    "pacer/app/packages/engine/src/fitness-age/**",
+    "pacer/app/packages/engine/src/hrv-baseline/**",
+    "pacer/app/packages/engine/src/night-signal/**",
+    "pacer/app/packages/engine/src/sleep-regularity/**",
+    "pacer/app/packages/engine/src/__tests__/sleep-window.test.ts",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 pdyroy <35566277+pdyroy@users.noreply.github.com>"
+SPDX-License-Identifier = "Apache-2.0"
+
