@@ -16,6 +16,50 @@ const NEXT_PORT = parseInt(process.env.NEXT_INTERNAL_PORT || "3001", 10);
 const LISTEN_PORT = parseInt(process.env.PORT || "3000", 10);
 
 /**
+ * This port sits on the shared hassio bridge network, so every other add-on
+ * can dial it. Home Assistant ingress only protects the path *through* the
+ * Supervisor — it does not stop a neighbour from connecting here directly,
+ * and Next.js behind this proxy runs without a login (single-user model).
+ *
+ * So the proxy is the gate, in two steps:
+ *   1. the peer must be the Supervisor (or loopback, for the add-on's own
+ *      health checks). Everything else gets 403 before it reaches Next.js;
+ *   2. requests that pass are stamped with the per-boot INGRESS_AUTH_TOKEN,
+ *      after any client-supplied copy of that header is stripped. Next.js
+ *      binds to 127.0.0.1 and grants its single-user session only to
+ *      requests carrying the token, so the stamp cannot be forged from
+ *      outside.
+ *
+ * INGRESS_TRUSTED_PEERS overrides the allowlist (comma-separated). The
+ * literal value "any" disables the peer check — for running the container
+ * outside Home Assistant, see scripts/build-local.sh. Without a token the
+ * proxy still forwards, and Next.js then requires a real session.
+ */
+const SUPERVISOR_IP = "172.30.32.2";
+const INGRESS_AUTH_HEADER = "x-pacer-ingress";
+const INGRESS_AUTH_TOKEN = (process.env.INGRESS_AUTH_TOKEN || "").trim();
+const TRUSTED_PEERS_RAW = (
+  process.env.INGRESS_TRUSTED_PEERS || SUPERVISOR_IP
+).trim();
+const ALLOW_ANY_PEER = TRUSTED_PEERS_RAW === "any";
+const TRUSTED_PEERS = new Set(
+  TRUSTED_PEERS_RAW.split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .concat(["127.0.0.1", "::1"]),
+);
+
+/** "::ffff:172.30.32.2" and "172.30.32.2" are the same peer. */
+function normalizePeer(address) {
+  if (!address) return "";
+  return address.startsWith("::ffff:") ? address.slice(7) : address;
+}
+
+function isTrustedPeer(address) {
+  return ALLOW_ANY_PEER || TRUSTED_PEERS.has(normalizePeer(address));
+}
+
+/**
  * Escape a string for safe insertion into a double-quoted HTML attribute.
  * The ingress path comes from the X-Ingress-Path request header, which is
  * attacker-controllable if the proxy port is reached directly (bypassing HA),
@@ -30,6 +74,17 @@ function escapeHtmlAttr(value) {
 }
 
 const server = http.createServer((clientReq, clientRes) => {
+  const peer = normalizePeer(clientReq.socket.remoteAddress);
+  if (!isTrustedPeer(peer)) {
+    console.warn(
+      `[ingress-proxy] refused ${clientReq.method} ${clientReq.url} from ${peer} ` +
+        `(not in INGRESS_TRUSTED_PEERS=${TRUSTED_PEERS_RAW})`,
+    );
+    clientRes.writeHead(403, { "content-type": "text/plain" });
+    clientRes.end("Forbidden: requests must arrive through Home Assistant ingress\n");
+    return;
+  }
+
   // The ingress path is supplied by the X-Ingress-Path header. It is only
   // trustworthy when HA sets it; if the proxy port is reached directly the
   // value is attacker-controlled. Accept only a well-formed path so it can be
@@ -50,6 +105,14 @@ const server = http.createServer((clientReq, clientRes) => {
   if (ingressPath) {
     delete headers["accept-encoding"];
   }
+
+  // Drop any client-supplied ingress token before stamping our own. Node
+  // lower-cases incoming header names, but delete defensively by comparison
+  // so a future change of that behaviour cannot reopen the hole.
+  for (const name of Object.keys(headers)) {
+    if (name.toLowerCase() === INGRESS_AUTH_HEADER) delete headers[name];
+  }
+  if (INGRESS_AUTH_TOKEN) headers[INGRESS_AUTH_HEADER] = INGRESS_AUTH_TOKEN;
 
   const proxyOpts = {
     hostname: "127.0.0.1",
@@ -144,4 +207,12 @@ server.listen(LISTEN_PORT, "0.0.0.0", () => {
   console.log(
     `[ingress-proxy] Listening on 0.0.0.0:${LISTEN_PORT} → Next.js :${NEXT_PORT}`,
   );
+  console.log(
+    `[ingress-proxy] Trusted peers: ${ALLOW_ANY_PEER ? "any (peer check disabled)" : [...TRUSTED_PEERS].join(", ")}`,
+  );
+  if (!INGRESS_AUTH_TOKEN) {
+    console.warn(
+      "[ingress-proxy] INGRESS_AUTH_TOKEN is unset — Next.js will require a real session",
+    );
+  }
 });

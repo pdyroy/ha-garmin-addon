@@ -13,6 +13,8 @@ import { z, ZodError } from "zod/v4";
 import type { Auth } from "@acme/auth";
 import { db } from "@acme/db/client";
 
+import { isSingleUserFallbackAllowed } from "./lib/ingress";
+
 /**
  * 1. CONTEXT
  *
@@ -38,6 +40,9 @@ export const createTRPCContext = async (opts: {
     authApi,
     session,
     db,
+    // Kept on the context so `protectedProcedure` can tell an ingress
+    // request apart from one that reached the container some other way.
+    headers: opts.headers,
   };
 };
 /**
@@ -117,15 +122,14 @@ export const protectedProcedure = t.procedure
   .use(timingMiddleware)
   .use(({ ctx, next }) => {
     if (!ctx.session?.user) {
-      // Trusted single-user bypass. DEV_BYPASS_AUTH is an explicit opt-in flag
-      // (unset by default). The Pacer Home Assistant add-on deliberately
-      // sets it with NODE_ENV=production because it runs as a single user
-      // behind authenticated HA ingress — this is its documented auth model
-      // (see the add-on repository's AGENTS.md, not this repo). It also covers local development and e2e via
-      // `t._config.isDev` (true when NODE_ENV !== "production"). In a
-      // production deployment that does not set the flag, real authentication
-      // is required, so a non-opted-in production stays protected.
-      if (t._config.isDev || process.env.DEV_BYPASS_AUTH === "true") {
+      // Single-user fallback. The Pacer add-on has no login: Home Assistant
+      // ingress is the authentication layer. That is only true for requests
+      // that actually came through ingress, which the proxy proves with a
+      // per-boot token header — see `lib/ingress.ts`. A request that reached
+      // the container some other way (a neighbouring add-on dialling the
+      // proxy port directly) gets UNAUTHORIZED, as does any production
+      // deployment that has not opted in.
+      if (isSingleUserFallbackAllowed(ctx.headers)) {
         return next({
           ctx: {
             session: {

@@ -79,7 +79,11 @@ if [ "${1:-}" = "--run" ]; then
         -e "AUTH_SECRET=local-test-secret" \
         -e "AUTH_DISCORD_ID=unused" \
         -e "AUTH_DISCORD_SECRET=unused" \
+        `# Outside Home Assistant there is no Supervisor to authenticate` \
+        `# against: open the proxy to any peer and let the app fall back to` \
+        `# the single seed user. Never set these two in the add-on itself.` \
         -e "DEV_BYPASS_AUTH=true" \
+        -e "INGRESS_TRUSTED_PEERS=any" \
         "${IMAGE_NAME}"
 fi
 

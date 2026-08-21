@@ -1,8 +1,10 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
+
+import { isSingleUserFallbackAllowed } from "@acme/api/ingress";
 
 import { getSession } from "~/auth/server";
 import { PageShell } from "~/components/page-shell";
-import { env } from "~/env";
 import { HydrateClient, prefetch, trpc } from "~/trpc/server";
 import { AuthShowcase } from "./_components/auth-showcase";
 import { DashboardHome } from "./_components/dashboard-home";
@@ -12,11 +14,10 @@ const DEV_USER_ID = "seed-user-001";
 export default async function HomePage() {
   const session = await getSession();
 
-  // In development, or whenever the explicit DEV_BYPASS_AUTH opt-in is set
-  // (the HA add-on's single-user mode behind ingress), fall back to the seed
-  // user so the app is usable without OAuth. Real auth is required otherwise.
-  const devFallbackAllowed =
-    env.NODE_ENV === "development" || env.DEV_BYPASS_AUTH === "true";
+  // Behind HA ingress (the add-on's single-user mode) and in local
+  // development, fall back to the seed user so the app is usable without
+  // OAuth. Real auth is required for anything else — see @acme/api/ingress.
+  const devFallbackAllowed = isSingleUserFallbackAllowed(await headers());
   const userId = session?.user.id ?? (devFallbackAllowed ? DEV_USER_ID : null);
 
   if (!userId) {

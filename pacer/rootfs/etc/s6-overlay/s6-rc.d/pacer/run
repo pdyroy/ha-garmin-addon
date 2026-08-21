@@ -135,10 +135,16 @@ export USER_TIMEZONE
 export DATABASE_URL="postgresql://postgres@127.0.0.1:5432/pacer"
 export POSTGRES_URL="postgresql://postgres@127.0.0.1:5432/pacer"
 # Single-user auth passthrough: HA ingress is the authentication layer, so
-# the bundled app runs with its own auth bypassed (documented single-user
-# model — see app repo #278). The variable name is historical; a rename to
-# INGRESS_AUTH_PASSTHROUGH is pending in the app repo.
-export DEV_BYPASS_AUTH="true"
+# the bundled app has no login of its own. It used to run with the session
+# guard switched off globally (DEV_BYPASS_AUTH=true), which also let every
+# other add-on on the hassio bridge network read the full health history and
+# overwrite the Garmin tokens by dialling port 3000 directly.
+#
+# Instead the ingress proxy now proves that a request came through the
+# Supervisor: it refuses foreign peers and stamps this per-boot token on
+# what it forwards. Next.js grants the single-user session only to requests
+# carrying it (packages/api/src/lib/ingress.ts).
+export INGRESS_AUTH_TOKEN="${INGRESS_AUTH_TOKEN:-$(cat /proc/sys/kernel/random/uuid)}"
 export NODE_ENV="production"
 export AUTH_SECRET="ha-addon-local-secret-$(cat /proc/sys/kernel/random/boot_id)"
 export AUTH_DISCORD_ID="unused"
@@ -482,10 +488,16 @@ esac
 bashio::log.info "Starting Pacer..."
 cd /app/apps/nextjs
 
-# Start Next.js on internal port (not exposed to ingress)
+# Start Next.js on internal port (not exposed to ingress).
+#
+# The Garmin and Strava credentials are dropped here: the Python workers and
+# the auth server use them, Next.js never reads them. It keeps the OpenRouter
+# key and the Ollama settings, which its coach routes do use.
 export HOSTNAME="127.0.0.1"
 export PORT="3001"
-node server.js &
+env -u GARMIN_EMAIL -u GARMIN_PASSWORD \
+    -u STRAVA_CLIENT_ID -u STRAVA_CLIENT_SECRET -u STRAVA_REFRESH_TOKEN \
+    node server.js &
 NEXTJS_PID=$!
 
 # Wait for Next.js to be ready
@@ -502,7 +514,14 @@ done
 bashio::log.info "Starting ingress proxy..."
 export PORT="3000"
 export NEXT_INTERNAL_PORT="3001"
-node /app/ingress-proxy.js &
+# The proxy is the only process reachable from the hassio network, so it gets
+# no secrets at all beyond its own ingress token — it shuffles bytes between
+# two sockets and rewrites asset paths.
+env -u GARMIN_EMAIL -u GARMIN_PASSWORD \
+    -u STRAVA_CLIENT_ID -u STRAVA_CLIENT_SECRET -u STRAVA_REFRESH_TOKEN \
+    -u OPENROUTER_API_KEY -u AUTH_SECRET -u INTERNAL_TASK_TOKEN \
+    -u SUPERVISOR_TOKEN -u GARMIN_WEBHOOK_SECRET \
+    node /app/ingress-proxy.js &
 INGRESS_PID=$!
 
 # ─── Process monitoring loop ─────────────────────────────────────────────────
@@ -585,13 +604,23 @@ while true; do
     if ! kill -0 "$NEXTJS_PID" 2>/dev/null; then
         bashio::log.warning "Next.js died, restarting..."
         cd /app/apps/nextjs
-        HOSTNAME="127.0.0.1" PORT="3001" node server.js &
+        HOSTNAME="127.0.0.1" PORT="3001" \
+            env -u GARMIN_EMAIL -u GARMIN_PASSWORD \
+                -u STRAVA_CLIENT_ID -u STRAVA_CLIENT_SECRET \
+                -u STRAVA_REFRESH_TOKEN \
+                node server.js &
         NEXTJS_PID=$!
     fi
 
     if ! kill -0 "$INGRESS_PID" 2>/dev/null; then
         bashio::log.warning "Ingress proxy died, restarting..."
-        PORT="3000" NEXT_INTERNAL_PORT="3001" node /app/ingress-proxy.js &
+        PORT="3000" NEXT_INTERNAL_PORT="3001" \
+            env -u GARMIN_EMAIL -u GARMIN_PASSWORD \
+                -u STRAVA_CLIENT_ID -u STRAVA_CLIENT_SECRET \
+                -u STRAVA_REFRESH_TOKEN -u OPENROUTER_API_KEY \
+                -u AUTH_SECRET -u INTERNAL_TASK_TOKEN \
+                -u SUPERVISOR_TOKEN -u GARMIN_WEBHOOK_SECRET \
+                node /app/ingress-proxy.js &
         INGRESS_PID=$!
     fi
 

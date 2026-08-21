@@ -22,7 +22,6 @@ RUN echo 'DATABASE_URL="postgresql://build:build@localhost:5432/build"' > .env &
     echo 'AUTH_SECRET="build-placeholder"' >> .env && \
     echo 'AUTH_DISCORD_ID="build-placeholder"' >> .env && \
     echo 'AUTH_DISCORD_SECRET="build-placeholder"' >> .env && \
-    echo 'DEV_BYPASS_AUTH="true"' >> .env && \
     echo 'OLLAMA_URL=""' >> .env && \
     echo 'OLLAMA_MODEL=""' >> .env
 

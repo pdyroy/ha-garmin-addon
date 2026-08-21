@@ -14,6 +14,10 @@
     "./learning": {
       "types": "./dist/lib/learning.d.ts",
       "default": "./src/lib/learning.ts"
+    },
+    "./ingress": {
+      "types": "./dist/lib/ingress.d.ts",
+      "default": "./src/lib/ingress.ts"
     }
   },
   "license": "MIT",
