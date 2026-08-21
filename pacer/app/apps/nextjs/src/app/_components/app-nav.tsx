@@ -33,6 +33,7 @@ export const navSections: NavSection[] = [
       { href: "/trends", label: "Trends", icon: "📊" },
       { href: "/training", label: "Training Load", icon: "💪" },
       { href: "/hrv", label: "HRV-Analyse", icon: "💓" },
+      { href: "/energy", label: "Energiekonto", icon: "🔋" },
       { href: "/zones", label: "HF-Zonen", icon: "📶" },
       { href: "/fitness", label: "Fitness", icon: "🏋️" },
       { href: "/power", label: "Power", icon: "⚡" },
@@ -82,12 +83,12 @@ export function AppNav() {
   return (
     <nav
       aria-label="Hauptnavigation"
-      className="bg-card border-border group fixed inset-y-0 left-0 z-40 hidden flex-col overflow-x-hidden overflow-y-auto border-r transition-[width] duration-200 sm:flex sm:w-16 sm:hover:w-64 sm:focus-within:w-64 lg:w-64"
+      className="bg-card border-border group fixed inset-y-0 left-0 z-40 hidden flex-col overflow-x-hidden overflow-y-auto border-r transition-[width] duration-200 sm:flex sm:w-16 sm:focus-within:w-64 sm:hover:w-64 lg:w-64"
     >
       <div className="flex flex-col gap-4 px-2 py-4">
         {navSections.map((section) => (
           <div key={section.title}>
-            <h2 className="text-muted-foreground mb-1 px-3 text-xs font-medium tracking-wider whitespace-nowrap uppercase opacity-0 transition-opacity duration-200 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 lg:opacity-100">
+            <h2 className="text-muted-foreground mb-1 px-3 text-xs font-medium tracking-wider whitespace-nowrap uppercase opacity-0 transition-opacity duration-200 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100 lg:opacity-100">
               {section.title}
             </h2>
             <ul className="space-y-0.5">
@@ -99,7 +100,7 @@ export function AppNav() {
                       href={item.href}
                       aria-current={active ? "page" : undefined}
                       className={cn(
-                        "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                        "focus-visible:ring-primary flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
                         active
                           ? "bg-primary/10 text-primary font-semibold"
                           : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -108,7 +109,7 @@ export function AppNav() {
                       <span className="shrink-0 text-base" aria-hidden="true">
                         {item.icon}
                       </span>
-                      <span className="opacity-0 whitespace-nowrap transition-opacity duration-200 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 lg:opacity-100">
+                      <span className="whitespace-nowrap opacity-0 transition-opacity duration-200 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100 lg:opacity-100">
                         {item.label}
                       </span>
                     </Link>

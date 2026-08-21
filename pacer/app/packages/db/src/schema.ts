@@ -118,6 +118,12 @@ export const DailyMetric = pgTable(
     garminReadinessFactors: t.jsonb(),
     weightKg: t.doublePrecision(),
     bodyFatPct: t.doublePrecision(),
+    // Intraday series as [[epoch_millis, value], ...], lifted from the
+    // stress payload garmin-sync.py already fetches. Same ALTER TABLE
+    // caveat as the columns above: declared here or `drizzle-kit push`
+    // drops them on the next boot.
+    bodyBatteryIntraday: t.jsonb().$type<[number, number][]>(),
+    stressIntraday: t.jsonb().$type<[number, number][]>(),
   }),
   (table) => [
     uniqueIndex("daily_metric_user_date_unique").on(table.userId, table.date),

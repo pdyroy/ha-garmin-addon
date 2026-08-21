@@ -4,7 +4,12 @@ import { z } from "zod/v4";
 import type { DailyMetricInput } from "@acme/engine";
 import { and, desc, eq, gte } from "@acme/db";
 import { Activity, DailyMetric, Profile } from "@acme/db/schema";
-import { computeStrainScore, generateSleepCoachResult } from "@acme/engine";
+import {
+  computeChronotype,
+  computeSleepWindow,
+  computeStrainScore,
+  generateSleepCoachResult,
+} from "@acme/engine";
 
 import { protectedProcedure } from "../trpc";
 
@@ -62,11 +67,13 @@ export const sleepRouter = {
     const isAthlete =
       (profile?.experienceLevel ?? "intermediate") !== "beginner";
 
-    // Fetch last 7 days of DailyMetric
+    // 28 days: the sleep need and debt only look at the last 7 (the engine
+    // slices internally), but the chronotype needs >= 3 free and >= 3 work
+    // days before it will return anything.
     const recentMetrics = await ctx.db.query.DailyMetric.findMany({
       where: and(
         eq(DailyMetric.userId, userId),
-        gte(DailyMetric.date, getDateString(7)),
+        gte(DailyMetric.date, getDateString(28)),
       ),
       orderBy: desc(DailyMetric.date),
     });
@@ -94,13 +101,27 @@ export const sleepRouter = {
     // Use most recent sleepEndTime as wake time proxy
     const wakeTime = recentMetrics[0]?.sleepEndTime ?? null;
 
-    return generateSleepCoachResult(
+    const coach = generateSleepCoachResult(
       age,
       isAthlete,
       recentStrain,
       metricInputs,
       wakeTime,
     );
+
+    // Target bedtime and wake window, anchored to the body clock where the
+    // chronotype is computable and to the habitual wake time otherwise.
+    // Unlike `coach.recommendedBedtime` — which extrapolates from a single
+    // night's wake time — this one is a median over the whole window.
+    const chronotype = computeChronotype(metricInputs);
+    const sleepWindow = computeSleepWindow({
+      recentMetrics: metricInputs,
+      sleepNeedMinutes: coach.recommendedMinutes,
+      sleepDebtMinutes: coach.sleepDebtMinutes,
+      msfScMinutes: chronotype.value?.msfScMinutes ?? null,
+    });
+
+    return { ...coach, sleepWindow };
   }),
 
   getHistory: protectedProcedure

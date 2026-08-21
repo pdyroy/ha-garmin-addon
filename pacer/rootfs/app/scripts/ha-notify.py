@@ -11,7 +11,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 from zoneinfo import ZoneInfo
 
@@ -171,6 +171,174 @@ def _derive_load_focus_label(
     if aerobic_high > aerobic_low:
         return "high_aerobic"
     return "low_aerobic"
+
+
+# Fitness age — OLS fit of the Loe et al. (PLoS One 2013;8(5):e64319) HUNT3
+# decade means for directly measured VO2max. Mirrors
+# app/packages/engine/src/fitness-age/index.ts; the engine unit test is the
+# canonical arbiter, so change both together.
+FITNESS_AGE_REFERENCE = {
+    "male": (63.18, 0.3709),
+    "female": (50.75, 0.2977),
+    "pooled": (56.96, 0.3343),
+}
+
+# VO2max source priority, mirroring app/packages/api/src/lib/vo2max.ts so the
+# sensor and the web UI never disagree on which estimate is "current".
+VO2_SOURCE_PRIORITY_SQL = """
+    SELECT value, source FROM vo2max_estimate
+    WHERE user_id = %s AND date >= CURRENT_DATE - INTERVAL '90 days'
+    ORDER BY CASE source
+                 WHEN 'garmin_official' THEN 0
+                 WHEN 'running_pace_hr' THEN 1
+                 WHEN 'cooper' THEN 2
+                 WHEN 'uth_method' THEN 4
+                 WHEN 'uth_ratio' THEN 4
+                 ELSE 3
+             END ASC,
+             date DESC
+    LIMIT 1
+"""
+
+
+def compute_fitness_age(
+    vo2max: float | None, age: int | None, sex: str | None
+) -> tuple[int, int, float, str] | None:
+    """Return (fitness_age, delta_years, population_mean, method), or None.
+
+    None when VO2max or age is missing — there is no defensible guess for
+    either one.
+    """
+    if not vo2max or vo2max <= 0 or not age or age <= 0:
+        return None
+    method = sex if sex in ("male", "female") else "pooled"
+    intercept, slope = FITNESS_AGE_REFERENCE[method]
+    # The reference cohort spans 20-90; extrapolating past it is meaningless.
+    fitness_age = min(90, max(20, round((intercept - vo2max) / slope)))
+    return (
+        fitness_age,
+        round(fitness_age - age),
+        round(intercept - slope * age, 1),
+        method,
+    )
+
+
+def fetch_fitness_age(cur, user_id: str) -> tuple[int, int, float, str] | None:
+    """Load the current VO2max plus profile age/sex and derive fitness age."""
+    cur.execute(VO2_SOURCE_PRIORITY_SQL, (user_id,))
+    vo2_row = cur.fetchone()
+    cur.execute(
+        "SELECT age, sex FROM profile WHERE user_id = %s LIMIT 1", (user_id,)
+    )
+    profile = cur.fetchone()
+    if not vo2_row or not profile:
+        return None
+    return compute_fitness_age(vo2_row["value"], profile["age"], profile["sex"])
+
+
+# Target bedtime and wake window. Mirrors computeSleepWindow() in
+# app/packages/engine/src/sleep-coach/index.ts — the engine unit test is the
+# canonical arbiter, so change both together.
+#
+# ponytail: this mirror anchors on the habitual wake time only. The web UI
+# additionally anchors on MSFsc (chronotype) when it is computable, which for
+# a strongly late chronotype can sit up to an hour away from the habitual
+# wake time. Both surfaces publish which anchor they used. Upgrade path:
+# compute the window once in metrics-compute.py and read it here.
+SLEEP_ONSET_LATENCY_MINUTES = 15
+MAX_NIGHTLY_DEBT_PAYBACK_MINUTES = 30
+WAKE_WINDOW_HALF_MINUTES = 20
+MIN_NIGHTS_FOR_HABIT = 4
+
+
+def _parse_hhmm(value: str | None) -> int | None:
+    """'HH:MM' -> minutes since local midnight, or None."""
+    if not value or ":" not in value:
+        return None
+    try:
+        h, m = (int(part) for part in value.split(":")[:2])
+    except ValueError:
+        return None
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        return None
+    return h * 60 + m
+
+
+def _format_hhmm(minutes: float) -> str:
+    wrapped = int(round(minutes)) % 1440
+    return f"{wrapped // 60:02d}:{wrapped % 60:02d}"
+
+
+def _circular_median(values: Sequence[int]) -> float:
+    """Median of clock times, anchored at 18:00 so a cluster spanning
+    midnight (23:50, 00:10) averages to midnight rather than to noon."""
+    anchor = 18 * 60
+    shifted = sorted((v - anchor) % 1440 for v in values)
+    mid = len(shifted) // 2
+    median = (
+        shifted[mid]
+        if len(shifted) % 2 == 1
+        else (shifted[mid - 1] + shifted[mid]) / 2
+    )
+    return (median + anchor) % 1440
+
+
+def _next_local_occurrence(hhmm: str) -> str:
+    """Next local datetime at HH:MM, ISO 8601 with offset, for HA's
+    timestamp device class."""
+    now = datetime.now(USER_TZ)
+    h, m = (int(part) for part in hhmm.split(":"))
+    candidate = now.replace(hour=h, minute=m, second=0, microsecond=0)
+    if candidate <= now:
+        candidate += timedelta(days=1)
+    return candidate.isoformat()
+
+
+def fetch_sleep_window(cur, user_id: str) -> dict | None:
+    """Target bedtime and wake window from the habitual wake time."""
+    cur.execute(
+        """
+        SELECT sleep_end_time, sleep_need_minutes, sleep_debt_minutes
+        FROM daily_metric
+        WHERE user_id = %s
+        ORDER BY date DESC LIMIT 14
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    if not rows:
+        return None
+
+    wake_times = [
+        parsed
+        for parsed in (_parse_hhmm(r["sleep_end_time"]) for r in rows)
+        if parsed is not None
+    ]
+    if len(wake_times) < MIN_NIGHTS_FOR_HABIT:
+        return None
+
+    need = next(
+        (r["sleep_need_minutes"] for r in rows if r["sleep_need_minutes"]), None
+    )
+    if not need or need <= 0:
+        return None
+    debt = next(
+        (r["sleep_debt_minutes"] for r in rows if r["sleep_debt_minutes"]), 0
+    ) or 0
+
+    payback = min(max(debt, 0), MAX_NIGHTLY_DEBT_PAYBACK_MINUTES)
+    target_wake = _circular_median(wake_times)
+    bedtime = target_wake - need - payback - SLEEP_ONSET_LATENCY_MINUTES
+
+    return {
+        "bedtime": _format_hhmm(bedtime),
+        "wake": _format_hhmm(target_wake),
+        "wake_start": _format_hhmm(target_wake - WAKE_WINDOW_HALF_MINUTES),
+        "wake_end": _format_hhmm(target_wake + WAKE_WINDOW_HALF_MINUTES),
+        "need_minutes": int(need),
+        "debt_payback_minutes": int(payback),
+        "nights_used": len(wake_times),
+    }
 
 
 def get_latest_metrics(cur, user_id: str) -> dict:
@@ -801,6 +969,53 @@ def run_notifications(user_id: str):
                 "unit_of_measurement": "kg",
                 "icon": "mdi:scale-bathroom",
                 "body_fat_pct": dm.get("body_fat_pct") if dm else None,
+            },
+        )
+
+        # sensor.pacer_bedtime_target / sensor.pacer_wake_window
+        # Timestamp state so a blueprint can use a plain time trigger.
+        sw = fetch_sleep_window(cur, user_id)
+        push_sensor(
+            "sensor.pacer_bedtime_target",
+            _next_local_occurrence(sw["bedtime"]) if sw else "unknown",
+            {
+                "friendly_name": "Pacer Bedtime Target",
+                "device_class": "timestamp",
+                "icon": "mdi:bed-clock",
+                "local_time": sw["bedtime"] if sw else None,
+                "sleep_need_minutes": sw["need_minutes"] if sw else None,
+                "debt_payback_minutes": sw["debt_payback_minutes"] if sw else None,
+                "nights_used": sw["nights_used"] if sw else None,
+                "anchor": "habit",
+            },
+        )
+        push_sensor(
+            "sensor.pacer_wake_window",
+            f"{sw['wake_start']}-{sw['wake_end']}" if sw else "unknown",
+            {
+                "friendly_name": "Pacer Wake Window",
+                "icon": "mdi:alarm",
+                "start": sw["wake_start"] if sw else None,
+                "end": sw["wake_end"] if sw else None,
+                "target": sw["wake"] if sw else None,
+                "anchor": "habit",
+            },
+        )
+
+        # sensor.pacer_fitness_age — VO2max expressed as an age against the
+        # Loe 2013 HUNT3 reference cohort. A re-expression of the VO2max
+        # percentile, not a biological-age biomarker.
+        fitness_age = fetch_fitness_age(cur, user_id)
+        push_sensor(
+            "sensor.pacer_fitness_age",
+            fitness_age[0] if fitness_age else "unknown",
+            {
+                "friendly_name": "Pacer Fitness Age",
+                "unit_of_measurement": "a",
+                "icon": "mdi:account-clock",
+                "delta_years": fitness_age[1] if fitness_age else None,
+                "population_mean_vo2max": fitness_age[2] if fitness_age else None,
+                "reference_curve": fitness_age[3] if fitness_age else None,
             },
         )
 

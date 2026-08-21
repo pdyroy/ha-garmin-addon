@@ -232,6 +232,14 @@ psql -h 127.0.0.1 -U postgres -d pacer -c \
 psql -h 127.0.0.1 -U postgres -d pacer -c \
   "ALTER TABLE daily_metric ADD COLUMN IF NOT EXISTS body_fat_pct DOUBLE PRECISION;" 2>/dev/null
 
+# Intraday Body Battery and stress series, [[epoch_millis, value], ...],
+# lifted from the stress payload garmin-sync already fetches. Source of the
+# energy-bank view.
+psql -h 127.0.0.1 -U postgres -d pacer -c \
+  "ALTER TABLE daily_metric ADD COLUMN IF NOT EXISTS body_battery_intraday JSONB;" 2>/dev/null
+psql -h 127.0.0.1 -U postgres -d pacer -c \
+  "ALTER TABLE daily_metric ADD COLUMN IF NOT EXISTS stress_intraday JSONB;" 2>/dev/null
+
 # Fix readiness_score table: align columns with Drizzle schema (v0.14.0 bug)
 # Drizzle uses: score, zone, explanation
 # Old metrics-compute.py used: readiness_score, readiness_zone, readiness_explanation

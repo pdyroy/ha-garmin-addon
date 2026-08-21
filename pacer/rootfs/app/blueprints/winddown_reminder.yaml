@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: 2026 pdyroy <35566277+pdyroy@users.noreply.github.com>
+---
+blueprint:
+  name: "Pacer: Wind-Down Reminder"
+  description: >
+    Fires a configurable number of minutes before Pacer's target bedtime,
+    which is derived from the athlete's sleep need, current sleep debt and
+    habitual wake time. Sends a reminder, and optionally dims lights and
+    activates a wind-down scene.
+
+    The target bedtime moves with the data, so this automation follows it
+    without a fixed schedule.
+  domain: automation
+  author: askb
+  source_url: >-
+    https://github.com/askb/ha-garmin-fitness-coach-addon/blob/main/pacer/rootfs/app/blueprints/winddown_reminder.yaml
+  input:
+    bedtime_sensor:
+      name: Bedtime Target Sensor
+      description: >
+        Pacer bedtime target sensor. Its state is the next target bedtime
+        as a timestamp.
+      default: sensor.pacer_bedtime_target
+      selector:
+        entity:
+          domain: sensor
+    lead_offset:
+      name: Lead Time
+      description: >
+        Offset applied to the target bedtime, as HH:MM:SS. Must be negative
+        to fire before bedtime — "-00:45:00" reminds 45 minutes ahead.
+      default: "-00:45:00"
+      selector:
+        text: {}
+    winddown_scene:
+      name: Wind-Down Scene (optional)
+      description: Scene to activate. Leave empty to skip.
+      default: {}
+      selector:
+        entity:
+          domain: scene
+    light_target:
+      name: Lights to Dim (optional)
+      description: Lights to set to warm dim when the reminder fires.
+      default: {}
+      selector:
+        target:
+          entity:
+            domain: light
+    notify_service:
+      name: Notification Service
+      description: >
+        Notification service for the reminder
+        (e.g., notify.mobile_app_phone).
+      default: notify.persistent_notification
+      selector:
+        text: {}
+
+trigger:
+  # A time trigger accepts a timestamp sensor directly; the offset is
+  # applied to whatever the sensor currently holds, so a bedtime that
+  # shifts with tonight's sleep debt shifts this trigger with it.
+  - platform: time
+    at:
+      entity_id: !input bedtime_sensor
+      offset: !input lead_offset
+
+condition:
+  # Skip the run entirely when the sensor has no usable value — Pacer
+  # publishes "unknown" until it has at least four nights of wake times.
+  - condition: template
+    value_template: >-
+      {{ states(bedtime_sensor) not in ['unknown', 'unavailable', 'none'] }}
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ winddown_scene is defined and winddown_scene }}"
+        sequence:
+          - service: scene.turn_on
+            target:
+              entity_id: !input winddown_scene
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ light_target is defined and light_target }}"
+        sequence:
+          - service: light.turn_on
+            target: !input light_target
+            data:
+              brightness_pct: 25
+              color_temp_kelvin: 2200
+  - service: !input notify_service
+    data:
+      title: "🌙 Zeit zum Runterfahren"
+      message: >-
+        Zielzeit fürs Zubettgehen:
+        {{ state_attr(bedtime_sensor, 'local_time') or
+           as_timestamp(states(bedtime_sensor)) | timestamp_custom('%H:%M') }}.
+        Aufwachfenster: {{ state_attr('sensor.pacer_wake_window', 'start') }}–{{
+        state_attr('sensor.pacer_wake_window', 'end') }}.
+
+mode: single
+max_exceeded: silent

@@ -464,6 +464,51 @@ def _extract_body_battery(stats, date_str):
     return high, low, current
 
 
+def _extract_intraday(stress: Any, key: str) -> str | None:
+    """Serialise one of the intraday arrays from the stress payload.
+
+    ``get_stress_data()`` — already fetched for the daily stress average —
+    also carries the minute-by-minute series that the energy-bank view is
+    built from, so persisting them costs no extra API call. The two arrays
+    do not share a shape:
+
+        stressValuesArray:      [[epoch_millis, level], ...]
+        bodyBatteryValuesArray: [[epoch_millis, status, level, version], ...]
+
+    Both are normalised to ``[[epoch_millis, value], ...]``. Entries whose
+    value is missing or negative are dropped, not interpolated: Garmin uses
+    -1 and -2 in the stress series to mean "no usable reading", and the
+    body-battery series carries status-only rows during gaps.
+    """
+    if not isinstance(stress, dict):
+        return None
+    raw = stress.get(key)
+    if not isinstance(raw, list):
+        return None
+
+    points: list[list[float]] = []
+    for entry in raw:
+        if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+            continue
+        ts = entry[0]
+        if not isinstance(ts, (int, float)) or isinstance(ts, bool):
+            continue
+        # Body battery puts the level in the third slot, behind a status
+        # string; stress puts it in the second.
+        value = (
+            entry[2]
+            if len(entry) >= 3 and isinstance(entry[2], (int, float))
+            else entry[1]
+        )
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            continue
+        if value < 0:
+            continue
+        points.append([int(ts), float(value)])
+
+    return json.dumps(points) if points else None
+
+
 def sync_daily_stats(client: Any, db: Any, date_str: str) -> bool:
     """Sync daily health stats for a given date."""
     cur = db.cursor()
@@ -614,8 +659,9 @@ def sync_daily_stats(client: Any, db: Any, date_str: str) -> bool:
                 sleep_start_time, sleep_end_time, sleep_need_minutes, sleep_debt_minutes,
                 spo2, respiration_rate, skin_temp,
                 weight_kg, body_fat_pct,
+                body_battery_intraday, stress_intraday,
                 synced_at, data_quality
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (user_id, date) DO UPDATE SET
                 steps = EXCLUDED.steps,
                 calories = EXCLUDED.calories,
@@ -644,6 +690,8 @@ def sync_daily_stats(client: Any, db: Any, date_str: str) -> bool:
                 skin_temp = COALESCE(EXCLUDED.skin_temp, daily_metric.skin_temp),
                 weight_kg = COALESCE(EXCLUDED.weight_kg, daily_metric.weight_kg),
                 body_fat_pct = COALESCE(EXCLUDED.body_fat_pct, daily_metric.body_fat_pct),
+                body_battery_intraday = COALESCE(EXCLUDED.body_battery_intraday, daily_metric.body_battery_intraday),
+                stress_intraday = COALESCE(EXCLUDED.stress_intraday, daily_metric.stress_intraday),
                 synced_at = EXCLUDED.synced_at,
                 data_quality = EXCLUDED.data_quality
         """,
@@ -688,6 +736,8 @@ def sync_daily_stats(client: Any, db: Any, date_str: str) -> bool:
                 skin_temp_val,
                 weight_kg,
                 body_fat_pct,
+                _extract_intraday(stress, "bodyBatteryValuesArray"),
+                _extract_intraday(stress, "stressValuesArray"),
                 datetime.now(timezone.utc).isoformat(),
                 data_quality,
             ),

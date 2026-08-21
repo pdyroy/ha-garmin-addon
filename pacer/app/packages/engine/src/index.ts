@@ -116,6 +116,23 @@ export type {
   RacePredictionFitResult,
 } from "./vo2max";
 
+// Energy bank — intraday Body Battery attribution (Firstbeat 2014)
+export { computeEnergyBank } from "./energy-bank";
+export type {
+  EnergyBankActivityInput,
+  EnergyBankInput,
+  EnergyBankOutput,
+  EnergyBankPoint,
+  EnergyBankResult,
+  EnergyBankSegment,
+  EnergyBankSource,
+} from "./energy-bank";
+
+// Fitness age — VO2max expressed as an age against the HUNT3 reference
+// cohort (Loe et al., PLoS One 2013)
+export { computeFitnessAge } from "./fitness-age";
+export type { FitnessAgeInput, FitnessAgeResult } from "./fitness-age";
+
 export {
   classifyTrainingStatus,
   estimateRecoveryTime,
@@ -125,6 +142,12 @@ export {
   calculateSleepNeed,
   calculateSleepDebt,
   generateSleepCoachResult,
+  computeSleepWindow,
+} from "./sleep-coach";
+export type {
+  SleepWindowInput,
+  SleepWindowOutput,
+  SleepWindowResult,
 } from "./sleep-coach";
 
 export {
@@ -169,10 +192,7 @@ export {
 } from "./learning";
 
 // NightSignal — overnight RHR state machine (Alavi et al. Nat Med 2022)
-export {
-  computeNightSignalSeries,
-  getLatestNightSignal,
-} from "./night-signal";
+export { computeNightSignalSeries, getLatestNightSignal } from "./night-signal";
 export type { NightSignalState, NightSignalResult } from "./night-signal";
 
 // HRV baseline — log-space M7/SWC band + HRV x RHR quadrants (Plews et al.

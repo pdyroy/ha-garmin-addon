@@ -1,8 +1,9 @@
 import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
 
-import { and, asc, eq, gte } from "@acme/db";
-import { DailyMetric } from "@acme/db/schema";
+import { and, asc, desc, eq, gte, lte } from "@acme/db";
+import { Activity, DailyMetric, Profile } from "@acme/db/schema";
+import { computeEnergyBank } from "@acme/engine";
 
 import { protectedProcedure } from "../trpc";
 
@@ -221,6 +222,87 @@ export const vitalsRouter = {
           bodyFatPct: null,
           message: "Connect a Garmin Index scale",
         },
+      };
+    }),
+
+  /**
+   * Intraday Body Battery curve for one day, plus what charged and drained
+   * it. `date` defaults to the most recent day that has an intraday series —
+   * Garmin backfills it with the rest of the day's stats, so "today" is
+   * often still empty in the morning.
+   */
+  getEnergyBank: protectedProcedure
+    .input(z.object({ date: z.string().optional() }).default({}))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const metric = input.date
+        ? await ctx.db.query.DailyMetric.findFirst({
+            where: and(
+              eq(DailyMetric.userId, userId),
+              eq(DailyMetric.date, input.date),
+            ),
+          })
+        : await ctx.db.query.DailyMetric.findFirst({
+            where: eq(DailyMetric.userId, userId),
+            orderBy: desc(DailyMetric.date),
+          });
+
+      const series = metric?.bodyBatteryIntraday ?? [];
+      if (!metric || series.length < 2) {
+        return {
+          date: metric?.date ?? null,
+          series: [],
+          stressSeries: [],
+          activities: [],
+          energyBank: {
+            value: null,
+            reason:
+              "Noch keine Intraday-Daten für diesen Tag. Sie kommen mit dem nächsten Garmin-Sync.",
+          },
+        };
+      }
+
+      const dayStart = new Date(`${metric.date}T00:00:00.000Z`);
+      const dayEnd = new Date(dayStart.getTime() + 36 * 3600 * 1000);
+      const activities = await ctx.db.query.Activity.findMany({
+        where: and(
+          eq(Activity.userId, userId),
+          gte(
+            Activity.startedAt,
+            new Date(dayStart.getTime() - 12 * 3600 * 1000),
+          ),
+          lte(Activity.startedAt, dayEnd),
+        ),
+        orderBy: asc(Activity.startedAt),
+      });
+
+      const profile = await ctx.db.query.Profile.findFirst({
+        where: eq(Profile.userId, userId),
+      });
+
+      const activityInputs = activities.map((a) => ({
+        id: a.id,
+        label: a.sportType,
+        startTs: a.startedAt.getTime(),
+        endTs:
+          a.endedAt?.getTime() ??
+          a.startedAt.getTime() + a.durationMinutes * 60_000,
+      }));
+
+      return {
+        date: metric.date,
+        series,
+        stressSeries: metric.stressIntraday ?? [],
+        activities: activityInputs,
+        energyBank: computeEnergyBank({
+          bodyBattery: series,
+          stress: metric.stressIntraday,
+          activities: activityInputs,
+          timezone: profile?.timezone ?? "UTC",
+          sleepStartTime: metric.sleepStartTime,
+          sleepEndTime: metric.sleepEndTime,
+        }),
       };
     }),
 } satisfies TRPCRouterRecord;

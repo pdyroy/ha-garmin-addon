@@ -1,6 +1,11 @@
 import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
 
+import type {
+  DailyMetricInput,
+  HrvRhrDailyPoint,
+  RaceEffortInput,
+} from "@acme/engine";
 import { and, asc, desc, eq, gte, lte } from "@acme/db";
 import {
   Activity,
@@ -10,11 +15,6 @@ import {
   TrainingStatus,
   VO2maxEstimate,
 } from "@acme/db/schema";
-import type {
-  DailyMetricInput,
-  HrvRhrDailyPoint,
-  RaceEffortInput,
-} from "@acme/engine";
 import {
   analyzeRunningForm,
   buildWhatIfOptions,
@@ -25,6 +25,7 @@ import {
   computeACWR_EWMA,
   computeBedtimeVariability,
   computeChronotype,
+  computeFitnessAge,
   computeHrvBaselineStatus,
   computeNightSignalSeries,
   computeSleepMidpointVariability,
@@ -432,6 +433,19 @@ export const analyticsRouter = {
         orderBy: [desc(VO2maxEstimate.date)],
         limit: 30,
       });
+      const latestBest = pickBestVO2maxEstimate(recentForLatest) ?? null;
+
+      // Fitness age rides along with the VO2max it is derived from, so the
+      // card can never show an age computed from a different estimate than
+      // the one displayed next to it.
+      const profile = await ctx.db.query.Profile.findFirst({
+        where: eq(Profile.userId, userId),
+      });
+      const fitnessAge = computeFitnessAge({
+        vo2max: latestBest?.value,
+        age: profile?.age,
+        sex: profile?.sex,
+      });
 
       return {
         estimates,
@@ -444,7 +458,8 @@ export const analyticsRouter = {
         // Computed from `recentForLatest` (unwindowed last-30) — same pool
         // the coach reads — so the two surfaces never disagree regardless
         // of which chart range the user selects.
-        latestBest: pickBestVO2maxEstimate(recentForLatest) ?? null,
+        latestBest,
+        fitnessAge,
       };
     }),
 
@@ -716,9 +731,7 @@ export const analyticsRouter = {
       // Single-window primitives (not series generators) — the caller's
       // "current" trailing window is the last 14 nights.
       bedtimeVariability: computeBedtimeVariability(nights.slice(0, 14)),
-      midpointVariability: computeSleepMidpointVariability(
-        nights.slice(0, 14),
-      ),
+      midpointVariability: computeSleepMidpointVariability(nights.slice(0, 14)),
       chronotype: computeChronotype(nights),
     };
   }),

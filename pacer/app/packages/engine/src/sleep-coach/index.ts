@@ -158,3 +158,157 @@ export function generateSleepCoachResult(
     insight,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Sleep window — target bedtime and wake window
+// ---------------------------------------------------------------------------
+
+/** "HH:MM" → minutes since local midnight, or null when unparseable. */
+function parseHHMM(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const [h, m] = value.split(":").map(Number);
+  if (h === undefined || m === undefined) return null;
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return h * 60 + m;
+}
+
+/** Minutes since local midnight → "HH:MM", wrapping across midnight. */
+function formatHHMM(minutes: number): string {
+  const wrapped = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  const h = Math.floor(wrapped / 60);
+  const m = wrapped % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * Circular median of clock times, anchored at 18:00 so a cluster spanning
+ * midnight (23:50, 00:10) averages to midnight instead of noon. Same anchor
+ * the sleep-regularity module uses for sleep midpoints.
+ */
+function circularMedian(minutes: number[]): number {
+  const ANCHOR = 18 * 60;
+  const shifted = minutes
+    .map((m) => (((m - ANCHOR) % 1440) + 1440) % 1440)
+    .sort((a, b) => a - b);
+  const mid = Math.floor(shifted.length / 2);
+  const median =
+    shifted.length % 2 === 1
+      ? shifted[mid]!
+      : (shifted[mid - 1]! + shifted[mid]!) / 2;
+  return (median + ANCHOR) % 1440;
+}
+
+/** Sleep onset latency for healthy adults (Ohayon et al. 2004). */
+const SLEEP_ONSET_LATENCY_MINUTES = 15;
+/** Most sleep debt is repaid over several nights, not in one. */
+const MAX_NIGHTLY_DEBT_PAYBACK_MINUTES = 30;
+/** Half-width of the wake window. */
+const WAKE_WINDOW_HALF_MINUTES = 20;
+/** Minimum nights with a usable wake time before a habit median is trusted. */
+const MIN_NIGHTS_FOR_HABIT = 4;
+
+export interface SleepWindowInput {
+  /** Recent nights, most recent first. Only `sleepEndTime` is read. */
+  recentMetrics: DailyMetricInput[];
+  /** Tonight's sleep need in minutes — Garmin's, or `calculateSleepNeed`. */
+  sleepNeedMinutes: number;
+  /** Accumulated debt from `calculateSleepDebt`. */
+  sleepDebtMinutes: number;
+  /**
+   * Sleep-debt-corrected mid-sleep on free days, minutes since local
+   * midnight, from `computeChronotype`. When present it anchors the target
+   * wake time to the body clock rather than to the alarm clock.
+   */
+  msfScMinutes?: number | null;
+}
+
+export interface SleepWindowOutput {
+  /** "HH:MM" — lights out, already including sleep onset latency. */
+  targetBedtime: string;
+  /** "HH:MM" — the middle of the wake window. */
+  targetWakeTime: string;
+  wakeWindowStart: string;
+  wakeWindowEnd: string;
+  /** What the wake time was derived from. */
+  anchor: "chronotype" | "habit";
+  /** Minutes of debt repaid tonight, capped. */
+  debtPaybackMinutes: number;
+  /** Nights that contributed to the habitual wake time. */
+  nightsUsed: number;
+}
+
+export type SleepWindowResult =
+  | { value: SleepWindowOutput; reason?: undefined }
+  | { value: null; reason: string };
+
+/**
+ * Target bedtime and wake window.
+ *
+ * bedtime = wake − sleep need − capped debt payback − onset latency
+ *
+ * The wake time is the athlete's own MSFsc (mid-sleep on free days, corrected
+ * for workday sleep debt) plus half the sleep need, which puts the night
+ * symmetrically around the body clock — or, without a chronotype, the
+ * circular median of recent actual wake times. Both are descriptive: this
+ * recommends when to *start* the night, it does not move the alarm.
+ *
+ * The window is a flat ±20 min around the target. It is NOT sleep-cycle
+ * timing: Garmin exposes no live staging, so nothing here can claim to wake
+ * the athlete out of light sleep, and no wearable-alarm study supports doing
+ * so on retrospective data.
+ *
+ * Refs: Ohayon MM et al. Sleep. 2004;27(7):1255-1273 (onset latency);
+ *       Roenneberg T et al. Curr Biol. 2012;22(10):939-943 (MSFsc);
+ *       Van Dongen HPA et al. Sleep. 2003;26(2):117-126 (debt repayment).
+ */
+export function computeSleepWindow({
+  recentMetrics,
+  sleepNeedMinutes,
+  sleepDebtMinutes,
+  msfScMinutes,
+}: SleepWindowInput): SleepWindowResult {
+  if (!Number.isFinite(sleepNeedMinutes) || sleepNeedMinutes <= 0) {
+    return { value: null, reason: "No sleep need available." };
+  }
+
+  const wakeTimes = recentMetrics
+    .slice(0, 14)
+    .map((m) => parseHHMM(m.sleepEndTime))
+    .filter((m): m is number => m !== null);
+
+  let targetWake: number;
+  let anchor: "chronotype" | "habit";
+
+  if (msfScMinutes != null && Number.isFinite(msfScMinutes)) {
+    targetWake = (msfScMinutes + sleepNeedMinutes / 2) % 1440;
+    anchor = "chronotype";
+  } else if (wakeTimes.length >= MIN_NIGHTS_FOR_HABIT) {
+    targetWake = circularMedian(wakeTimes);
+    anchor = "habit";
+  } else {
+    return {
+      value: null,
+      reason: `Only ${wakeTimes.length} night(s) with a wake time and no chronotype (need >= ${MIN_NIGHTS_FOR_HABIT} nights).`,
+    };
+  }
+
+  const debtPayback = Math.min(
+    Math.max(sleepDebtMinutes, 0),
+    MAX_NIGHTLY_DEBT_PAYBACK_MINUTES,
+  );
+  const bedtime =
+    targetWake - sleepNeedMinutes - debtPayback - SLEEP_ONSET_LATENCY_MINUTES;
+
+  return {
+    value: {
+      targetBedtime: formatHHMM(bedtime),
+      targetWakeTime: formatHHMM(targetWake),
+      wakeWindowStart: formatHHMM(targetWake - WAKE_WINDOW_HALF_MINUTES),
+      wakeWindowEnd: formatHHMM(targetWake + WAKE_WINDOW_HALF_MINUTES),
+      anchor,
+      debtPaybackMinutes: Math.round(debtPayback),
+      nightsUsed: wakeTimes.length,
+    },
+  };
+}

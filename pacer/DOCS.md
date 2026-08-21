@@ -210,6 +210,9 @@ The addon pushes a set of Home Assistant sensors via the Supervisor API, includi
 | `sensor.pacer_injury_risk` | Risk level: Low / Moderate / High / Very High |
 | `sensor.pacer_body_battery` | Current Garmin Body Battery |
 | `sensor.pacer_sleep_debt` | Accumulated sleep debt (hours) |
+| `sensor.pacer_fitness_age` | VO2max expressed as an age against the HUNT3 reference cohort, with `delta_years` |
+| `sensor.pacer_bedtime_target` | Next target bedtime as a timestamp, with `local_time` and `anchor` |
+| `sensor.pacer_wake_window` | Wake window as `HH:MM-HH:MM`, with `start` / `end` / `target` |
 | `sensor.pacer_data_quality` | Unresolved sync-gap count (state) with `missing_days_14d`, `stale_days`, `field_gaps`, `status` (`ok`/`warn`/`error`) attributes |
 
 ## Hardware Requirements & Resource Usage

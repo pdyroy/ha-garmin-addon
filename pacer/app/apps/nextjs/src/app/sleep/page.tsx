@@ -20,10 +20,10 @@ import {
 import { cn } from "@acme/ui";
 
 import { IngressLink as Link } from "~/app/_components/ingress-link";
+import { PageShell } from "~/components/page-shell";
 import { formatDateInTz, useUserTimezone } from "~/lib/format-date";
 import { fmtNum } from "~/lib/format-number";
 import { useTRPC } from "~/trpc/react";
-import { PageShell } from "~/components/page-shell";
 import { BottomNav } from "../_components/bottom-nav";
 import { DateRangeSelector } from "../_components/date-range-selector";
 import { SectionHeader } from "../_components/info-button";
@@ -138,10 +138,21 @@ export default function SleepDashboard() {
   // (e.g. debt chart fallback) declared further down.
   const coachData = coach.data as
     | {
-        recommendedDurationMinutes: number;
+        recommendedMinutes: number;
         recommendedBedtime: string;
         sleepDebtMinutes: number;
         insight: string;
+        sleepWindow: {
+          value: {
+            targetBedtime: string;
+            targetWakeTime: string;
+            wakeWindowStart: string;
+            wakeWindowEnd: string;
+            anchor: "chronotype" | "habit";
+            debtPaybackMinutes: number;
+          } | null;
+          reason?: string;
+        };
       }
     | undefined;
 
@@ -301,7 +312,7 @@ export default function SleepDashboard() {
     if (!raw) return [];
     const data = [...raw].reverse();
     const slice = data.slice(-7);
-    const fallbackNeed = coachData?.recommendedDurationMinutes ?? 480; // 8h default
+    const fallbackNeed = coachData?.recommendedMinutes ?? 480; // 8h default
     return slice.map((d) => {
       const need = d.sleepNeedMinutes ?? fallbackNeed;
       const actual = d.totalSleepMinutes;
@@ -313,7 +324,7 @@ export default function SleepDashboard() {
         color: debtColor(debt),
       };
     });
-  }, [history.data, coachData?.recommendedDurationMinutes, timezone]);
+  }, [history.data, coachData?.recommendedMinutes, timezone]);
 
   // ---- Derived: Sleep timing range chart / nightly history ----
   const timingChartData = useMemo(() => {
@@ -387,11 +398,25 @@ export default function SleepDashboard() {
                   Empfehlung für heute Nacht
                 </p>
                 <p className="mt-1 text-3xl font-bold">
-                  {fmtDuration(coachData.recommendedDurationMinutes)}
+                  {fmtDuration(coachData.recommendedMinutes)}
                 </p>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  Zubettgehen: {coachData.recommendedBedtime}
+                  Zubettgehen:{" "}
+                  {coachData.sleepWindow.value?.targetBedtime ??
+                    coachData.recommendedBedtime}
                 </p>
+                {coachData.sleepWindow.value && (
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Aufwachfenster:{" "}
+                    {coachData.sleepWindow.value.wakeWindowStart}–
+                    {coachData.sleepWindow.value.wakeWindowEnd}
+                    <span className="ml-2 text-xs">
+                      {coachData.sleepWindow.value.anchor === "chronotype"
+                        ? "· an deinem Chronotyp ausgerichtet"
+                        : "· am Median deiner letzten Aufwachzeiten"}
+                    </span>
+                  </p>
+                )}
               </div>
               <span
                 className={cn(
@@ -704,7 +729,9 @@ export default function SleepDashboard() {
                   />
                   <Legend
                     wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-                    formatter={(v: string) => (v === "actual" ? "Ist" : "Bedarf")}
+                    formatter={(v: string) =>
+                      v === "actual" ? "Ist" : "Bedarf"
+                    }
                   />
                   <Bar
                     isAnimationActive={false}
@@ -880,8 +907,7 @@ export default function SleepDashboard() {
                         d.wakeTime != null
                           ? Math.min(
                               100,
-                              ((d.wakeTime + 1440 - windowStart) /
-                                windowSize) *
+                              ((d.wakeTime + 1440 - windowStart) / windowSize) *
                                 100,
                             )
                           : 0;
