@@ -24,6 +24,10 @@
       "name": "Sync Interval",
       "description": "How often to sync data from Garmin Connect (in minutes)"
     },
+    "activity_detail_days": {
+      "name": "Activity Detail Window (days)",
+      "description": "How many days of per-second activity samples (heart rate, pace, cadence, power, running dynamics) to keep. A few MB per activity, and the database is backed up to /share/ — set 0 to skip the sample stream entirely. Splits, weather and gear are always kept."
+    },
     "user_timezone": {
       "name": "Timezone",
       "description": "Your local timezone for date boundaries (e.g., 'Australia/Brisbane', 'America/New_York'). Defaults to UTC."

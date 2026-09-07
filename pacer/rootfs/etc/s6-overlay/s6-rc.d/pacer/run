@@ -120,6 +120,7 @@ OLLAMA_URL=$(bashio::config 'ollama_url' || echo "")
 OLLAMA_EMBED_MODEL=$(bashio::config 'ollama_embed_model' || echo "nomic-embed-text")
 SYNC_INTERVAL=$(bashio::config 'sync_interval_minutes' || echo "60")
 USER_TIMEZONE=$(bashio::config 'user_timezone' || echo "UTC")
+ACTIVITY_DETAIL_DAYS=$(bashio::config 'activity_detail_days' || echo "90")
 
 export GARMIN_EMAIL GARMIN_PASSWORD
 export STRAVA_CLIENT_ID STRAVA_CLIENT_SECRET STRAVA_REFRESH_TOKEN
@@ -132,6 +133,9 @@ export OLLAMA_URL
 export OLLAMA_MODEL="${OLLAMA_MODEL:-gpt-oss:20b}"
 export OLLAMA_EMBED_MODEL="${OLLAMA_EMBED_MODEL:-nomic-embed-text}"
 export USER_TIMEZONE
+# How many days of per-second activity samples to keep. The stream is a few
+# MB per activity and the database is backed up to /share/, so 0 turns it off.
+export GARMIN_ACTIVITY_DETAIL_DAYS="${ACTIVITY_DETAIL_DAYS:-90}"
 export DATABASE_URL="postgresql://postgres@127.0.0.1:5432/pacer"
 export POSTGRES_URL="postgresql://postgres@127.0.0.1:5432/pacer"
 # Single-user auth passthrough: HA ingress is the authentication layer, so
