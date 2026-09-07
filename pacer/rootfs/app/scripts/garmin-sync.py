@@ -849,6 +849,20 @@ def _normalize_started_at(act: dict) -> str | None:
     return local if isinstance(local, str) else None
 
 
+def _stride_length_metres(act: dict) -> float | None:
+    """Garmin's ``avgStrideLength`` in metres.
+
+    Garmin reports centimetres while the engine reads the column as metres,
+    so every stride used to rate as "overstriding" at ~120 m. The magnitude
+    guard keeps this correct if Garmin ever switches units: no human strides
+    5 m, and no human strides 5 cm.
+    """
+    stride = act.get("avgStrideLength")
+    if stride is None:
+        return None
+    return stride / 100 if stride > 5 else stride
+
+
 def _upsert_activity(cur, act: dict, act_id: str) -> None:
     """Insert/update one Garmin activity row.
 
@@ -903,7 +917,7 @@ def _upsert_activity(cur, act: dict, act_id: str) -> None:
         act.get("avgGroundContactBalance"),  # % (L/R)
         act.get("avgVerticalOscillation"),  # cm
         act.get("avgVerticalRatio"),  # %
-        act.get("avgStrideLength"),  # cm
+        _stride_length_metres(act),  # m
         act.get("avgRespirationRate"),  # brpm
         act.get("elevationGain"),  # m
         act.get("elevationLoss"),  # m
@@ -1087,6 +1101,17 @@ def sync_activities(client, db, days=7):
             # Incremental syncs: stop after enough recent activities
             if days <= 30 and total >= 50:
                 break
+
+        # Repair rows written before stride length was normalised to metres.
+        # Idempotent: a metre value is never above 5.
+        cur.execute(
+            "UPDATE activity SET stride_length = stride_length / 100 "
+            "WHERE user_id = %s AND stride_length > 5",
+            (USER_ID,),
+        )
+        if cur.rowcount:
+            print(f"  Converted {cur.rowcount} stride_length values cm → m")
+        db.commit()
 
         print(f"  Synced {total} activities total")
     except Exception as e:
@@ -1862,6 +1887,514 @@ def sync_training_status(client, db, days=7):
         cur.close()
 
 
+# ---------------------------------------------------------------------------
+# Raw Garmin landing table
+#
+# Garmin exposes far more than the eleven endpoints this sync historically
+# consumed, and hand-writing a column per field would mean a schema change
+# every time we want to look at something new. Instead every response lands
+# verbatim in ``garmin_raw`` keyed by (endpoint, scope); typed columns are
+# lifted out of it only for what the engine or the UI actually reads.
+#
+# Adding an endpoint is one line in the tables below.
+# ---------------------------------------------------------------------------
+
+# Daily endpoints — all take a single ``cdate`` string.
+DAILY_RAW_ENDPOINTS = (
+    ("body_battery_events", "get_body_battery_events"),
+    ("steps_intraday", "get_steps_data"),
+    ("floors", "get_floors"),
+    ("heart_rates", "get_heart_rates"),
+    ("intensity_minutes", "get_intensity_minutes_data"),
+    ("all_day_stress", "get_all_day_stress"),
+    ("all_day_events", "get_all_day_events"),
+    ("rhr_day", "get_rhr_day"),
+    ("hydration", "get_hydration_data"),
+    ("daily_weigh_ins", "get_daily_weigh_ins"),
+    ("lifestyle_logging", "get_lifestyle_logging_data"),
+    ("morning_readiness", "get_morning_training_readiness"),
+    ("fitness_age", "get_fitnessage_data"),
+)
+
+# Per-activity endpoints — all take a single ``activity_id``. Ordered cheapest
+# first so a rate-limit cut-off still leaves the useful small payloads behind.
+ACTIVITY_RAW_ENDPOINTS = (
+    ("activity_full", "get_activity"),
+    ("activity_splits", "get_activity_splits"),
+    ("activity_split_summaries", "get_activity_split_summaries"),
+    ("activity_typed_splits", "get_activity_typed_splits"),
+    ("activity_weather", "get_activity_weather"),
+    ("activity_hr_zones", "get_activity_hr_in_timezones"),
+    ("activity_exercise_sets", "get_activity_exercise_sets"),
+    ("activity_gear", "get_activity_gear"),
+)
+
+# The daily raw endpoints run over their own rolling window, deliberately
+# decoupled from the sync window. The first sync covers every day back to
+# 2019 — around 2,400 of them — and thirteen extra requests per day would be
+# some 31,000 calls in one run. Garmin rate-limits long before that, the
+# backoff turns the run into a multi-day crawl, and the backfill marker is
+# only written after a clean pass, so it would retry that forever.
+RAW_DAILY_DAYS = int(_env_float("GARMIN_RAW_DAILY_DAYS", 30))
+
+# Days this recent are re-fetched every run: a watch that syncs in the evening
+# fills in yesterday, and Garmin revises the previous night's sleep and stress
+# after the fact. Older days inside the window are fetched once and left alone,
+# which is what keeps the steady state at a few dozen requests instead of
+# thirteen endpoints times the whole window, every hour, forever.
+RAW_DAILY_REFRESH_DAYS = int(_env_float("GARMIN_RAW_DAILY_REFRESH_DAYS", 3))
+
+# How much per-activity time series to keep. The series is a few MB per
+# activity and the database is backed up to /share/, so this is a knob rather
+# than a constant.
+ACTIVITY_DETAIL_DAYS = int(_env_float("GARMIN_ACTIVITY_DETAIL_DAYS", 90))
+ACTIVITY_DETAIL_MAX_PER_RUN = int(_env_float("GARMIN_ACTIVITY_DETAIL_MAX_PER_RUN", 25))
+ACTIVITY_RAW_MAX_PER_RUN = int(_env_float("GARMIN_ACTIVITY_RAW_MAX_PER_RUN", 50))
+
+
+def _ensure_garmin_raw(cur) -> None:
+    """Create the landing table if the Drizzle push has not run yet.
+
+    Declared in ``packages/db/src/schema.ts`` as well — ``drizzle-kit push``
+    runs on every boot and drops anything not in the schema.
+    """
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS garmin_raw (
+            user_id text NOT NULL,
+            endpoint text NOT NULL,
+            scope_key text NOT NULL,
+            fetched_at timestamptz NOT NULL DEFAULT now(),
+            payload jsonb NOT NULL,
+            PRIMARY KEY (user_id, endpoint, scope_key)
+        )
+    """)
+
+
+def _store_raw(cur, endpoint: str, scope_key: str, payload: Any) -> None:
+    cur.execute(
+        """
+        INSERT INTO garmin_raw (user_id, endpoint, scope_key, fetched_at, payload)
+        VALUES (%s, %s, %s, now(), %s)
+        ON CONFLICT (user_id, endpoint, scope_key) DO UPDATE SET
+            fetched_at = EXCLUDED.fetched_at,
+            payload = EXCLUDED.payload
+        """,
+        (USER_ID, endpoint, str(scope_key), json.dumps(payload, default=str)),
+    )
+
+
+# Garmin answering 404/204 means "this never existed", not "try later".
+_NO_DATA_STATUSES = (204, 404)
+
+
+def _fetch_raw(
+    cur,
+    client,
+    endpoint: str,
+    scope_key: str,
+    method: str,
+    *args,
+    mark_empty: bool = False,
+) -> bool:
+    """Fetch one endpoint and land it, isolated in a savepoint.
+
+    Garmin returns 404 for endpoints a device never recorded (no hydration
+    log, no exercise sets on a run). Those must not abort the surrounding
+    transaction, so each call gets its own savepoint — the same pattern
+    :func:`sync_activities` already uses per activity row.
+
+    ``mark_empty`` lands a JSON ``null`` when Garmin says there is nothing.
+    The per-activity backfills pick their work by "no row for this endpoint
+    yet"; without the marker an activity that genuinely has no splits would
+    be re-requested on every single sync, and — because those queries are
+    ``LIMIT``-ed — would keep newer activities from ever being fetched.
+    Only definitive answers are marked; a timeout or a 500 leaves the row
+    absent so the next run retries it.
+    """
+    func = getattr(client, method, None)
+    if func is None:
+        # Endpoint absent from this garminconnect version — not an error.
+        return False
+    try:
+        cur.execute("SAVEPOINT garmin_raw_fetch")
+        payload = _garmin_api_call(f"{method}({scope_key})", func, *args)
+        if payload is None:
+            if mark_empty:
+                _store_raw(cur, endpoint, scope_key, None)
+            cur.execute("RELEASE SAVEPOINT garmin_raw_fetch")
+            return False
+        _store_raw(cur, endpoint, scope_key, payload)
+        cur.execute("RELEASE SAVEPOINT garmin_raw_fetch")
+        return True
+    except Exception as exc:
+        try:
+            cur.execute("ROLLBACK TO SAVEPOINT garmin_raw_fetch")
+        except Exception:
+            pass
+        status = _exception_status_code(exc)
+        if status in _NO_DATA_STATUSES:
+            # Not an error, and not worth logging per day per endpoint.
+            if mark_empty:
+                try:
+                    _store_raw(cur, endpoint, scope_key, None)
+                except Exception:
+                    # Losing the marker only costs a retry next run; letting
+                    # it escape would roll back the caller's whole batch.
+                    pass
+            return False
+        print(
+            f"  {method}({scope_key}) failed: {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return False
+
+
+def sync_raw_daily(client, db, days: int = RAW_DAILY_DAYS) -> None:
+    """Land every per-day endpoint that the typed sync does not cover.
+
+    Bounded by :data:`RAW_DAILY_DAYS` rather than the caller's sync window —
+    see the note there. Within that window only the last
+    :data:`RAW_DAILY_REFRESH_DAYS` days are re-fetched; everything already
+    landed is left alone.
+    """
+    if days <= 0:
+        return
+
+    today = _user_today()
+    cur = db.cursor()
+    stored = 0
+    try:
+        _ensure_garmin_raw(cur)
+        # scope_key also holds activity ids and "latest", so scope the lookup
+        # to these endpoints rather than relying on date strings sorting apart
+        # from everything else in the column.
+        window_start = (today - timedelta(days=days - 1)).isoformat()
+        cur.execute(
+            "SELECT endpoint, scope_key FROM garmin_raw "
+            "WHERE user_id = %s AND endpoint = ANY(%s) AND scope_key >= %s",
+            (USER_ID, [name for name, _ in DAILY_RAW_ENDPOINTS], window_start),
+        )
+        already = set(cur.fetchall())
+
+        for days_ago in range(days):
+            date_str = (today - timedelta(days=days_ago)).isoformat()
+            refresh = days_ago < RAW_DAILY_REFRESH_DAYS
+            for endpoint, method in DAILY_RAW_ENDPOINTS:
+                if not refresh and (endpoint, date_str) in already:
+                    continue
+                # Marked even on a 404: without it, an endpoint this watch
+                # never records (hydration, lifestyle logging) would be
+                # re-requested for every day in the window on every run,
+                # forever. The refresh window re-fetches regardless of the
+                # marker, so data arriving late still lands.
+                if _fetch_raw(
+                    cur, client, endpoint, date_str, method, date_str,
+                    mark_empty=True,
+                ):
+                    stored += 1
+            db.commit()
+        if stored:
+            print(f"  Landed {stored} daily Garmin payloads over {days} days")
+    except Exception as exc:
+        db.rollback()
+        print(f"  Raw daily sync failed: {exc}", file=sys.stderr)
+    finally:
+        cur.close()
+
+
+def sync_raw_singletons(client, db, days: int) -> None:
+    """Land the account-level endpoints: one row each, refreshed per run.
+
+    Signatures differ too much for a name table, so each is spelled out.
+    """
+    today = _user_today()
+    start = (today - timedelta(days=max(days, 1))).isoformat()
+    end = today.isoformat()
+
+    cur = db.cursor()
+    try:
+        _ensure_garmin_raw(cur)
+        _fetch_raw(cur, client, "race_predictions", "latest", "get_race_predictions")
+        _fetch_raw(
+            cur, client, "endurance_score", "latest", "get_endurance_score", start, end
+        )
+        _fetch_raw(cur, client, "hill_score", "latest", "get_hill_score", start, end)
+        _fetch_raw(
+            cur,
+            client,
+            "running_tolerance",
+            "latest",
+            "get_running_tolerance",
+            start,
+            end,
+        )
+        _fetch_raw(cur, client, "lactate_threshold", "latest", "get_lactate_threshold")
+        _fetch_raw(cur, client, "cycling_ftp", "latest", "get_cycling_ftp")
+        _fetch_raw(cur, client, "personal_records", "latest", "get_personal_record")
+        _fetch_raw(cur, client, "user_profile", "latest", "get_user_profile")
+        _fetch_raw(
+            cur, client, "userprofile_settings", "latest", "get_userprofile_settings"
+        )
+        _fetch_raw(cur, client, "devices", "latest", "get_devices")
+        _fetch_raw(
+            cur,
+            client,
+            "primary_training_device",
+            "latest",
+            "get_primary_training_device",
+        )
+        _fetch_raw(cur, client, "goals", "latest", "get_goals")
+        _fetch_raw(cur, client, "workouts", "latest", "get_workouts")
+        _fetch_raw(cur, client, "training_plans", "latest", "get_training_plans")
+
+        # Gear needs the numeric profile id, which only the profile response
+        # carries. Skip rather than guess if it is not there.
+        cur.execute(
+            "SELECT payload FROM garmin_raw WHERE user_id = %s "
+            "AND endpoint = 'user_profile' AND scope_key = 'latest'",
+            (USER_ID,),
+        )
+        row = cur.fetchone()
+        profile = row[0] if row else None
+        profile_id = None
+        if isinstance(profile, dict):
+            profile_id = profile.get("userProfileId") or profile.get("profileId")
+        if profile_id:
+            _fetch_raw(cur, client, "gear", "latest", "get_gear", str(profile_id))
+
+        db.commit()
+        print("  Synced account-level Garmin endpoints")
+    except Exception as exc:
+        db.rollback()
+        print(f"  Raw singleton sync failed: {exc}", file=sys.stderr)
+    finally:
+        cur.close()
+
+
+def _laps_from_splits(payload: Any) -> list[dict] | None:
+    """Reshape a ``get_activity_splits`` response into the ``laps`` column.
+
+    The UI's LapTable derives pace from distance and duration itself, so only
+    those two plus optional HR and power need to survive the reshape.
+    """
+    if not isinstance(payload, dict):
+        return None
+    dtos = payload.get("lapDTOs")
+    if not isinstance(dtos, list) or not dtos:
+        return None
+
+    laps = []
+    for i, lap in enumerate(dtos):
+        if not isinstance(lap, dict):
+            continue
+        distance = lap.get("distance")
+        duration = lap.get("duration") or lap.get("elapsedDuration")
+        if distance is None and duration is None:
+            continue
+        entry = {
+            "index": lap.get("lapIndex") or (i + 1),
+            "distanceMeters": round(float(distance or 0), 1),
+            "durationSeconds": round(float(duration or 0), 1),
+        }
+        hr = lap.get("averageHR")
+        if hr:
+            entry["avgHr"] = round(float(hr))
+        power = lap.get("averagePower")
+        if power:
+            entry["avgPower"] = round(float(power))
+        laps.append(entry)
+    return laps or None
+
+
+def _lift_activity_details(cur, act_id: str) -> None:
+    """Promote the few raw fields the UI reads into typed columns.
+
+    ponytail: the EPOC keys are a best-effort guess at Garmin's summary DTO.
+    Both candidates are COALESCEd, so a miss leaves the column untouched
+    rather than wrong, and the full payload stays in garmin_raw — the mapping
+    can be corrected against a real response without re-syncing anything.
+    """
+    cur.execute(
+        "SELECT endpoint, payload FROM garmin_raw WHERE user_id = %s "
+        "AND scope_key = %s AND endpoint IN ('activity_full', 'activity_splits')",
+        (USER_ID, act_id),
+    )
+    payloads = {endpoint: payload for endpoint, payload in cur.fetchall()}
+
+    laps = _laps_from_splits(payloads.get("activity_splits"))
+    full = payloads.get("activity_full")
+    epoc = None
+    if isinstance(full, dict):
+        summary = full.get("summaryDTO")
+        summary = summary if isinstance(summary, dict) else {}
+        epoc = summary.get("epoc") or summary.get("epocMl")
+
+    if laps is None and epoc is None:
+        return
+
+    cur.execute(
+        """
+        UPDATE activity SET
+            laps = COALESCE(%s::jsonb, laps),
+            epoc_ml = COALESCE(%s, epoc_ml)
+        WHERE garmin_activity_id = %s AND user_id = %s
+        """,
+        (json.dumps(laps) if laps else None, epoc, act_id, USER_ID),
+    )
+
+
+def sync_activity_raw(client, db) -> None:
+    """Fetch the per-activity endpoints for activities that lack them.
+
+    Incremental by design: Garmin throttles hard, and the first run of a
+    multi-year history would otherwise be a few thousand requests in a row.
+    Newest activities first — those are the ones anyone actually opens.
+    """
+    if ACTIVITY_RAW_MAX_PER_RUN <= 0:
+        return
+
+    cur = db.cursor()
+    try:
+        _ensure_garmin_raw(cur)
+        cur.execute(
+            """
+            SELECT a.garmin_activity_id
+            FROM activity a
+            WHERE a.user_id = %s
+              AND a.garmin_activity_id IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM garmin_raw r
+                  WHERE r.user_id = a.user_id
+                    AND r.endpoint = 'activity_splits'
+                    AND r.scope_key = a.garmin_activity_id
+              )
+            ORDER BY a.started_at DESC
+            LIMIT %s
+            """,
+            (USER_ID, ACTIVITY_RAW_MAX_PER_RUN),
+        )
+        pending = [row[0] for row in cur.fetchall()]
+
+        for act_id in pending:
+            for endpoint, method in ACTIVITY_RAW_ENDPOINTS:
+                _fetch_raw(
+                    cur, client, endpoint, act_id, method, act_id, mark_empty=True
+                )
+            _lift_activity_details(cur, act_id)
+            db.commit()
+
+        if pending:
+            cur.execute(
+                """
+                SELECT count(*)
+                FROM activity a
+                WHERE a.user_id = %s
+                  AND a.garmin_activity_id IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM garmin_raw r
+                      WHERE r.user_id = a.user_id
+                        AND r.endpoint = 'activity_splits'
+                        AND r.scope_key = a.garmin_activity_id
+                  )
+                """,
+                (USER_ID,),
+            )
+            remaining = cur.fetchone()[0]
+            print(
+                f"  Fetched activity detail for {len(pending)} activities "
+                f"({remaining} still pending)"
+            )
+    except Exception as exc:
+        db.rollback()
+        print(f"  Activity detail sync failed: {exc}", file=sys.stderr)
+    finally:
+        cur.close()
+
+
+def sync_activity_timeseries(client, db) -> None:
+    """Fetch the per-second sample stream for recent activities only.
+
+    ``get_activity_details`` is the one genuinely large payload Garmin
+    serves — a few MB each. The database ships inside the add-on and is
+    backed up to /share/, so the window is bounded and configurable.
+    """
+    cur = db.cursor()
+    fetched = 0
+    try:
+        _ensure_garmin_raw(cur)
+
+        # Window off: drop what earlier runs stored rather than leaving a few
+        # hundred MB behind in a backup the user just asked to shrink.
+        if ACTIVITY_DETAIL_DAYS <= 0:
+            cur.execute(
+                "DELETE FROM garmin_raw WHERE user_id = %s "
+                "AND endpoint = 'activity_details'",
+                (USER_ID,),
+            )
+            if cur.rowcount:
+                print(f"  Dropped {cur.rowcount} activity time series (window off)")
+            db.commit()
+            return
+
+        cutoff = (_user_today() - timedelta(days=ACTIVITY_DETAIL_DAYS)).isoformat()
+        cur.execute(
+            """
+            SELECT a.garmin_activity_id
+            FROM activity a
+            WHERE a.user_id = %s
+              AND a.garmin_activity_id IS NOT NULL
+              AND a.started_at >= %s
+              AND NOT EXISTS (
+                  SELECT 1 FROM garmin_raw r
+                  WHERE r.user_id = a.user_id
+                    AND r.endpoint = 'activity_details'
+                    AND r.scope_key = a.garmin_activity_id
+              )
+            ORDER BY a.started_at DESC
+            LIMIT %s
+            """,
+            (USER_ID, cutoff, max(ACTIVITY_DETAIL_MAX_PER_RUN, 0)),
+        )
+        for (act_id,) in cur.fetchall():
+            if _fetch_raw(
+                cur,
+                client,
+                "activity_details",
+                act_id,
+                "get_activity_details",
+                act_id,
+                mark_empty=True,
+            ):
+                fetched += 1
+            db.commit()
+
+        # Drop series that fell out of the window so the backup stays bounded.
+        cur.execute(
+            """
+            DELETE FROM garmin_raw r
+            USING activity a
+            WHERE r.user_id = %s
+              AND r.endpoint = 'activity_details'
+              AND r.scope_key = a.garmin_activity_id
+              AND a.started_at < %s
+            """,
+            (USER_ID, cutoff),
+        )
+        pruned = cur.rowcount
+        db.commit()
+
+        if fetched or pruned:
+            print(
+                f"  Activity time series: {fetched} fetched, {pruned} pruned "
+                f"(window: {ACTIVITY_DETAIL_DAYS} days)"
+            )
+    except Exception as exc:
+        db.rollback()
+        print(f"  Activity time series sync failed: {exc}", file=sys.stderr)
+    finally:
+        cur.close()
+
+
 def main():
     has_tokens = _has_saved_garmin_tokens()
 
@@ -1941,9 +2474,29 @@ def main():
     sync_vo2max(client, db, days=sync_days)
 
     # Sync Garmin Training Readiness + Training Status (native scores)
-    _write_sync_status("readiness", "Syncing training readiness...", 93)
+    _write_sync_status("readiness", "Syncing training readiness...", 91)
     sync_training_readiness(client, db, days=min(sync_days, 30))
     sync_training_status(client, db, days=min(sync_days, 30))
+
+    # Everything Garmin serves per day that the typed sync above does not
+    # read — body battery events, floors, intraday steps, hydration and the
+    # rest — landed raw over their own rolling window.
+    _write_sync_status("garmin_raw_daily", "Syncing daily Garmin detail...", 91)
+    sync_raw_daily(client, db)
+
+    # Account-level endpoints: race predictions, endurance/hill score,
+    # thresholds, devices, gear, goals, workouts.
+    _write_sync_status("garmin_raw", "Syncing Garmin account data...", 92)
+    sync_raw_singletons(client, db, days=min(sync_days, 365))
+
+    # Per-activity detail: splits (fills activity.laps), weather, HR zones,
+    # exercise sets, gear. Incremental — bounded per run.
+    _write_sync_status("activity_detail", "Syncing activity detail...", 93)
+    sync_activity_raw(client, db)
+
+    # Per-second sample streams for the recent window only.
+    _write_sync_status("activity_series", "Syncing activity time series...", 94)
+    sync_activity_timeseries(client, db)
 
     # Refresh materialized view so all downstream queries see fresh data
     _write_sync_status("refresh", "Refreshing summary view...", 95)
