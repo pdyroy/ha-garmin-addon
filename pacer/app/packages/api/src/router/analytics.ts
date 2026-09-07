@@ -609,6 +609,7 @@ export const analyticsRouter = {
         activity.gctBalance,
         activity.avgCadence,
         profile?.heightCm ?? null,
+        activity.verticalRatio,
       );
     }),
 

@@ -1,12 +1,156 @@
 import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
 
-import { and, desc, eq, gte, lte } from "@acme/db";
-import { Activity, Profile } from "@acme/db/schema";
+import { and, desc, eq, gte, inArray, lte, or } from "@acme/db";
+import { Activity, GarminRaw, Profile } from "@acme/db/schema";
 import { analyzeRunningForm } from "@acme/engine";
 
 import { humanizeActivityName } from "../lib/humanize";
 import { protectedProcedure } from "../trpc";
+
+export interface ActivityWeather {
+  tempC: number | null;
+  feelsLikeC: number | null;
+  humidityPct: number | null;
+  windKph: number | null;
+  description: string | null;
+}
+
+/**
+ * Whether Garmin served this account's numbers in Fahrenheit and mph.
+ *
+ * The weather payload carries no units of its own — Garmin renders it in the
+ * account's measurement system. That system lives in the profile settings,
+ * which the sync lands under `garmin_raw['userprofile_settings']`.
+ */
+function isImperial(settings: unknown): boolean | null {
+  if (settings == null || typeof settings !== "object") return null;
+  const s = settings as Record<string, unknown>;
+  const nested = s.userData;
+  const system =
+    s.measurementSystem ??
+    (nested != null && typeof nested === "object"
+      ? (nested as Record<string, unknown>).measurementSystem
+      : undefined);
+  if (typeof system !== "string") return null;
+  return system.toLowerCase().startsWith("statute");
+}
+
+function parseWeather(
+  payload: unknown,
+  imperial: boolean | null,
+): ActivityWeather | null {
+  if (payload == null || typeof payload !== "object") return null;
+  const w = payload as Record<string, unknown>;
+  const num = (v: unknown) => (typeof v === "number" ? v : null);
+  const temp = num(w.temp);
+
+  // Fallback for the first sync, before the profile settings have landed:
+  // nobody runs at 45 °C, so a reading that high is Fahrenheit. It misreads a
+  // cold US day (35 °F looks like a plausible 35 °C), which is exactly why it
+  // is only the fallback — one sync later the real unit system is known.
+  const isF = imperial ?? (temp != null && temp > 45);
+
+  const toC = (v: number | null) =>
+    v == null ? null : isF ? Math.round(((v - 32) * 5) / 9) : Math.round(v);
+  const toKph = (v: number | null) =>
+    v == null ? null : Math.round(isF ? v * 1.609 : v);
+
+  const result: ActivityWeather = {
+    tempC: toC(temp),
+    feelsLikeC: toC(num(w.apparentTemp)),
+    humidityPct: num(w.relativeHumidity),
+    windKph: toKph(num(w.windSpeed)),
+    description:
+      typeof (w.weatherTypeDTO as Record<string, unknown> | undefined)?.desc ===
+      "string"
+        ? ((w.weatherTypeDTO as Record<string, unknown>).desc as string)
+        : null,
+  };
+
+  return Object.values(result).every((v) => v == null) ? null : result;
+}
+
+export interface ActivitySample {
+  t: number; // seconds from activity start
+  hr: number | null;
+  paceSecPerKm: number | null;
+  altitudeM: number | null;
+}
+
+/** Metric keys we chart, mapped from Garmin's `metricDescriptors` names. */
+const SAMPLE_KEYS = {
+  directTimestamp: "t",
+  directHeartRate: "hr",
+  directSpeed: "speed",
+  directElevation: "altitudeM",
+} as const;
+
+/**
+ * Reshape `get_activity_details` into a compact series.
+ *
+ * Garmin ships the stream column-oriented: `metricDescriptors` names the
+ * columns, `activityDetailMetrics[].metrics` holds one row of values each.
+ * Downsampled to at most 600 points — beyond that a line chart just draws
+ * the same pixels repeatedly.
+ */
+function parseSamples(payload: unknown): ActivitySample[] | null {
+  if (payload == null || typeof payload !== "object") return null;
+  const d = payload as Record<string, unknown>;
+  const descriptors = d.metricDescriptors;
+  const rows = d.activityDetailMetrics;
+  if (
+    !Array.isArray(descriptors) ||
+    !Array.isArray(rows) ||
+    rows.length === 0
+  ) {
+    return null;
+  }
+
+  const index: Partial<Record<string, number>> = {};
+  for (const desc of descriptors) {
+    if (desc == null || typeof desc !== "object") continue;
+    const key = (desc as Record<string, unknown>).key;
+    const i = (desc as Record<string, unknown>).metricsIndex;
+    if (
+      typeof key === "string" &&
+      typeof i === "number" &&
+      key in SAMPLE_KEYS
+    ) {
+      index[SAMPLE_KEYS[key as keyof typeof SAMPLE_KEYS]] = i;
+    }
+  }
+  if (index.t == null) return null;
+
+  const step = Math.max(1, Math.ceil(rows.length / 600));
+  const at = (metrics: unknown[], i: number | undefined) => {
+    if (i == null) return null;
+    const v = metrics[i];
+    return typeof v === "number" && Number.isFinite(v) ? v : null;
+  };
+
+  const samples: ActivitySample[] = [];
+  let startMs: number | null = null;
+  for (let r = 0; r < rows.length; r += step) {
+    const row = rows[r];
+    const metrics = (row as Record<string, unknown> | undefined)?.metrics;
+    if (!Array.isArray(metrics)) continue;
+    const ts = at(metrics, index.t);
+    if (ts == null) continue;
+    startMs ??= ts;
+    const speed = at(metrics, index.speed);
+    samples.push({
+      t: Math.round((ts - startMs) / 1000),
+      hr: at(metrics, index.hr),
+      // Garmin's directSpeed is m/s; the UI reads seconds per kilometre.
+      paceSecPerKm:
+        speed != null && speed > 0.3 ? Math.round(1000 / speed) : null,
+      altitudeM: at(metrics, index.altitudeM),
+    });
+  }
+
+  return samples.length > 1 ? samples : null;
+}
 
 function getDateString(daysAgo: number): string {
   const d = new Date();
@@ -138,12 +282,49 @@ export const activityRouter = {
           activity.gctBalance,
           activity.avgCadence,
           profile?.heightCm ?? null,
+          activity.verticalRatio,
         );
       }
+
+      // Detail Garmin serves per activity but that has no column of its own:
+      // it lands raw in garmin_raw (see rootfs/app/scripts/garmin-sync.py) and
+      // is reshaped here rather than duplicated into the Activity table.
+      const rawRows = await ctx.db
+        .select({ endpoint: GarminRaw.endpoint, payload: GarminRaw.payload })
+        .from(GarminRaw)
+        .where(
+          and(
+            eq(GarminRaw.userId, userId),
+            or(
+              // Weather carries no units of its own; the profile settings say
+              // which system Garmin rendered it in.
+              and(
+                eq(GarminRaw.scopeKey, "latest"),
+                eq(GarminRaw.endpoint, "userprofile_settings"),
+              ),
+              activity.garminActivityId
+                ? and(
+                    eq(GarminRaw.scopeKey, activity.garminActivityId),
+                    inArray(GarminRaw.endpoint, [
+                      "activity_weather",
+                      "activity_details",
+                    ]),
+                  )
+                : undefined,
+            ),
+          ),
+        );
+
+      const rawByEndpoint = new Map(
+        rawRows.map((r) => [r.endpoint, r.payload]),
+      );
+      const imperial = isImperial(rawByEndpoint.get("userprofile_settings"));
 
       return humanizeActivityRow({
         ...activity,
         runningFormScore,
+        weather: parseWeather(rawByEndpoint.get("activity_weather"), imperial),
+        samples: parseSamples(rawByEndpoint.get("activity_details")),
       });
     }),
 

@@ -116,6 +116,36 @@ export const profileRouter = {
       return created;
     }),
 
+  /**
+   * Which slice of the app this user wants to see. `athlete` hides the
+   * health-only pages, `health` hides the performance analytics, `all` shows
+   * everything. Consumed by the navigation (see _components/app-nav.tsx).
+   */
+  updateAudienceMode: protectedProcedure
+    .input(z.object({ audienceMode: z.enum(["athlete", "health", "all"]) }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.query.Profile.findFirst({
+        where: eq(Profile.userId, ctx.session.user.id),
+      });
+
+      if (existing) {
+        await ctx.db
+          .update(Profile)
+          .set({ audienceMode: input.audienceMode })
+          .where(eq(Profile.userId, ctx.session.user.id));
+        return { ...existing, audienceMode: input.audienceMode };
+      }
+
+      const [created] = await ctx.db
+        .insert(Profile)
+        .values({
+          userId: ctx.session.user.id,
+          audienceMode: input.audienceMode,
+        })
+        .returning();
+      return created;
+    }),
+
   updateHealth: protectedProcedure
     .input(
       z.object({
