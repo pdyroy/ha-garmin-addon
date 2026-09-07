@@ -251,6 +251,10 @@ export interface RunningFormScore {
     value: number;
     rating: "optimal" | "overstriding" | "understriding";
   };
+  verticalRatio: {
+    value: number;
+    rating: "elite" | "good" | "average" | "poor";
+  };
   gctBalance: {
     value: number;
     rating: "balanced" | "slight_imbalance" | "imbalanced";

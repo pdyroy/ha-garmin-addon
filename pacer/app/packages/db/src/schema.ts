@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { index, pgTable, uniqueIndex } from "drizzle-orm/pg-core";
+import { index, pgTable, primaryKey, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -943,3 +943,37 @@ export const CreatePostSchema = createInsertSchema(Post, {
   createdAt: true,
   updatedAt: true,
 });
+
+// ---------------------------------------------------------------------------
+// Raw Garmin responses
+//
+// Garmin serves far more than the sync reads. Rather than a column per field,
+// every response lands here verbatim, keyed by endpoint and scope (a date, an
+// activity id, or "latest" for account-level data). Typed columns elsewhere in
+// this schema are lifted out of these payloads only where the engine or the UI
+// actually reads them.
+//
+// This must stay declared here: `drizzle-kit push` runs against the live
+// database on every boot and drops anything the schema does not mention.
+// ---------------------------------------------------------------------------
+export const GarminRaw = pgTable(
+  "garmin_raw",
+  (t) => ({
+    userId: t.text().notNull(),
+    endpoint: t.text().notNull(),
+    // Compared against Activity.garminActivityId, so it must not be narrower
+    // than that column — text sidesteps the question entirely.
+    scopeKey: t.text().notNull(),
+    fetchedAt: t
+      .timestamp({ mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    payload: t.jsonb().notNull(),
+  }),
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.endpoint, table.scopeKey],
+    }),
+    index("garmin_raw_endpoint_idx").on(table.userId, table.endpoint),
+  ],
+);

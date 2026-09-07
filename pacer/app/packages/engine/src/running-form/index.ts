@@ -108,6 +108,29 @@ function rateStride(
 }
 
 /**
+ * Vertical ratio — vertical oscillation as a percentage of stride length.
+ *
+ * Garmin reports this directly (`avgVerticalRatio`); it is the better
+ * efficiency indicator than either component alone, because it relates the
+ * wasted vertical travel to the forward progress it bought.
+ *
+ * Bands follow Garmin's own running-dynamics colour gauge:
+ * - Elite: <6.1%  - Good: 6.1-7.4%  - Average: 7.4-8.6%  - Poor: >8.6%
+ */
+function rateVerticalRatio(
+  vrPct: number,
+): RunningFormScore["verticalRatio"]["rating"] {
+  if (vrPct < 6.1) return "elite";
+  if (vrPct < 7.4) return "good";
+  if (vrPct < 8.6) return "average";
+  return "poor";
+}
+
+function scoreVR(vrPct: number): number {
+  return Math.max(0, Math.min(100, 100 - (vrPct - 6.1) * 15));
+}
+
+/**
  * Ground contact time balance (L/R symmetry).
  *
  * Ref: Seminati E et al. Asymmetry indices for stance phase metrics during
@@ -163,7 +186,10 @@ function scoreCadence(spm: number): number {
  * - Vertical oscillation: 25% (energy waste indicator)
  * - Cadence: 20% (injury prevention)
  * - GCT Balance: 15% (symmetry/injury risk)
- * - Stride length: 10% (assessed via vertical ratio if available)
+ * - Vertical ratio: 10% (Garmin's own value, else derived from VO/stride)
+ *
+ * Missing components are dropped from the weighting rather than defaulted,
+ * so a partial dataset scores on what it actually measured.
  */
 export function analyzeRunningForm(
   avgGCT: number | null, // milliseconds
@@ -172,6 +198,7 @@ export function analyzeRunningForm(
   gctBalance: number | null, // percentage (e.g., 50.2)
   cadence: number | null, // steps per minute
   heightCm: number | null, // for stride assessment
+  verticalRatio: number | null = null, // percent, from Garmin when available
 ): RunningFormScore | null {
   // Need at least GCT or cadence to provide meaningful analysis
   if (avgGCT === null && cadence === null) return null;
@@ -216,16 +243,24 @@ export function analyzeRunningForm(
         }
       : { value: 0, rating: "optimal" as const };
 
-  if (strideLength !== null) {
-    // Stride scoring via vertical ratio if we have VO data
-    const vrScore =
-      verticalOscillation !== null && strideLength > 0
-        ? Math.max(
-            0,
-            100 - ((verticalOscillation / 100 / strideLength) * 100 - 7) * 15,
-          )
-        : 70; // default
-    totalScore += vrScore * 0.1;
+  // Vertical ratio — Garmin's own value when we have it, otherwise derived
+  // from vertical oscillation (cm) over stride length (m).
+  const vr =
+    verticalRatio ??
+    (verticalOscillation !== null && strideLength !== null && strideLength > 0
+      ? (verticalOscillation / 100 / strideLength) * 100
+      : null);
+
+  const vrResult =
+    vr !== null
+      ? { value: Math.round(vr * 10) / 10, rating: rateVerticalRatio(vr) }
+      : { value: 0, rating: "average" as const };
+
+  // Scored whenever a ratio exists, whether Garmin's or derived. Gating this
+  // on strideLength (as the derived-only version had to) would drop the
+  // component for an activity that reports avgVerticalRatio but no stride.
+  if (vr !== null) {
+    totalScore += scoreVR(vr) * 0.1;
     totalWeight += 0.1;
   }
 
@@ -266,6 +301,7 @@ export function analyzeRunningForm(
     groundContactTime: gctResult,
     verticalOscillation: voResult,
     strideLength: slResult,
+    verticalRatio: vrResult,
     gctBalance: balanceResult,
     cadence: cadenceResult,
   };

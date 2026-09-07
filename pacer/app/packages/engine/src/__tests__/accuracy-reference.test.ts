@@ -484,6 +484,26 @@ describe("Running Form — Moore (2016) reference values", () => {
     expect(result!.groundContactTime.rating).toBe("elite");
     expect(result!.cadence.rating).toBe("optimal");
     expect(result!.gctBalance.rating).toBe("balanced");
+    // Derived vertical ratio: 6.5cm / 1.2m = 5.4% → elite
+    expect(result!.verticalRatio.value).toBeCloseTo(5.4, 1);
+    expect(result!.verticalRatio.rating).toBe("elite");
+  });
+
+  it("Garmin's own vertical ratio wins over the derived one", () => {
+    const result = analyzeRunningForm(195, 6.5, 1.2, 50.1, 185, 175, 9.2);
+    expect(result!.verticalRatio.value).toBe(9.2);
+    expect(result!.verticalRatio.rating).toBe("poor");
+  });
+
+  it("scores Garmin's vertical ratio even without a stride length", () => {
+    // The ratio component used to be gated on strideLength, because it could
+    // only be derived from it. With Garmin's own value that gate dropped the
+    // component for any activity reporting a ratio but no stride.
+    const withRatio = analyzeRunningForm(195, null, null, 50.1, 185, 175, 9.2)!;
+    const withoutRatio = analyzeRunningForm(195, null, null, 50.1, 185, 175)!;
+    expect(withRatio.verticalRatio.rating).toBe("poor");
+    expect(withoutRatio.verticalRatio.value).toBe(0);
+    expect(withRatio.overall).toBeLessThan(withoutRatio.overall);
   });
 
   it("Test Case 2: Recreational runner — overall 40–65 (needs work)", () => {
