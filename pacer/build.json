@@ -9,7 +9,7 @@
   "labels": {
     "org.opencontainers.image.title": "Pacer",
     "org.opencontainers.image.description": "AI-powered sport scientist for Garmin athletes",
-    "org.opencontainers.image.source": "https://github.com/pdyroy/pacer",
+    "org.opencontainers.image.source": "https://github.com/pdyroy/ha-garmin-addon",
     "org.opencontainers.image.licenses": "Apache-2.0 AND MIT"
   }
 }

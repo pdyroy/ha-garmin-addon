@@ -5,9 +5,10 @@
 > and [ha-garmin-fitness-coach-app](https://github.com/askb/ha-garmin-fitness-coach-app)
 > by Anil Belur (Apache-2.0 / MIT), which in turn build on
 > [create-t3-turbo](https://github.com/t3-oss/create-t3-turbo) (MIT).
-> Renamed to Pacer and adapted for private use. Attribution and the
-> statement of changes required by Apache-2.0 §4(b) are in [NOTICE](NOTICE);
-> the changes themselves are listed in [pacer/CHANGELOG.md](pacer/CHANGELOG.md).
+> Renamed to Pacer and maintained as a standalone, self-hosted add-on.
+> Attribution and the statement of changes required by Apache-2.0 §4(b) are
+> in [NOTICE](NOTICE); the changes themselves are listed in
+> [pacer/CHANGELOG.md](pacer/CHANGELOG.md).
 
 AI-powered sport scientist that turns your Garmin data into actionable
 coaching, training analysis, and recovery optimization — running entirely on
