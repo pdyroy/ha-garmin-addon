@@ -2,20 +2,20 @@
 // Build a structured text summary of the athlete's Garmin data for the LLM.
 // ---------------------------------------------------------------------------
 
+import type { DailyMetricInput, HrvRhrDailyPoint } from "@acme/engine";
 import { and, desc, eq, gte, inArray } from "@acme/db";
 import {
   Activity,
   AdvancedMetric,
   AthleteBaseline,
   DailyMetric,
+  GarminRaw,
   Intervention,
   JournalEntry,
   Profile,
   ReadinessScore,
   VO2maxEstimate,
 } from "@acme/db/schema";
-import { GarminRaw } from "@acme/db/schema";
-import type { DailyMetricInput, HrvRhrDailyPoint } from "@acme/engine";
 import {
   classifyHrvRhrQuadrant,
   computeACWR,
@@ -28,17 +28,19 @@ import {
   predictRaceTimesAdaptive,
 } from "@acme/engine";
 
+import type { RunDigestSource } from "./run-digest";
 import { aggregateDailyLoads } from "../router/analytics";
 import { humanizeActivityName } from "./humanize";
+import { isMemoryEnabled, renderHistoryBlock, retrieveHistory } from "./memory";
 import {
   buildRunDigest,
   computeRunFormScore,
   detectPerMinuteWanted,
   detectRunDetailIntent,
   parsePerMinuteSeries,
+  parseRunTarget,
 } from "./run-digest";
-import type { RunDigestSource } from "./run-digest";
-import { isMemoryEnabled, renderHistoryBlock, retrieveHistory } from "./memory";
+import { dayInTimezone } from "./timezone";
 import { pickBestVO2maxEstimate } from "./vo2max";
 
 // Drizzle db type — keep generic to avoid coupling to the concrete client
@@ -700,9 +702,15 @@ export async function buildDataContext(
           ? new Date(a.startedAt).toISOString().split("T")[0]
           : "";
         const cad =
-          a.avgCadence != null ? `${Math.round(a.avgCadence)} spm` : "no cadence";
-        const gct = a.avgGroundContactTime != null ? `GCT ${Math.round(a.avgGroundContactTime)}ms` : "";
-        const pace = a.avgPaceSecPerKm != null ? fmtPace(a.avgPaceSecPerKm) : "";
+          a.avgCadence != null
+            ? `${Math.round(a.avgCadence)} spm`
+            : "no cadence";
+        const gct =
+          a.avgGroundContactTime != null
+            ? `GCT ${Math.round(a.avgGroundContactTime)}ms`
+            : "";
+        const pace =
+          a.avgPaceSecPerKm != null ? fmtPace(a.avgPaceSecPerKm) : "";
         lines.push(
           `  - ${when ? `${when} ` : ""}${cad}${pace ? `, ${pace}` : ""}${gct ? `, ${gct}` : ""}`,
         );
@@ -760,12 +768,34 @@ export async function buildDataContext(
   // run-digest.ts); the LLM only analyses it. Deterministic detection, so it
   // works identically on OpenRouter, Requesty, Ollama and ha_conversation.
   if (runDetailIntent.wantsRunDetail && humanizedMetrics30.length > 0) {
-    // Prefer the most recent run-like activity; if none in the last 30 days,
-    // fall back to the most recent activity of any kind.
+    // Resolve the named run ("am sonntag", "vom 06.09.", "sonntagslauf") to a
+    // target calendar day in the athlete's timezone; otherwise fall back to
+    // the most recent session.
+    const target = parseRunTarget(options?.message ?? "", profile?.timezone);
+
+    // When a specific day is named, restrict candidates to sessions whose
+    // start falls on that calendar day (in the athlete's timezone). Otherwise
+    // consider the whole 30-day window.
+    const candidates =
+      target.type === "latest"
+        ? humanizedMetrics30
+        : humanizedMetrics30.filter(
+            (a) => dayInTimezone(a.startedAt, profile?.timezone) === target.day,
+          );
+
+    // Prefer the most recent run; if none on the target day, fall back to the
+    // most recent activity of any kind on that day, else the newest run.
+    const runOnDay = [...candidates]
+      .reverse()
+      .find((a) => (a.sportType ?? "").toLowerCase().includes("run"));
     const recentForDigest =
-      [...humanizedMetrics30]
-        .reverse()
-        .find((a) => (a.sportType ?? "").toLowerCase().includes("run")) ??
+      runOnDay ??
+      (target.type !== "latest"
+        ? [...candidates].reverse()[0]
+        : [...humanizedMetrics30]
+            .reverse()
+            .find((a) => (a.sportType ?? "").toLowerCase().includes("run"))) ??
+      [...candidates].reverse()[0] ??
       [...humanizedMetrics30].reverse()[0];
 
     if (recentForDigest) {
@@ -781,7 +811,10 @@ export async function buildDataContext(
         const rawByEndpoint = new Map<string, unknown>();
         if (source.garminActivityId) {
           const rawRows = await db
-            .select({ endpoint: GarminRaw.endpoint, payload: GarminRaw.payload })
+            .select({
+              endpoint: GarminRaw.endpoint,
+              payload: GarminRaw.payload,
+            })
             .from(GarminRaw)
             .where(
               and(
@@ -837,7 +870,13 @@ export async function buildDataContext(
             perMinutePace: perMinute ?? undefined,
           },
         );
-        sections.push(`\n## Concrete Run Details (most recent)\n${digest}`);
+        sections.push(
+          `\n## Concrete Run Details${
+            target.type !== "latest"
+              ? ` (targeted: ${target.day})`
+              : " (most recent)"
+          }\n${digest}`,
+        );
       }
     }
   }

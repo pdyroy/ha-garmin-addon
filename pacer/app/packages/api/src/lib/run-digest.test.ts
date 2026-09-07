@@ -3,37 +3,79 @@
 
 import { describe, expect, it } from "vitest";
 
+import type { RunDigestSource } from "./run-digest";
 import {
   buildRunDigest,
   detectPerMinuteWanted,
   detectRunDetailIntent,
   parsePerMinuteSeries,
-  type RunDigestSource,
+  parseRunTarget,
 } from "./run-digest";
 
 describe("detectRunDetailIntent", () => {
   it("detects cadence/SPM questions", () => {
-    expect(detectRunDetailIntent("Wie war meine SPM im letzten Lauf?").wantsRunDetail).toBe(true);
-    expect(detectRunDetailIntent("Analysiere meine Trittfrequenz").wantsRunDetail).toBe(true);
+    expect(
+      detectRunDetailIntent("Wie war meine SPM im letzten Lauf?")
+        .wantsRunDetail,
+    ).toBe(true);
+    expect(
+      detectRunDetailIntent("Analysiere meine Trittfrequenz").wantsRunDetail,
+    ).toBe(true);
   });
 
   it("detects splits / interval questions", () => {
-    expect(detectRunDetailIntent("Zeig mir die Splits vom gestrigen Run").wantsRunDetail).toBe(true);
-    expect(detectRunDetailIntent("Wie waren meine Intervalle?").wantsRunDetail).toBe(true);
+    expect(
+      detectRunDetailIntent("Zeig mir die Splits vom gestrigen Run")
+        .wantsRunDetail,
+    ).toBe(true);
+    expect(
+      detectRunDetailIntent("Wie waren meine Intervalle?").wantsRunDetail,
+    ).toBe(true);
   });
 
   it("detects running-form / efficiency questions", () => {
-    expect(detectRunDetailIntent("Wie sieht meine Laufeffizienz aus?").wantsRunDetail).toBe(true);
-    expect(detectRunDetailIntent("Was war meine Ground Contact Time?").wantsRunDetail).toBe(true);
+    expect(
+      detectRunDetailIntent("Wie sieht meine Laufeffizienz aus?")
+        .wantsRunDetail,
+    ).toBe(true);
+    expect(
+      detectRunDetailIntent("Was war meine Ground Contact Time?")
+        .wantsRunDetail,
+    ).toBe(true);
+  });
+
+  it("detects a run named by weekday", () => {
+    expect(
+      detectRunDetailIntent("Wie war mein Lauf am Sonntag?").wantsRunDetail,
+    ).toBe(true);
+    expect(
+      detectRunDetailIntent("Besprich den Sonntagslauf").wantsRunDetail,
+    ).toBe(true);
+  });
+
+  it("detects a run named by date", () => {
+    expect(
+      detectRunDetailIntent("Wie war mein Lauf vom 06.09.?").wantsRunDetail,
+    ).toBe(true);
+    expect(
+      detectRunDetailIntent("Lauf am 06.09.2026 analisieren").wantsRunDetail,
+    ).toBe(true);
   });
 
   it("does not fire on generic questions", () => {
-    expect(detectRunDetailIntent("Guten Morgen, wie geht's?").wantsRunDetail).toBe(false);
-    expect(detectRunDetailIntent("Was ist meine VO2max?").wantsRunDetail).toBe(false);
+    expect(
+      detectRunDetailIntent("Guten Morgen, wie geht's?").wantsRunDetail,
+    ).toBe(false);
+    expect(detectRunDetailIntent("Was ist meine VO2max?").wantsRunDetail).toBe(
+      false,
+    );
   });
 
   it("empty message is safe", () => {
-    expect(detectRunDetailIntent("")).toEqual({ wantsRunDetail: false, wantsPerMinute: false });
+    expect(detectRunDetailIntent("")).toEqual({
+      wantsRunDetail: false,
+      wantsPerMinute: false,
+    });
     expect(detectRunDetailIntent(undefined as unknown as string)).toEqual({
       wantsRunDetail: false,
       wantsPerMinute: false,
@@ -44,12 +86,57 @@ describe("detectRunDetailIntent", () => {
 describe("detectPerMinuteWanted", () => {
   it("detects minute-level requests", () => {
     expect(detectPerMinuteWanted("Zeig mir minutenweise meine HR")).toBe(true);
-    expect(detectPerMinuteWanted("Ab der 5. Minute?").toBe(true));
+    expect(detectPerMinuteWanted("Ab der 5. Minute?")).toBe(true);
+    expect(detectPerMinuteWanted("Minütlichen HR werten")).toBe(true);
+    expect(detectPerMinuteWanted("minütliche Herzfrequenz")).toBe(true);
   });
 
   it("does not fire unless run-detail intent also active", () => {
     const r = detectRunDetailIntent("Minutenweise bitte");
     expect(r.wantsPerMinute).toBe(false);
+  });
+});
+
+describe("parseRunTarget", () => {
+  it("resolves a weekday to the most recent occurrence", () => {
+    // 2026-09-06 is a Sunday. "am sonntag" should point to the last Sunday.
+    const t = parseRunTarget("Wie war mein Lauf am Sonntag?", "Europe/Berlin");
+    expect(t.type).toBe("weekday");
+    if (t.type === "weekday") {
+      expect(t.weekday.toLowerCase()).toBe("sonntag");
+      expect(t.day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+
+  it("resolves a D.MM.YYYY date to ISO", () => {
+    const t = parseRunTarget("Lauf vom 06.09.2026", "Europe/Berlin");
+    expect(t).toEqual({ type: "date", day: "2026-09-06" });
+  });
+
+  it("resolves a short D.MM. date to the current year", () => {
+    const t = parseRunTarget("Lauf am 6.9.", "Europe/Berlin");
+    expect(t.type).toBe("date");
+    if (t.type === "date") {
+      expect(t.day).toMatch(/^\d{4}-09-06$/);
+    }
+  });
+
+  it("resolves a compound weekday run noun", () => {
+    const t = parseRunTarget("Besprich den Sonntagslauf", "Europe/Berlin");
+    expect(t.type).toBe("weekday");
+    if (t.type === "weekday") expect(t.weekday.toLowerCase()).toBe("sonntag");
+  });
+
+  it("falls back to latest when no day is named", () => {
+    expect(
+      parseRunTarget("Wie ist mein Training heute?", "Europe/Berlin"),
+    ).toEqual({
+      type: "latest",
+    });
+  });
+
+  it("handles empty message", () => {
+    expect(parseRunTarget("", "Europe/Berlin")).toEqual({ type: "latest" });
   });
 });
 
@@ -72,14 +159,31 @@ describe("parsePerMinuteSeries", () => {
     const out = parsePerMinuteSeries(payload);
     expect(out).not.toBeNull();
     expect(out!.length).toBe(3);
-    expect(out![0]).toMatchObject({ t: 0, hr: 120, secPerKm: Math.round(1000 / 3.0) });
-    expect(out![1]).toMatchObject({ t: 60, hr: 125, secPerKm: Math.round(1000 / 3.1) });
-    expect(out![2]).toMatchObject({ t: 120, hr: 130, secPerKm: Math.round(1000 / 3.2) });
+    expect(out![0]).toMatchObject({
+      t: 0,
+      hr: 120,
+      secPerKm: Math.round(1000 / 3.0),
+    });
+    expect(out![1]).toMatchObject({
+      t: 60,
+      hr: 125,
+      secPerKm: Math.round(1000 / 3.1),
+    });
+    expect(out![2]).toMatchObject({
+      t: 120,
+      hr: 130,
+      secPerKm: Math.round(1000 / 3.2),
+    });
   });
 
   it("returns null on malformed payload", () => {
     expect(parsePerMinuteSeries(null)).toBeNull();
-    expect(parsePerMinuteSeries({ metricDescriptors: [], activityDetailMetrics: [] })).toBeNull();
+    expect(
+      parsePerMinuteSeries({
+        metricDescriptors: [],
+        activityDetailMetrics: [],
+      }),
+    ).toBeNull();
   });
 });
 
@@ -142,14 +246,21 @@ describe("buildRunDigest", () => {
       { t: 60, hr: 145, secPerKm: 330 },
       { t: 120, hr: 150, secPerKm: 340 },
     ];
-    const text = buildRunDigest(base, { includePerMinute: true, perMinuteHr: perMinute, perMinutePace: perMinute });
+    const text = buildRunDigest(base, {
+      includePerMinute: true,
+      perMinuteHr: perMinute,
+      perMinutePace: perMinute,
+    });
     expect(text).toContain("Per-minute curve");
     expect(text).toContain("0:140:5:20");
   });
 
   it("omits per-minute curve when not requested", () => {
     const perMinute = [{ t: 0, hr: 140, secPerKm: 320 }];
-    const text = buildRunDigest(base, { includePerMinute: false, perMinuteHr: perMinute });
+    const text = buildRunDigest(base, {
+      includePerMinute: false,
+      perMinuteHr: perMinute,
+    });
     expect(text).not.toContain("Per-minute curve");
   });
 });

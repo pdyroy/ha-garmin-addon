@@ -15,6 +15,8 @@
 import type { RunningFormScore } from "@acme/engine";
 import { analyzeRunningForm } from "@acme/engine";
 
+import { dayInTimezone } from "./timezone";
+
 /** Compute the running-form score from raw activity columns (see engine). */
 export function computeRunFormScore(
   source: RunDigestSource,
@@ -60,14 +62,16 @@ export interface RunDigestSource {
   strideLength: number | null;
   avgRespirationRate: number | null;
   // The typed laps column already reshaped from activity_splits by the sync.
-  laps?: {
-    distanceMeters?: number | null;
-    durationSeconds?: number | null;
-    avgHr?: number | null;
-    avgPaceSecPerKm?: number | null;
-    avgCadence?: number | null;
-    elevationGain?: number | null;
-  }[] | null;
+  laps?:
+    | {
+        distanceMeters?: number | null;
+        durationSeconds?: number | null;
+        avgHr?: number | null;
+        avgPaceSecPerKm?: number | null;
+        avgCadence?: number | null;
+        elevationGain?: number | null;
+      }[]
+    | null;
   hrZoneMinutes?: {
     zone1?: number | null;
     zone2?: number | null;
@@ -111,7 +115,9 @@ function toFixed(v: number | null | undefined, dp = 1): string {
  * classic cardiac-drift marker of fatigue / poor fitness at that pace.
  */
 function computeHrDrift(laps: RunDigestSource["laps"]): number | null {
-  const hrs = (laps ?? []).map((l) => l.avgHr).filter((v): v is number => v != null);
+  const hrs = (laps ?? [])
+    .map((l) => l.avgHr)
+    .filter((v): v is number => v != null);
   if (hrs.length < 4) return null;
   const half = Math.floor(hrs.length / 2);
   const first = hrs.slice(0, half);
@@ -134,21 +140,23 @@ function renderForm(formScore: RunningFormScore | null): string[] | null {
   if (cadence.value > 0)
     lines.push(`- Cadence: ${cadence.value} spm (${cadence.rating})`);
   if (gct.value > 0)
-    lines.push(`- Ground contact time: ${toFixed(gct.value)} ms (${gct.rating})`);
+    lines.push(
+      `- Ground contact time: ${toFixed(gct.value)} ms (${gct.rating})`,
+    );
   if (vo.value > 0)
     lines.push(
       `- Vertical oscillation: ${toFixed(vo.value)} cm (${vo.rating})`,
     );
   if (stride.value > 0)
-    lines.push(`- Stride length: ${toFixed(stride.value)} m (${stride.rating})`);
+    lines.push(
+      `- Stride length: ${toFixed(stride.value)} m (${stride.rating})`,
+    );
   const vr = formScore.verticalRatio;
   if (vr.value > 0)
     lines.push(`- Vertical ratio: ${toFixed(vr.value)}% (${vr.rating})`);
   const bal = formScore.gctBalance;
   if (bal.value > 0)
-    lines.push(
-      `- GCT balance L/R: ${toFixed(bal.value)} (${bal.rating})`,
-    );
+    lines.push(`- GCT balance L/R: ${toFixed(bal.value)} (${bal.rating})`);
   if (formScore.overall > 0)
     lines.push(`- Running form score: ${formScore.overall}/100`);
   return lines.length > 0 ? lines : null;
@@ -185,7 +193,9 @@ export function buildRunDigest(
     ? new Date(source.startedAt).toISOString().split("T")[0]
     : null;
   const sportLabel = source.sportType
-    ? source.sportType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    ? source.sportType
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
     : "Activity";
   const lines: string[] = [];
   lines.push(`### ${sportLabel}${when ? ` — ${when}` : ""}`);
@@ -200,14 +210,18 @@ export function buildRunDigest(
       source.durationMinutes != null && source.durationMinutes > 0 && distKm > 0
         ? fmtPace(3600 / (distKm / (source.durationMinutes / 60)))
         : "";
-    header.push(`${distKm.toFixed(1)} km${paceFromDist ? ` (~${paceFromDist})` : ""}`);
+    header.push(
+      `${distKm.toFixed(1)} km${paceFromDist ? ` (~${paceFromDist})` : ""}`,
+    );
   }
   if (source.avgPaceSecPerKm != null)
     header.push(`avg ${fmtPace(source.avgPaceSecPerKm)}/km`);
   if (source.avgHr != null) header.push(`HR ${source.avgHr}`);
   if (source.maxHr != null) header.push(`max ${source.maxHr}`);
-  if (source.avgCadence != null) header.push(`${Math.round(source.avgCadence)} spm`);
-  if (source.elevationGain != null) header.push(`↑${Math.round(source.elevationGain)}m`);
+  if (source.avgCadence != null)
+    header.push(`${Math.round(source.avgCadence)} spm`);
+  if (source.elevationGain != null)
+    header.push(`↑${Math.round(source.elevationGain)}m`);
   if (header.length > 0) lines.push(`- ${header.join(", ")}`);
 
   const laps = source.laps ?? [];
@@ -220,13 +234,16 @@ export function buildRunDigest(
       const pace =
         l.avgPaceSecPerKm != null
           ? fmtPace(l.avgPaceSecPerKm)
-          : l.distanceMeters != null && l.durationSeconds != null && l.distanceMeters > 0
+          : l.distanceMeters != null &&
+              l.durationSeconds != null &&
+              l.distanceMeters > 0
             ? fmtPace((l.durationSeconds / l.distanceMeters) * 1000)
             : null;
       if (pace) parts.push(pace);
       if (l.avgHr != null) parts.push(`HR ${l.avgHr}`);
       if (l.avgCadence != null) parts.push(`${Math.round(l.avgCadence)} spm`);
-      if (l.elevationGain != null) parts.push(`↑${Math.round(l.elevationGain)}m`);
+      if (l.elevationGain != null)
+        parts.push(`↑${Math.round(l.elevationGain)}m`);
       lapLines.push(`  ${i + 1}. ${parts.join(", ") || "..."}`);
     });
     lines.push(lapLines.join("\n"));
@@ -242,13 +259,19 @@ export function buildRunDigest(
   if (formLines) lines.push(...formLines);
 
   const zones = source.hrZoneMinutes;
-  if (zones && (zones.zone1 || zones.zone2 || zones.zone3 || zones.zone4 || zones.zone5)) {
+  if (
+    zones &&
+    (zones.zone1 || zones.zone2 || zones.zone3 || zones.zone4 || zones.zone5)
+  ) {
     const total =
-      (zones.zone1 ?? 0) + (zones.zone2 ?? 0) + (zones.zone3 ?? 0) + (zones.zone4 ?? 0) + (zones.zone5 ?? 0);
+      (zones.zone1 ?? 0) +
+      (zones.zone2 ?? 0) +
+      (zones.zone3 ?? 0) +
+      (zones.zone4 ?? 0) +
+      (zones.zone5 ?? 0);
     const totalMin = Math.round(total);
     if (totalMin > 0) {
-      const z = (v?: number | null) =>
-        (((v ?? 0) / total) * 100).toFixed(1);
+      const z = (v?: number | null) => (((v ?? 0) / total) * 100).toFixed(1);
       lines.push(
         `- HR zones: Z1 ${z(zones.zone1)}%, Z2 ${z(zones.zone2)}%, Z3 ${z(zones.zone3)}%, Z4 ${z(zones.zone4)}%, Z5 ${z(zones.zone5)}% (${totalMin} active min)`,
       );
@@ -256,11 +279,20 @@ export function buildRunDigest(
   }
 
   if (options.includePerMinute) {
-    const hr = downsample(options.perMinuteHr ?? [], RUN_DIGEST_PER_MINUTE_MAX_POINTS);
-    const pace = downsample(options.perMinutePace ?? [], RUN_DIGEST_PER_MINUTE_MAX_POINTS);
+    const hr = downsample(
+      options.perMinuteHr ?? [],
+      RUN_DIGEST_PER_MINUTE_MAX_POINTS,
+    );
+    const pace = downsample(
+      options.perMinutePace ?? [],
+      RUN_DIGEST_PER_MINUTE_MAX_POINTS,
+    );
     if (hr.length > 0 || pace.length > 0) {
       lines.push("- Per-minute curve (time, HR bpm[, pace /km]):");
-      const minutes = new Map<number, { hr: number | null; pace: number | null }>();
+      const minutes = new Map<
+        number,
+        { hr: number | null; pace: number | null }
+      >();
       const known = new Set<number>();
       for (const p of hr) known.add(p.t);
       for (const p of pace) known.add(p.t);
@@ -298,9 +330,40 @@ export function buildRunDigest(
 // form, per-minute HR/cadence) rather than the aggregate summary?
 // ---------------------------------------------------------------------------
 
+const WEEKDAYS_DE = {
+  montag: 1,
+  monday: 1,
+  dienstag: 2,
+  tuesday: 2,
+  mittwoch: 3,
+  wednesday: 3,
+  donnerstag: 4,
+  thursday: 4,
+  freitag: 5,
+  friday: 5,
+  samstag: 6,
+  saturday: 6,
+  sonntag: 0,
+  sunday: 0,
+} as const;
+
+/**
+ * Match "der/mein lauf am <Tag> / vom <Datum>" — a concrete, dated/attributed
+ * session. Unlike the generic "letzter lauf" trigger, this fires on the
+ * weekday/date the user names so the coach can target that specific run.
+ */
+const RUN_ON_DAY_PATTERN =
+  /\b(?:la[au]f|la[au]feinheit|run|einheit)\b\s*(?:am|vom|von)\s+([a-zäöü]+|\d{1,2}(?:[.\\/ -]\d{1,2})?(?:[.\\/ -]\d{2,4})?)/i;
+const WEEKDAY_RUN_PATTERN =
+  /\b(?:sonntags|samstags|montags|dienstags|mittwochs|donnerstags|freitags)lauf\b/i;
+
 const RUN_DETAIL_PATTERNS: RegExp[] = [
   /\b(analse|analyse|analysiere|untersuche|har run|den gar|meistens|zuletzt|gestrigen?|heutigen?)\b/i,
   /(letzter|letzte|letzten|gestrig|heutig)[ a-z]*(lauf|run|laufeinheit|einheit|interall|intervall)/i,
+  // "der lauf am dienstag", "mein lauf vom 06.09."
+  RUN_ON_DAY_PATTERN,
+  // "sonntagslauf", "samstagslauf"
+  WEEKDAY_RUN_PATTERN,
   /\bintervall(?:e)?\b/i,
   /\b(split|splits|km section|kilometerweise)\b/i,
   /\b(cadence|spm|trittfrequen[az])\b/i,
@@ -319,7 +382,7 @@ export interface RunDetailIntent {
 
 /** True when the message requests the minute-resolution HR/pace curve. */
 export function detectPerMinuteWanted(message: string): boolean {
-  return /(per.?minute|minute[n]?weise|im minuten[ r]|sekunde|ab der \d+\.? min)/i.test(
+  return /(per.?minute|minute[n]?weise|minütlich(?:en|e|es|er)?\b|im minuten[ r]|ab der \d+\.? min)/i.test(
     message,
   );
 }
@@ -329,6 +392,101 @@ export function detectRunDetailIntent(message: string): RunDetailIntent {
   const wantsRunDetail = RUN_DETAIL_PATTERNS.some((re) => re.test(message));
   const wantsPerMinute = wantsRunDetail && detectPerMinuteWanted(message);
   return { wantsRunDetail, wantsPerMinute };
+}
+
+// ---------------------------------------------------------------------------
+// Run target resolution — which individual run does the question name?
+// ---------------------------------------------------------------------------
+
+export type RunTarget =
+  | { type: "weekday"; weekday: string; day: string }
+  | { type: "date"; day: string }
+  | { type: "latest" };
+
+function toIsoDay(day: string): string {
+  // Callers pass day.cmp(a.startedAt, profile.timezone) already-formatted,
+  // and the date regex captures YYYY-MM-DD, DD.MM.YYYY or DD.MM. Normalize
+  // the latter two into YYYY-MM-DD. Weekday targets arrive pre-resolved.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(day)) return day;
+  const m = /^(\d{1,2})[.\/ -](\d{1,2})(?:[.\/ -](\d{2,4}))?$/.exec(day);
+  if (!m) return day; // fall through (usually a weekday name)
+  const dd = m[1]!.padStart(2, "0");
+  const mm = m[2]!.padStart(2, "0");
+  let yy = m[3] ?? String(new Date().getUTCFullYear());
+  if (/^\d{2}$/.test(yy)) {
+    const n = Number(yy);
+    // 00–49 → 2000s, 50–99 → 1900s (common 2-digit year rule).
+    yy = n < 50 ? `20${yy}` : `19${yy}`;
+  }
+  return `${yy}-${mm}-${dd}`;
+}
+
+function weekdayIsoDay(weekday: string, tz: string | null | undefined): string {
+  const dow = WEEKDAYS_DE[weekday.toLowerCase() as keyof typeof WEEKDAYS_DE];
+  // Today's weekday number in the athlete's timezone (Intl can't give us
+  // weekday here cheaply without a full formatter; reuse dayInTimezone "now").
+  const now = new Date();
+  const todayIso = dayInTimezone(now, tz);
+  const todayDow = new Date(`${todayIso}T12:00:00Z`).getUTCDay();
+  let back = todayDow - dow;
+  if (back < 0) back += 7;
+  // "am sonntag" in the middle of the week usually means the *most recent*
+  // occurrence, not the coming one; walk back one full week if the most
+  // recent would be 0 (today) so we don't point at the current day unless
+  // the user explicitly said "heute".
+  if (back === 0 && !/heute|today/i.test(weekday)) back = 7;
+  const d = new Date(`${todayIso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - back);
+  return d.toISOString().split("T")[0]!;
+}
+
+const RUN_ON_DAY_CAPTURE =
+  /\b(?:la[au]f|la[au]feinheit|run|einheit)\b\s*(?:am|vom|von)\s+([a-zäöü]+|\d{1,2}(?:[.\/ -]\d{1,2})?(?:[.\/ -]\d{2,4})?)/i;
+const WEEKDAY_NAME =
+  /\b(montag|monday|dienstag|tuesday|mittwoch|wednesday|donnerstag|thursday|freitag|friday|samstag|saturday|sonntag|sunday)\b/i;
+
+/**
+ * Resolve which run the question targets: an explicit weekday, a date, or the
+ * most recent session. Weekday/date resolution is timezone-aware so a run
+ * started late at night lands on the correct calendar day for the athlete.
+ * Returns `{ type: 'latest' }` when no clear target is named.
+ */
+export function parseRunTarget(
+  message: string,
+  tz: string | null | undefined,
+): RunTarget {
+  if (!message) return { type: "latest" };
+
+  const onDay = RUN_ON_DAY_CAPTURE.exec(message);
+  if (onDay?.[1]) {
+    const token = onDay[1].trim();
+    if (WEEKDAY_NAME.test(token)) {
+      return {
+        type: "weekday",
+        weekday: token,
+        day: weekdayIsoDay(token, tz),
+      };
+    }
+    const iso = toIsoDay(token);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      return { type: "date", day: iso };
+    }
+    return { type: "latest" };
+  }
+
+  // "sonntagslauf" / "samstagslauf" without "am".
+  const weekdayRun =
+    /\b(sonntags|samstags|montags|dienstags|mittwochs|donnerstags|freitags)lauf\b/i.exec(
+      message,
+    );
+  if (weekdayRun?.[1]) {
+    // group 1 is "sonntags"/"samstags"/… (the `lauf` is outside the group);
+    // strip the trailing plural "s" to get the base weekday name.
+    const weekday = weekdayRun[1].replace(/s$/, "");
+    return { type: "weekday", weekday, day: weekdayIsoDay(weekday, tz) };
+  }
+
+  return { type: "latest" };
 }
 
 // ---------------------------------------------------------------------------
@@ -348,12 +506,18 @@ export interface RawPerMinutePair {
  * columns, `activityDetailMetrics[].metrics` holds one row per second. Returns
  * one row per minute (first row of each 60 s bucket), null on malformed data.
  */
-export function parsePerMinuteSeries(payload: unknown): RawPerMinutePair[] | null {
+export function parsePerMinuteSeries(
+  payload: unknown,
+): RawPerMinutePair[] | null {
   if (payload == null || typeof payload !== "object") return null;
   const d = payload as Record<string, unknown>;
   const descriptors = d.metricDescriptors;
   const rows = d.activityDetailMetrics;
-  if (!Array.isArray(descriptors) || !Array.isArray(rows) || rows.length === 0) {
+  if (
+    !Array.isArray(descriptors) ||
+    !Array.isArray(rows) ||
+    rows.length === 0
+  ) {
     return null;
   }
   const index: Partial<Record<string, number>> = {};
@@ -381,10 +545,12 @@ export function parsePerMinuteSeries(payload: unknown): RawPerMinutePair[] | nul
     const t = Math.round((ts - startMs) / 1000);
     if (t % 60 !== 0) continue; // first second of each minute bucket
     const hrVal = hrIdx != null ? metrics[hrIdx] : undefined;
-    const hr = typeof hrVal === "number" && Number.isFinite(hrVal) ? hrVal : null;
+    const hr =
+      typeof hrVal === "number" && Number.isFinite(hrVal) ? hrVal : null;
     // Garmin reports directSpeed in m/s; convert to seconds per kilometre.
     const speedVal = speedIdx != null ? metrics[speedIdx] : undefined;
-    const speed = typeof speedVal === "number" && speedVal > 0.3 ? speedVal : null;
+    const speed =
+      typeof speedVal === "number" && speedVal > 0.3 ? speedVal : null;
     const secPerKm = speed != null ? Math.round(1000 / speed) : null;
     out.push({ t, hr, secPerKm });
   }
