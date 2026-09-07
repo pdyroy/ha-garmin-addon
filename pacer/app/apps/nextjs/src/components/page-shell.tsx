@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 
 import { cn } from "@acme/ui";
 
+import { SectionTabs } from "~/app/_components/section-tabs";
+
 const DENSITY_STYLES = {
   /** Prose surfaces (coach, insights, journal, settings) — capped for readable line length. */
   reading: "max-w-[70ch]",
@@ -48,6 +50,7 @@ export function PageShell({
       )}
     >
       <div className={cn("mx-auto", DENSITY_STYLES[density])}>
+        <SectionTabs />
         {(title ?? description) && (
           <div className="mb-8">
             {title && <h1 className="text-2xl font-bold">{title}</h1>}

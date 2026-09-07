@@ -56,8 +56,13 @@ export default function RootLayout(props: { children: React.ReactNode }) {
       >
         <ThemeProvider>
           <IngressProvider>
-            <AppNav />
-            <TRPCReactProvider>{props.children}</TRPCReactProvider>
+            {/* AppNav reads Profile.audienceMode to decide which sections to
+                show, so it has to sit inside the tRPC provider — outside it,
+                useTRPC() throws and takes every page down with it. */}
+            <TRPCReactProvider>
+              <AppNav />
+              {props.children}
+            </TRPCReactProvider>
           </IngressProvider>
           <div className="absolute right-4 bottom-4">
             <ThemeToggle />

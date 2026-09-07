@@ -183,7 +183,9 @@ function ProfileEditor() {
           </div>
           <div>
             <span className="text-muted-foreground">Geschlecht:</span>{" "}
-            <span>{profile?.sex ? (SEX_LABELS[profile.sex] ?? profile.sex) : "—"}</span>
+            <span>
+              {profile?.sex ? (SEX_LABELS[profile.sex] ?? profile.sex) : "—"}
+            </span>
           </div>
           <div>
             <span className="text-muted-foreground">Gewicht:</span>{" "}
@@ -384,7 +386,9 @@ function HealthProfile() {
 
       {/* Conditions */}
       <div>
-        <Label className="text-sm font-medium">Gesundheitliche Vorerkrankungen</Label>
+        <Label className="text-sm font-medium">
+          Gesundheitliche Vorerkrankungen
+        </Label>
         <div className="mt-1 flex flex-wrap gap-1">
           {HEALTH_CONDITIONS.map((c) => (
             <button
@@ -547,6 +551,82 @@ interface AuthResponse {
   message?: string;
 }
 
+const AUDIENCE_OPTIONS = [
+  {
+    value: "all" as const,
+    label: "Alles",
+    hint: "Jede Seite, nichts ausgeblendet",
+  },
+  {
+    value: "athlete" as const,
+    label: "Sport",
+    hint: "Leistung im Fokus — Vitalwerte ausgeblendet",
+  },
+  {
+    value: "health" as const,
+    label: "Gesundheit",
+    hint: "Erholung im Fokus — HF-Zonen, Fitness und Power ausgeblendet",
+  },
+];
+
+/**
+ * Which slice of the app the navigation shows. Fewer sichtbare Seiten, ohne
+ * eine davon zu löschen — die Routen bleiben per Direktlink erreichbar.
+ */
+function AudienceSettings() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { data: profile } = useQuery(trpc.profile.get.queryOptions());
+  const current =
+    (profile as { audienceMode?: string } | null | undefined)?.audienceMode ??
+    "all";
+
+  const updateAudience = useMutation(
+    trpc.profile.updateAudienceMode.mutationOptions({
+      onSuccess: () => {
+        void queryClient.invalidateQueries({
+          queryKey: trpc.profile.get.queryKey(),
+        });
+      },
+    }),
+  );
+
+  return (
+    <div className="bg-card space-y-3 rounded-2xl border p-4">
+      <h2 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
+        Umfang der Oberfläche
+      </h2>
+      <div className="space-y-2">
+        {AUDIENCE_OPTIONS.map((option) => {
+          const active = current === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              disabled={updateAudience.isPending}
+              onClick={() =>
+                updateAudience.mutate({ audienceMode: option.value })
+              }
+              aria-pressed={active}
+              className={cn(
+                "w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                active
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-input hover:bg-accent",
+              )}
+            >
+              <span className="font-medium">{option.label}</span>
+              <span className="text-muted-foreground block text-xs">
+                {option.hint}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TimezoneSettings() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -620,11 +700,15 @@ function TimezoneSettings() {
           }
           onClick={() => updateTimezone.mutate({ timezone: selectedTimezone })}
         >
-          {updateTimezone.isPending ? "Wird gespeichert…" : "Zeitzone speichern"}
+          {updateTimezone.isPending
+            ? "Wird gespeichert…"
+            : "Zeitzone speichern"}
         </Button>
       </div>
       {!timezones.includes(selectedTimezone) ? (
-        <p className="text-xs text-red-500">Wähle eine gültige IANA-Zeitzone.</p>
+        <p className="text-xs text-red-500">
+          Wähle eine gültige IANA-Zeitzone.
+        </p>
       ) : null}
     </div>
   );
@@ -852,7 +936,8 @@ function GarminConnection() {
         setShowMfa(true);
       } else {
         setError(
-          data.message ?? "Anmeldung fehlgeschlagen. Prüfe E-Mail und Passwort.",
+          data.message ??
+            "Anmeldung fehlgeschlagen. Prüfe E-Mail und Passwort.",
         );
       }
     } catch {
@@ -997,7 +1082,9 @@ function GarminConnection() {
             disabled={triggeringSyncState}
             className="mt-2"
           >
-            {triggeringSyncState ? "Wird gestartet …" : "🔄 Jetzt synchronisieren"}
+            {triggeringSyncState
+              ? "Wird gestartet …"
+              : "🔄 Jetzt synchronisieren"}
           </Button>
         )}
         <Button
@@ -1121,6 +1208,9 @@ export default function SettingsPage() {
 
         {/* Health & Safety */}
         <HealthProfile />
+
+        {/* How much of the app the navigation shows */}
+        <AudienceSettings />
 
         {/* Timezone */}
         <TimezoneSettings />

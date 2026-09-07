@@ -5,34 +5,23 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@acme/ui";
 
-import type { NavItem } from "./app-nav";
-import { navSections, useActivePath } from "./app-nav";
+import { useActivePath, useNavSections } from "./app-nav";
 import { MoreMenu } from "./hamburger-menu";
 import { IngressLink as Link } from "./ingress-link";
 
-/** The five most-used destinations, always visible below `sm`. */
-const primaryItems: NavItem[] = [
-  { href: "/", label: "Heute", icon: "🏠" },
-  { href: "/trends", label: "Trends", icon: "📊" },
-  { href: "/training", label: "Training Load", icon: "💪" },
-  { href: "/sleep", label: "Schlaf", icon: "🌙" },
-  { href: "/coach", label: "KI-Coach", icon: "🤖" },
-];
-
-const primaryHrefs = new Set(primaryItems.map((item) => item.href));
-
-/** Everything not in the bottom bar, grouped the same way as the sidebar. */
-const moreSections = navSections
-  .map((section) => ({
-    ...section,
-    items: section.items.filter((item) => !primaryHrefs.has(item.href)),
-  }))
-  .filter((section) => section.items.length > 0);
+/** How many sections fit in the bar before the rest move behind "Mehr". */
+const PRIMARY_SECTION_COUNT = 5;
 
 export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const isActive = useActivePath();
   const pathname = usePathname();
+  const sections = useNavSections();
+
+  // Same sections as the sidebar: the first five in the bar, the remainder
+  // (with their tabs listed out) in the sheet behind "Mehr".
+  const primarySections = sections.slice(0, PRIMARY_SECTION_COUNT);
+  const moreSections = sections.slice(PRIMARY_SECTION_COUNT);
 
   // Close the "Mehr" sheet on route change (matters outside ingress, where
   // navigation is client-side and this component stays mounted).
@@ -54,25 +43,27 @@ export function BottomNav() {
         className="bg-card border-border fixed right-0 bottom-0 left-0 z-50 border-t pb-[env(safe-area-inset-bottom)] sm:hidden"
       >
         <div className="mx-auto flex max-w-md items-center justify-around px-1 py-1">
-          {primaryItems.map((item) => {
-            const active = isActive(item.href);
+          {primarySections.map((section) => {
+            // A section's entry lights up for any of its tabs, not just its
+            // landing page.
+            const active = section.items.some((tab) => isActive(tab.href));
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={section.title}
+                href={section.items[0].href}
                 aria-current={active ? "page" : undefined}
-                aria-label={item.label}
+                aria-label={section.title}
                 className={cn(
-                  "flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                  "focus-visible:ring-primary flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none",
                   active
                     ? "text-primary font-semibold"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <span className="text-lg" aria-hidden="true">
-                  {item.icon}
+                  {section.icon}
                 </span>
-                <span className="max-[379px]:hidden">{item.label}</span>
+                <span className="max-[379px]:hidden">{section.title}</span>
               </Link>
             );
           })}
@@ -82,7 +73,7 @@ export function BottomNav() {
             aria-label="Mehr"
             aria-haspopup="dialog"
             aria-expanded={moreOpen}
-            className="text-muted-foreground hover:text-foreground flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="text-muted-foreground hover:text-foreground focus-visible:ring-primary flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             <span className="text-lg" aria-hidden="true">
               ⋯
