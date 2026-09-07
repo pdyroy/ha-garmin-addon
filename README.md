@@ -56,92 +56,31 @@ your local network.
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    subgraph HAOS["🏠 Home Assistant OS"]
-        subgraph ADDON["📦 Pacer Addon · s6-overlay"]
-            S6["⚙️ s6-overlay init"]
-            PG[("🐘 postgresql<br/>longrun")]
-            Auth["🔐 garmin-auth<br/>Flask :8099"]
-            GC["🎛️ pacer orchestrator<br/>longrun"]
-            Sync["🔄 garmin-sync.py<br/>loop · every N min"]
-            Metrics["📊 metrics-compute.py<br/>120s delay · every 60 min"]
-            Notify["🔔 ha-notify.py<br/>180s delay · every 30 min"]
-            NextJS["▲ Next.js standalone<br/>:3001"]
-            Ingress["🔀 ingress-proxy<br/>:3000 → :3001"]
-            Monitor["🩺 process monitor<br/>every 60s"]
-            Stress["💓 meeting-stress.py<br/>on demand"]
-            Share[/"📁 /share/pacer<br/>events · interactions · results"/]
-        end
-        HA["🏡 Home Assistant Core"]
-        Ollama["🦙 Ollama Addon<br/>optional"]
-    end
+Pacer runs as a single s6-overlay service (`pacer`) inside the add-on
+container. On boot it waits for PostgreSQL, pushes the Drizzle schema, then
+starts the web app and several background loops. Startup order:
+postgresql → garmin-auth (parallel) → `pacer` → sync → metrics → notify →
+Next.js (:3001) → ingress proxy (:3000) → monitoring loop.
 
-    Garmin["⌚ Garmin Connect API"]
-    GCal["📅 Google Calendar API"]
+| Component | Port / cadence | Role |
+|---|---|---|
+| **postgresql** | 5432 | embedded storage; schema via `drizzle-kit push` |
+| **garmin-auth** | 8099 | Flask auth server (web login + OAuth session) |
+| **garmin-sync.py** | every N min | pull Garmin Connect data |
+| **strava-sync.py** | every N min | optional — pull Strava, if configured |
+| **metrics-compute.py** | every N min | CTL/ATL/TSB, ACWR, VO2max, recommendations |
+| **ha-notify.py** | every N min | push HA sensors via the Supervisor API |
+| **memory rebuild** | nightly | Ollama embeddings for coach memory (only with Ollama) |
+| **stress rescore** | every 6 h | re-score recent meetings once HR arrives |
+| **Next.js** | 3001 | web UI, served behind the ingress proxy |
+| **ingress proxy** | 3000 | HA ingress entry → 3001, issues a per-boot auth token |
 
-    S6 --> PG
-    S6 --> Auth
-    S6 --> GC
-    PG -.->|dependency| GC
-    GC --> Sync
-    GC --> Metrics
-    GC --> Notify
-    GC --> NextJS
-    GC --> Ingress
-    GC --> Monitor
+The Garmin and Strava credentials are given only to the Python workers and
+the auth server — neither the web app nor the internet-facing proxy inherits
+them. The ingress proxy is the only process reachable from the hassio
+network and carries no secrets beyond its own per-boot token.
 
-    Garmin --> Sync
-    Sync --> PG
-    PG --> Metrics
-    Metrics --> PG
-    PG --> Notify
-    Notify -->|sensors| HA
-    PG --> NextJS
-    NextJS -.-> Ollama
-    NextJS -.-> HA
-
-    Auth -->|POST /auth/meeting-stress| Stress
-    GCal -.->|attendees| Stress
-    Garmin -.->|all-day HR| Stress
-    Share --> Stress
-    Stress --> Share
-    NextJS -->|Stress Board UI| Auth
-
-    classDef init fill:#f59e0b,stroke:#b45309,color:#1a1200,stroke-width:1px;
-    classDef store fill:#2563eb,stroke:#1e40af,color:#eff6ff,stroke-width:1px;
-    classDef service fill:#8b5cf6,stroke:#6d28d9,color:#f5f3ff,stroke-width:1px;
-    classDef orch fill:#0d9488,stroke:#0f766e,color:#ecfeff,stroke-width:1px;
-    classDef pyjob fill:#22c55e,stroke:#15803d,color:#04240f,stroke-width:1px;
-    classDef proxy fill:#64748b,stroke:#475569,color:#f8fafc,stroke-width:1px;
-    classDef external fill:#f43f5e,stroke:#be123c,color:#fff1f2,stroke-width:1px;
-    classDef ha fill:#03a9f4,stroke:#0277bd,color:#e1f5fe,stroke-width:1px;
-    classDef local fill:#6366f1,stroke:#4338ca,color:#eef2ff,stroke-width:1px;
-
-    class S6 init;
-    class PG,Share store;
-    class Auth,NextJS service;
-    class GC orch;
-    class Sync,Metrics,Notify,Stress pyjob;
-    class Ingress,Monitor proxy;
-    class Garmin,GCal external;
-    class Ollama local;
-    class HA ha;
-
-    style HAOS fill:#0f172a,stroke:#334155,color:#e2e8f0;
-    style ADDON fill:#111827,stroke:#374151,color:#e5e7eb;
-```
-
-```text
-Startup order:
-  postgresql → garmin-auth (parallel) → pacer orchestrator
-    → garmin-sync (background loop, waits for tokens)
-    → metrics-compute (120s delay, then every 60 min)
-    → ha-notify (180s delay, then every 30 min)
-    → Next.js standalone server (:3001)
-    → ingress-proxy (:3000 → :3001, HA ingress path rewriting)
-    → process monitor (restarts dead services every 60s)
-```
+Supported architectures: **amd64**, **aarch64**.
 
 ## Installation
 

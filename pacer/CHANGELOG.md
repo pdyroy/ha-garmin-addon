@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+
+- Replaced the out-of-date architecture diagram in the README with an
+  accurate component table: added the Strava sync, coach-memory rebuild and
+  Stress-Board rescore services, and corrected the notify cadence (60 min,
+  not 30) and stress rescore (6 h, not hourly).
+
 ## 1.2.0
 
 - The coach can now read the detail of a specific run instead of only the
