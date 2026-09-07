@@ -248,6 +248,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@opentelemetry/api@1.9.0)(@types/node@22.19.19)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@6.0.4))(vite@8.0.14(@types/node@22.19.19)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.3)(yaml@2.9.0))
 
   packages/auth:
     dependencies:
@@ -1235,6 +1238,7 @@ packages:
 
   '@better-auth/cli@1.4.0-beta.9':
     resolution: {integrity: sha512-N7poVoYqC+pj4oUabUQN3qz+vnHJEOArPcm00qf9qRJJEGhOa252NX34/utvtfsnvvyXWE7n2U6WQz1lf6JH1w==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
     hasBin: true
 
   '@better-auth/core@1.4.0-beta.9':
