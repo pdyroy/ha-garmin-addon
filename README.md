@@ -19,7 +19,6 @@ your local network.
 ## Table of Contents
 
 - [Features](#features)
-- [Screenshots](#screenshots)
 - [Architecture](#architecture)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -27,7 +26,6 @@ your local network.
 - [AI Backend Options](#ai-backend-options)
 - [Automation Blueprints & Templates](#automation-blueprints--templates)
 - [Garmin Watch Compatibility](#garmin-watch-compatibility)
-- [Known Issues](#known-issues)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
 - [Contributing](#contributing)
@@ -55,97 +53,6 @@ your local network.
   people spike — or calm — your HR; links Google Calendar and merges
   HA-logged out-of-calendar interactions
 - 🔒 **Fully Private** — All data stays local; AI runs on your hardware
-
-## Screenshots
-
-A walkthrough of the main dashboards as they appear in the ingress UI
-(addon **v0.18.1**, captured **2026-06-08**). Mobile pairs for every
-screen below are captured alongside the desktop renders by the
-`tools/screenshots/` Playwright harness (run locally; output directory
-is git-ignored).
-
-### Home — Today's readiness, streak, and quick-glance chips
-Top-line readiness score, adherence streak, and chip row covering
-HRV, training load, stress, and sleep. Version badge bottom-right.
-
-![Home dashboard](docs/screenshots/home-desktop.png)
-
-### Activities — Recent synced sessions
-Filterable list across all sport types pulled from Garmin Connect.
-Activity names are humanized (e.g. `Tennis_v2` → `Tennis`), durations
-render as `1h 39m`, and timestamps include the local timezone. Phantom
-walks under 10 minutes and 500 m are auto-filtered.
-
-![Activities dashboard](docs/screenshots/activities-desktop.png)
-
-### Coach — AI recommendations with chat
-Daily plan with rationale, plus a chat surface that post-processes
-historical messages on read (humanized activity names, renumbered
-ordered lists).
-
-![Coach dashboard](docs/screenshots/coach-desktop.png)
-
-### Fitness — VO2max, racing shape, predictions
-Long-term fitness trajectory: current VO2max with Garmin and
-UTH-estimated trend, race-distance predictions, pace zones, and
-historical race-result comparison. The DateRangeSelector covers
-7d / 14d / 28d / 90d / 180d / 1y windows.
-
-![Fitness dashboard (28d)](docs/screenshots/fitness-28d-desktop.png)
-
-### Training — Load, recovery, and weekly structure
-Acute / chronic load curves, ATL/CTL ratio, and recovery state across
-the rolling training window.
-
-![Training dashboard](docs/screenshots/training-desktop.png)
-
-### Sleep — Stages, debt, and bedtime guidance
-Sleep stage breakdown, rolling debt tracking, and bedtime
-recommendations grounded in recent recovery state.
-
-![Sleep dashboard](docs/screenshots/sleep-desktop.png)
-
-### Insights — AI-generated daily summaries
-Plain-language interpretation of the day's readiness, training-load
-status, and a 7-day rollup with avg readiness, sleep, and HRV.
-Confidence-scored so you can see when the engine has enough signal.
-
-![Insights dashboard](docs/screenshots/insights-desktop.png)
-
-### Trends — Multi-metric, multi-year overlays
-Long-window views of readiness, HRV, sleep, training load and other
-metrics side-by-side, with notable-change detection and inter-metric
-correlations.
-
-![Trends dashboard](docs/screenshots/trends-desktop.png)
-
-### HRV — Heart rate variability deep-dive
-Current/baseline/CV% stat row, full HRV scatter with baseline
-annotation, and a CV% variability chart. Period summary surfaces the
-data window and reading count for transparency.
-
-![HRV dashboard](docs/screenshots/hrv-desktop.png)
-
-### Validation — Data-quality and adherence audit
-Per-source coverage, adherence cascade results (Plan → Activity → HR
-fallback), and missing-window diagnostics so you can spot sync gaps.
-
-![Validation dashboard](docs/screenshots/validation-desktop.png)
-
-### Stress Board — Meeting stress leaderboard
-Correlates calendar meetings and their attendees against your heart
-rate to rank who spikes (or calms) it. Per-person **ridge marginal
-effect** de-confounds co-attendance, and per-meeting `dbpm` / `z` /
-`elev` are scored against a ±90-min local HR baseline. The **🙈 mask
-toggle** aliases every name to initials and collapses meeting titles to
-`meeting #N` for shareable screenshots — the capture below is the masked
-view with synthetic demo data (all people and meetings are fictional).
-
-![Stress Board (masked, demo data)](docs/screenshots/stress-board-desktop.png)
-
-> Correlation ≠ causation — a leaderboard for laughs, not a clinical HR
-> readout. Thin data (n < 3) ranks are noise. Idea credit:
-> [@the2ndfloorguy](https://x.com/the2ndfloorguy).
 
 ## Architecture
 
@@ -236,8 +143,6 @@ Startup order:
     → process monitor (restarts dead services every 60s)
 ```
 
-Supported architectures: **amd64**, **aarch64**.
-
 ## Installation
 
 Pacer is installed as a **local add-on**: Home Assistant builds the image on
@@ -259,8 +164,6 @@ public add-on store entry.
 
 To update, re-copy the folder and rebuild from the same screen.
 
-Supported architectures: amd64 and aarch64.
-
 ### First-Time Setup
 
 1. **Open the addon** from your HA sidebar (or Settings → Add-ons → Pacer → Open Web UI).
@@ -278,25 +181,8 @@ Supported architectures: amd64 and aarch64.
 5. **Restart the addon** after the first sync completes to trigger the
    metrics compute and HA sensor push.
 
-> **⚠️ Initial Sync Note:** The first sync fetches all your historical Garmin
-> data (daily stats, activities, HR zones) going back to 2019. This is a
-> one-time operation that can take 30-45 minutes due to Garmin Connect API
-> rate limits (7 days per batch request). The addon will show sync progress
-> in Settings. After the initial sync, daily syncs run every 60 minutes
-> (configurable) and complete in under a minute.
-
 > **💡 Tip:** You can trigger a manual sync at any time from
 > **Settings → 🔄 Sync Now** without waiting for the next scheduled interval.
-
-### Updating
-
-Re-copy the `pacer/` folder to `/addons/pacer/`, then **Settings → Add-ons →
-Add-on Store → ⋮ → Check for updates**. Bump `version` in
-`pacer/config.json` if you want Supervisor to offer an explicit **Update**
-button; otherwise use **Rebuild** on the add-on page. Supervisor reads the
-version from `config.json`, not from a git tag.
-
-On the CLI: `ha addons rebuild local_pacer`.
 
 ## Configuration
 
@@ -304,7 +190,9 @@ On the CLI: `ha addons rebuild local_pacer`.
 |---|---|---|---|---|
 | `garmin_email` | email | — | No | Your Garmin Connect email (or use web-based login in Settings) |
 | `garmin_password` | password | — | No | Your Garmin Connect password (or use web-based login in Settings) |
-| `ai_backend` | list | `none` | No | AI coaching backend (`ha_conversation`, `ollama`, or `none`) |
+| `ai_backend` | list | `none` | No | AI coaching backend (`ha_conversation`, `ollama`, `openrouter`, or `none`) |
+| `openrouter_api_key` | password | — | No | API key for the `openrouter` backend |
+| `openrouter_model` | string | — | No | Model slug for the `openrouter` backend |
 | `ollama_url` | url | — | No | Ollama server URL (only when `ai_backend` is `ollama`) |
 | `sync_interval_minutes` | integer | `60` | No | How often to pull new data from Garmin (5 – 1440 minutes) |
 
@@ -327,32 +215,10 @@ Pacer authenticates with Garmin Connect using a **web-based auth flow**:
 
 | Backend | Description |
 |---|---|
-| `ha_conversation` **(default)** | Routes prompts through the Home Assistant Conversation API to whatever agent you have configured (e.g., OpenAI, Claude, local LLM). Zero extra setup if you already use one. |
-| `ollama` | Direct HTTP connection to a local [Ollama](https://ollama.com/) instance — fully private, runs on your hardware. Set `ollama_url` to the instance address. |
-| `none` | Rules-based coaching only — no LLM required. Still provides all data-driven insights, readiness scores, and training-load analytics. |
-
-## Sprint 1 Features
-
-25 improvements shipped in Sprint 1:
-
-- **Whoop-style journal** — structured daily check-in (body feel, inputs, cycle)
-- **Full PMC chart** — CTL / ATL / TSB with colour-coded form zones
-- **ACWR gauge** — injury-risk indicator (1.3 / 1.5 thresholds)
-- **Proactive insights** — 6-rule engine surfaces cards automatically
-- **Activity forensics** — EF, aerobic decoupling, GAP, lap table, RPE
-- **Race predictions** — VDOT + Riegel with confidence intervals
-- **Intervention tracking** — ice bath, massage, deload, etc. with ratings
-- **Critical power page** — CP curve, W′, mFTP, power-duration chart
-- **Validation page** — reference measurement comparison with deviation badges
-- **Export page** — CSV/JSON download with date-range picker
-- **Team page** — multi-athlete profile switcher
-- **Readiness card upgrade** — confidence %, data quality dots, action text
-- **8 new database tables** — session_report, intervention, advanced_metric, athlete_baseline, data_quality_log, audit_log, reference_measurement, ai_insight
-- **metrics-compute.py** — EWMA CTL/ATL/TSB/ACWR/CP computation service
-- **ha-notify.py** — pushes Home Assistant sensors + fires injury-risk alerts
-- **AI context pipeline** — 10 structured sections in every coaching prompt
-- **239 app tests** (Jest + Playwright) and **19 addon tests** (pytest)
-- **CI workflows** — typecheck + test + Docker build on every PR
+| `openrouter` | Calls OpenRouter's chat-completions API directly; supports ZDR (zero-data-retention) and EU-only provider pinning for privacy. |
+| `ha_conversation` | Routes prompts through the Home Assistant Conversation API to whatever agent you have configured (e.g., OpenAI, Claude, local LLM). Zero extra setup if you already use one. |
+| `ollama` | Direct HTTP connection to a local [Ollama](https://ollama.com/) instance — fully private, runs on your hardware. Set `ollama_url` to the instance address. Also powers coach memory (RAG) via embeddings. |
+| `none` **(default)** | Rules-based coaching only — no LLM required. Still provides all data-driven insights, readiness scores, and training-load analytics. |
 
 ## HA Sensors
 
@@ -390,20 +256,9 @@ Six ready-to-import Home Assistant blueprints are included in
 | **Wind-Down Reminder** | Configurable offset before `sensor.pacer_bedtime_target` | Push reminder with tonight's target bedtime and wake window, optional scene + dimmed lights |
 
 All blueprints use configurable inputs (thresholds, notification targets,
-scenes) with sensible defaults for Pacer sensor entities.
-
-### Copy-Paste Automations
-
-Seven additional ready-to-paste automations are provided in
-[`HA_AUTOMATIONS.md`](pacer/HA_AUTOMATIONS.md):
-
-1. **Low Body Battery Recovery Mode** — dim lights, enable DND
-2. **Morning Training Briefing** — daily notification with readiness + plan
-3. **High Injury Risk Alert** — ACWR > 1.5 warning
-4. **Training Reminder (Fresh)** — nudge when TSB is positive
-5. **Sleep Debt Management** — bedtime reminder when debt accumulates
-6. **Weekly Summary** — end-of-week training recap
-7. **Voice — ACWR Query** — ask your voice assistant about injury risk
+scenes) with sensible defaults for Pacer sensor entities. Seven further
+ready-to-paste automations (voice ACWR query, sleep-debt management, and
+more) live in [`HA_AUTOMATIONS.md`](pacer/HA_AUTOMATIONS.md).
 
 ## Testing
 
@@ -463,123 +318,54 @@ Steps, heart rate, and sleep duration are available. Advanced training metrics
 > **Note:** Pacer handles missing data gracefully — sensors for
 > unavailable metrics simply show as "Unknown" in Home Assistant.
 
-## Known Issues
-
-| Issue | Details |
-|---|---|
-| **First sync is slow** | The initial sync pulls up to 6+ years of Garmin history (daily stats, activities, HR zones). This takes **30-45 minutes** due to API rate limits. Use the 🔄 Sync Now button in Settings to monitor progress. Subsequent syncs take ~30 seconds. |
-| **Rebuild vs reinstall** | If changes aren't appearing after a rebuild, do a full **uninstall → install**. Docker may cache stale layers during rebuild. |
-
 ## Troubleshooting
 
-### Garmin 429 "Too Many Requests"
+### Garmin rate limits ("429" / `Login failed`)
 
-**Symptoms:** Addon logs show `Login failed`, `429`, or `Rate limit` errors when
-syncing with Garmin Connect.
+Garmin limits OAuth logins but not token refreshes. Once authenticated,
+saved tokens in `/data/garmin-tokens/` make every later sync a refresh (not
+a login). Problems arise on fresh installs where the addon falls back to
+`garmin_email`/`garmin_password` logins.
 
-**Root cause:** Garmin aggressively rate-limits OAuth login attempts. The addon
-authenticates in two ways:
+**Fix:** stop the addon, wait 15–30 minutes (up to 1–2 h if it re-fails),
+and start again for one clean login; tokens are then re-saved. Avoid
+frequent uninstall/reinstall cycles — a normal reinstall restores the
+tokens from `/share/pacer/garmin-tokens/` automatically.
 
-| Method | When Used | Rate-Limited? |
-|--------|-----------|---------------|
-| **Token refresh** | Saved `oauth1_token.json` + `oauth2_token.json` exist | Rarely — high limit |
-| **Email + password login** | Fresh install, tokens lost, or tokens expired | **Yes — low limit** |
+### Empty dashboard after install
 
-After a fresh install (or reinstall that lost `/data/garmin-tokens/`), the addon
-only falls back to email+password login automatically if `garmin_email` and
-`garmin_password` are configured in the addon options. If that credential login
-fails, the sync loop retries every `sync_interval_minutes` (default: 60), and
-each retry is another login attempt that compounds the rate limit.
+First check the **Log** tab. If you see `No Garmin credentials or saved
+tokens — skipping auto-sync`, run **Settings → Connect Garmin** to
+authenticate. The first sync pulls up to 6+ years of history and takes
+**30–45 minutes** (rate-limited); watch progress via **Settings → Sync
+Now**. Subsequent syncs take ~30 seconds.
 
-If you authenticated only through the web UI and do **not** have
-`garmin_email`/`garmin_password` configured, the addon does **not** keep retrying
-automatically after token loss. Instead, startup logs will show
-`No Garmin credentials or saved tokens — skipping auto-sync`, and you must run
-**Settings → Connect Garmin** again to re-authenticate.
+### Garmin MFA / token expiry
 
-**How to fix:**
-
-1. **Stop the addon** — Settings → Add-ons → Pacer → Stop
-2. **Wait 15–30 minutes** for the Garmin rate limit window to expire
-3. **Start the addon** — it will attempt one clean login
-4. **Verify authentication succeeded** — Settings → Add-ons → Pacer →
-   Log tab, look for either `Authenticated with credentials, tokens saved` or
-   `Tokens saved to /data/garmin-tokens`
-5. **If logs are unclear, verify token files exist** — confirm both
-   `oauth1_token.json` and `oauth2_token.json` are present under
-   `/data/garmin-tokens/`
-
-If Garmin still returns a rate-limit error after that first retry, stop the
-addon again and wait longer (up to 1–2 hours) before retrying.
-
-Once authentication succeeds, tokens are saved to `/data/garmin-tokens/` and all
-subsequent syncs use token refresh (not counted as a login attempt).
-
-**Prevention:**
-
-- Keep `sync_interval_minutes` at **30 or above** (default: 60)
-- Avoid frequent uninstall/reinstall cycles — use **Restart** instead
-- Tokens are backed up to `/share/pacer/garmin-tokens/` and auto-restored
-  on reinstall, so a normal uninstall → reinstall should not trigger fresh login
-- If you change your Garmin password, you must re-authenticate via the addon's
-  Settings → Connect Garmin flow
-
-### Garmin MFA Timeout
-
-If MFA is enabled on your Garmin account, the addon prompts for the code during
-the web-based Settings flow. Enter the code promptly — Garmin's MFA session
-expires in about 60 seconds. If it times out, go to **Settings → Connect
-Garmin** and start the flow again.
-
-### Addon Starts but Dashboard is Empty
-
-1. Check the **Log** tab for errors
-2. If you see `No Garmin credentials or saved tokens — skipping auto-sync`,
-   go to the addon's **Settings → Connect Garmin** to authenticate
-3. The initial sync pulls 6+ years of history and takes **30–45 minutes**.
-   Use the 🔄 Sync Now button to monitor progress
-
-### Token Expiry (~1 Year)
-
-Garmin OAuth tokens expire after approximately one year. The addon will log
-authentication errors. Re-authenticate from **Settings → Connect Garmin**.
+MFA codes expire after ~60 seconds — enter them promptly. OAuth tokens
+expire after roughly a year; re-authenticate from **Settings → Connect
+Garmin**.
 
 ## Data Persistence & Backup
 
-All data is stored in PostgreSQL at `/data/postgresql/` and automatically
-backed up to `/share/pacer/` (survives addon uninstalls).
+All data is stored in PostgreSQL at `/data/postgresql/` and backed up after
+every sync and on shutdown.
 
-### What Gets Saved
-
-| Data | Location | Backup Path |
+| Data | Location | Backup |
 |---|---|---|
-| Daily metrics, activities, VO2max | PostgreSQL `/data/` | `/share/pacer/pacer.sql.gz` |
-| Athlete Profile & Health info | PostgreSQL `/data/` (profile table) | `/share/pacer/pacer.sql.gz` |
-| Readiness scores, chat history | PostgreSQL `/data/` | `/share/pacer/pacer.sql.gz` |
+| Daily metrics, activities, VO2max, profile, readiness | PostgreSQL `/data/` | `/share/pacer/pacer.sql.gz` |
 | Garmin OAuth tokens | `/data/garmin-tokens/` | `/share/pacer/garmin-tokens/` |
 
-### When Backups Happen
+On reinstall with an empty database, Pacer restores the database and tokens
+from `/share/pacer/` automatically — no manual step needed.
 
-- **After every Garmin sync** (hourly by default)
-- **On addon shutdown** (graceful stop or HA restart)
-
-### Restore on Reinstall
-
-When the addon starts with an empty database:
-1. Checks `/share/pacer/pacer.sql.gz` — restores full DB if found
-2. Checks `/share/pacer/garmin-tokens/` — restores auth tokens if found
-
-No manual steps needed — data is restored automatically.
-
-### Athlete Profile vs Garmin Data
-
-| Field | Source | User-Editable? |
+| Field | Source | Editable? |
 |---|---|---|
-| Age, sex, weight, height | User input (Settings page) | ✅ Yes |
-| Goals, weekly schedule | User input (Settings page) | ✅ Yes |
-| Health conditions, injuries, meds | User input (Health & Safety) | ✅ Yes |
-| Resting HR, HRV baselines | Computed from Garmin data | ❌ Auto-calculated |
-| VO2max, lactate threshold | Synced from Garmin API | ❌ Auto-synced |
+| Age, sex, weight, height | User input (Settings) | ✅ |
+| Goals, weekly schedule | User input (Settings) | ✅ |
+| Health conditions, injuries, meds | User input (Health & Safety) | ✅ |
+| Resting HR, HRV baselines | Computed from Garmin | ❌ |
+| VO2max, lactate threshold | Synced from Garmin API | ❌ |
 
 ## Accuracy — How We Compare to Garmin & WHOOP
 
@@ -587,47 +373,24 @@ Every metric uses **published, peer-reviewed formulas** verified by automated
 accuracy tests. Stress and HRV are read directly from your Garmin watch —
 identical to what Garmin Connect shows.
 
-### Strain vs Stress — Two Different Metrics
+| Chart | Our Method | vs Garmin / WHOOP |
+|-------|-----------|-------------------|
+| **Body Stress** | Direct Garmin API (`avgStressLevel`) | **Identical** to Garmin |
+| **HRV Trend** | Direct Garmin API | **Identical** to Garmin |
+| **Training Strain** | TRIMP → `21×(1-e^(-TRIMP/250))` | ±1–2 pts vs WHOOP |
+| **ACWR** | 7d / 28d strain ratio | Hulin et al. (2016) formula |
+| **VO2max** | Uth: `15.3 × (maxHR/restHR)` | ±3–5 mL/kg/min vs lab |
+| **Race Predictions** | Riegel: `T₂ = T₁ × (D₂/D₁)^1.06` | ±2–5% for trained runners |
+| **Readiness** | Weighted z-scores (HRV 35%, sleep 25%, load 20%, RHR 10%, stress 10%) | Trends match; values differ (open formula vs proprietary ML) |
+| **Recovery Time** | Strain × base hours, adj. for sleep/HRV/RHR | ±4–8h (simpler model) |
+| **Sleep Score** | Duration 40%, efficiency 25%, deep 20%, REM 15% | Similar components, different weights |
 
-| Metric | What It Measures | Scale | Source |
-|--------|-----------------|-------|--------|
-| **Strain** | Per-workout cardiovascular load | 0–21 | TRIMP (Banister 1991) |
-| **Stress** | All-day HRV-based body stress | 0–100 | Garmin watch (direct API read) |
-
-### Comparison Table
-
-| Chart | Our Method | Garmin Shows | WHOOP Shows | Accuracy |
-|-------|-----------|--------------|-------------|----------|
-| **Body Stress** | Direct Garmin API (`avgStressLevel`) | Stress Widget (0–100) | N/A | **Identical** to Garmin |
-| **HRV Trend** | Direct Garmin API | HRV Status | HRV (RMSSD) | **Identical** to Garmin |
-| **Training Strain** | TRIMP → `21×(1-e^(-TRIMP/250))` | Training Effect (Firstbeat) | Day Strain (0–21) | ±1–2 pts vs WHOOP |
-| **ACWR** | 7d avg / 28d avg strain | N/A | N/A | Hulin et al. (2016) standard formula |
-| **VO2max** | Uth formula: `15.3 × (maxHR/restHR)` | Firstbeat VO2max | N/A | ±3–5 mL/kg/min vs lab |
-| **Race Predictions** | Riegel: `T₂ = T₁ × (D₂/D₁)^1.06` | Race Predictor | N/A | ±2–5% for trained runners |
-| **Readiness** | Weighted z-scores (HRV 35%, sleep 25%, load 20%, RHR 10%, stress 10%) | Morning Report / Body Battery | Recovery Score | Trend matches; values differ (open formula vs proprietary ML) |
-| **Recovery Time** | Strain × base hours, adjusted for sleep/HRV/RHR | Recovery Advisor (Firstbeat) | Recovery hours | ±4–8h (simpler model) |
-| **Sleep Score** | Duration 40%, efficiency 25%, deep 20%, REM 15% | Sleep Score | Sleep Performance | Similar components, different weights |
-
-### Key Takeaways
-
-- **Stress & HRV** — exact same numbers as your Garmin watch
-- **Strain** — same 0–21 scale and HR-zone basis as WHOOP; ±1–2 points
-- **VO2max & Readiness** — open formulas vs Garmin/WHOOP proprietary ML;
-  **trends match** but absolute numbers may differ by 5–10%
-- **Every formula is open-source and reproducible** — no black box
-
-### Published References
-
-| Author | Year | Used For |
-|--------|------|----------|
-| Banister EW | 1991 | TRIMP training impulse model |
-| Hulin BT et al. | 2016 | ACWR injury risk thresholds |
-| Uth N et al. | 2004 | VO2max from HR ratio |
-| Cooper KH | 1968 | 12-minute run VO2max test |
-| Riegel PS | 1981 | Race time predictions |
-| Hausswirth C & Mujika I | 2013 | Recovery in sport |
-| Hirshkowitz M et al. | 2015 | Sleep duration needs |
-| Moore IS | 2016 | Running form biomechanics |
+**Key takeaways:** Stress & HRV are the exact Garmin numbers; Strain uses the
+same 0–21 scale as WHOOP (±1–2); VO2max & Readiness trends match Garmin/WHOOP
+but absolute values differ by 5–10%. Every formula is open-source — no black
+box. Sources: Banister (1991), Hulin et al. (2016), Uth et al. (2004), Cooper
+(1968), Riegel (1981), Hausswirth & Mujika (2013), Hirshkowitz et al. (2015),
+Moore (2016).
 
 ## Development
 
@@ -660,21 +423,12 @@ the layout and architecture notes.
 python -m pytest tests/ -v
 ```
 
-### CI / CD
+### CI / release
 
-CI checks out both repos, runs a multi-stage Docker build (Node.js builder →
-HA base image), and pushes multi-arch images (amd64 + aarch64) to GHCR.
-Tagged releases create GitHub Releases automatically.
-
-### Release gating
-
-The release workflow calls `release-gate.yml` before publishing. The gate
-checks the Pacer app repo's `main` branch and refuses to ship addon
-images when the app checks are not green, preventing releases that point at a
-broken app commit.
-
-Emergency override: temporarily comment out the `needs: gate` line in the
-release workflow, ship the urgent fix, then restore the gate and fix forward.
+CI runs a multi-stage Docker build (Node.js builder → HA base image) and
+pushes multi-arch images (amd64 + aarch64) to GHCR; tagged releases create
+GitHub Releases. A release-gate workflow refuses to ship addon images when
+the app repo's `main` checks are not green.
 
 ## Contributing
 

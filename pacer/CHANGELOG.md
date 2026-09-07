@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0
+
+- The coach can now read the detail of a specific run instead of only the
+  one-line summary in the prompt. Splits per kilometre, running form
+  (cadence/SPM, ground-contact time, vertical oscillation, stride), HR
+  zones and HR drift are rendered on demand, plus an opt-in downsampled
+  per-minute HR/pace curve — all deterministic text, so it works the same
+  on OpenRouter, Requesty and Ollama and stays fully private.
+- The run a question names is now resolved properly: "wie war mein Lauf am
+  Sonntag?" or "vom 06.09.?" targets that day's session (in the athlete's
+  timezone) rather than the most recent one. Weekday and date forms
+  (`DD.MM.`, `DD.MM.YYYY`, `YYYY-MM-DD`, compound nouns like `Sonntagslauf`)
+  are recognised.
+
 ## 1.1.0
 
 - **Security:** Home Assistant ingress is now verified instead of assumed.
