@@ -342,7 +342,8 @@ function RunningFormRow({
   label: string;
   value: number | null;
   unit: string;
-  rating: string;
+  /** Omitted for plain readings that carry no benchmark of their own. */
+  rating?: string;
 }) {
   if (value == null || value === 0) return null;
   return (
@@ -359,10 +360,102 @@ function RunningFormRow({
             {unit}
           </span>
         </span>
-        <span className={cn("ml-2 text-xs font-medium", ratingColor(rating))}>
-          {ratingLabel(rating)}
-        </span>
+        {rating && (
+          <span className={cn("ml-2 text-xs font-medium", ratingColor(rating))}>
+            {ratingLabel(rating)}
+          </span>
+        )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Heart rate, pace and elevation over the course of one activity.
+ *
+ * Three stacked strips rather than one multi-axis chart: the units share no
+ * scale, and on a phone a single overlaid chart is unreadable. Pace is
+ * inverted so faster reads as higher, the way every running app draws it.
+ */
+function SampleChart({
+  samples,
+}: {
+  samples: {
+    t: number;
+    hr: number | null;
+    paceSecPerKm: number | null;
+    altitudeM: number | null;
+  }[];
+}) {
+  const strips = [
+    { key: "hr" as const, label: "Puls", unit: "bpm", color: "#ef4444" },
+    {
+      key: "paceSecPerKm" as const,
+      label: "Pace",
+      unit: "/km",
+      color: "#3b82f6",
+    },
+    { key: "altitudeM" as const, label: "Höhe", unit: "m", color: "#a3a3a3" },
+  ].filter((strip) => samples.some((row) => row[strip.key] != null));
+
+  function fmtTime(seconds: number) {
+    const m = Math.floor(seconds / 60);
+    return m >= 60
+      ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}h`
+      : `${m}m`;
+  }
+
+  function fmtValue(key: string, v: number) {
+    if (key !== "paceSecPerKm") return Math.round(v);
+    return `${Math.floor(v / 60)}:${String(Math.round(v % 60)).padStart(2, "0")}`;
+  }
+
+  return (
+    <div className="space-y-4">
+      {strips.map((strip) => (
+        <div key={strip.key}>
+          <p className="text-muted-foreground mb-1 text-xs">{strip.label}</p>
+          <ResponsiveContainer width="100%" height={110}>
+            <AreaChart
+              data={samples}
+              margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
+            >
+              <XAxis
+                dataKey="t"
+                tickFormatter={fmtTime}
+                tick={{ fontSize: 10 }}
+                minTickGap={40}
+              />
+              <YAxis
+                width={44}
+                tick={{ fontSize: 10 }}
+                domain={["dataMin", "dataMax"]}
+                reversed={strip.key === "paceSecPerKm"}
+                tickFormatter={(v: number) => String(fmtValue(strip.key, v))}
+              />
+              <Tooltip
+                labelFormatter={(v) => (typeof v === "number" ? fmtTime(v) : "")}
+                formatter={(v) =>
+                  typeof v === "number"
+                    ? [`${fmtValue(strip.key, v)} ${strip.unit}`, strip.label]
+                    : ["—", strip.label]
+                }
+              />
+              <Area
+                type="monotone"
+                dataKey={strip.key}
+                stroke={strip.color}
+                fill={strip.color}
+                fillOpacity={0.15}
+                strokeWidth={1.5}
+                dot={false}
+                connectNulls
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      ))}
     </div>
   );
 }
@@ -753,6 +846,22 @@ export default function ActivityDetailPage({
               rating={activity.runningFormScore.strideLength.rating}
             />
             <RunningFormRow
+              label="Vertikales Verhältnis"
+              value={activity.runningFormScore.verticalRatio.value}
+              unit="%"
+              rating={activity.runningFormScore.verticalRatio.rating}
+            />
+            <RunningFormRow
+              label="Max. Kadenz"
+              value={activity.maxCadence ?? null}
+              unit="spm"
+            />
+            <RunningFormRow
+              label="Atemfrequenz"
+              value={activity.avgRespirationRate ?? null}
+              unit="/min"
+            />
+            <RunningFormRow
               label="Kadenz"
               value={activity.runningFormScore.cadence.value}
               unit="spm"
@@ -850,6 +959,58 @@ export default function ActivityDetailPage({
         </section>
       )}
       </div>
+
+      {/* Weather — from Garmin's per-activity weather endpoint */}
+      {activity.weather && (
+        <section className="bg-card space-y-3 rounded-xl p-4">
+          <h2 className="text-sm font-semibold tracking-wider uppercase">
+            Wetter
+          </h2>
+          <div className="grid-metrics">
+            {activity.weather.tempC != null && (
+              <div>
+                <p className="text-muted-foreground text-xs">Temperatur</p>
+                <p className="font-semibold">{activity.weather.tempC} °C</p>
+              </div>
+            )}
+            {activity.weather.feelsLikeC != null && (
+              <div>
+                <p className="text-muted-foreground text-xs">Gefühlt</p>
+                <p className="font-semibold">{activity.weather.feelsLikeC} °C</p>
+              </div>
+            )}
+            {activity.weather.humidityPct != null && (
+              <div>
+                <p className="text-muted-foreground text-xs">Luftfeuchte</p>
+                <p className="font-semibold">
+                  {Math.round(activity.weather.humidityPct)} %
+                </p>
+              </div>
+            )}
+            {activity.weather.windKph != null && (
+              <div>
+                <p className="text-muted-foreground text-xs">Wind</p>
+                <p className="font-semibold">{activity.weather.windKph} km/h</p>
+              </div>
+            )}
+          </div>
+          {activity.weather.description && (
+            <p className="text-muted-foreground text-xs">
+              {activity.weather.description}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Sample stream — per-second heart rate, pace and elevation */}
+      {activity.samples && activity.samples.length > 1 && (
+        <section className="bg-card space-y-3 rounded-xl p-4">
+          <h2 className="text-sm font-semibold tracking-wider uppercase">
+            Verlauf
+          </h2>
+          <SampleChart samples={activity.samples} />
+        </section>
+      )}
 
       {/* Laps */}
       {hasLaps ? (
