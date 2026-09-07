@@ -9,7 +9,7 @@ blueprint:
   domain: automation
   author: askb
   source_url: >-
-    https://github.com/askb/ha-garmin-fitness-coach-addon/blob/main/pacer/rootfs/app/blueprints/injury_risk_alert.yaml
+    https://github.com/pdyroy/ha-garmin-addon/blob/main/pacer/rootfs/app/blueprints/injury_risk_alert.yaml
   input:
     injury_risk_sensor:
       name: Injury Risk Sensor

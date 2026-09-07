@@ -9,7 +9,7 @@ blueprint:
   domain: automation
   author: askb
   source_url: >-
-    https://github.com/askb/ha-garmin-fitness-coach-addon/blob/main/pacer/rootfs/app/blueprints/morning_training_briefing.yaml
+    https://github.com/pdyroy/ha-garmin-addon/blob/main/pacer/rootfs/app/blueprints/morning_training_briefing.yaml
   input:
     briefing_time:
       name: Briefing Time

@@ -9,7 +9,7 @@ blueprint:
   domain: automation
   author: askb
   source_url: >-
-    https://github.com/askb/ha-garmin-fitness-coach-addon/blob/main/pacer/rootfs/app/blueprints/weekly_training_summary.yaml
+    https://github.com/pdyroy/ha-garmin-addon/blob/main/pacer/rootfs/app/blueprints/weekly_training_summary.yaml
   input:
     summary_day:
       name: Summary Day

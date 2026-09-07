@@ -67,7 +67,7 @@ if [ "${1:-}" = "--run" ]; then
     mkdir -p "${ADDON_DIR}/.local-data"
 
     docker run --rm -it \
-        --name ha-garmin-fitness-coach-addon-test \
+        --name ha-garmin-addon-test \
         -p 3100:3000 \
         -v "${ADDON_DIR}/.local-data:/data" \
         -e "SUPERVISOR_TOKEN=" \

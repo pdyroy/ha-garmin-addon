@@ -36,7 +36,7 @@ Home Assistant OS
 ### 1. Install the Addon
 
 Install **Pacer** from the Home Assistant add-on store (see the
-[README](https://github.com/askb/ha-garmin-fitness-coach-addon#installation)
+[README](https://github.com/pdyroy/ha-garmin-addon#installation)
 for repository setup).
 
 ### 2. Connect Your Garmin Account
@@ -108,7 +108,7 @@ fetches up to 6 years of historical data.
 
 A visual walkthrough of the main pages — Home, Fitness, Training,
 Zones, Trends, and the AI Coach — is in the
-[repository README](https://github.com/askb/ha-garmin-fitness-coach-addon#screenshots).
+[repository README](https://github.com/pdyroy/ha-garmin-addon#screenshots).
 
 ## Stress Board (Meeting Stress Leaderboard)
 
@@ -266,5 +266,5 @@ leaves your network.
 
 ## Support
 
-- [GitHub Issues](https://github.com/askb/ha-garmin-fitness-coach-addon/issues)
+- [GitHub Issues](https://github.com/pdyroy/ha-garmin-addon/issues)
 - [Home Assistant Community Forum](https://community.home-assistant.io/)

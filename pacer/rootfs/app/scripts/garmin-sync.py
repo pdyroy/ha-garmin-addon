@@ -824,7 +824,7 @@ def _normalize_started_at(act: dict) -> str | None:
     morning activities into the future and they were then filtered out
     by ``lte(Activity.startedAt, new Date())`` in the app layer — the
     "missing recent workouts" bug. See
-    https://github.com/askb/ha-garmin-fitness-coach-addon/issues
+    https://github.com/pdyroy/ha-garmin-addon/issues
     for context.
 
     Stamp ``startTimeGMT`` with an explicit ``+00:00`` so Postgres always

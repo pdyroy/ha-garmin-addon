@@ -10,7 +10,7 @@ blueprint:
   domain: automation
   author: askb
   source_url: >-
-    https://github.com/askb/ha-garmin-fitness-coach-addon/blob/main/pacer/rootfs/app/blueprints/low_body_battery_recovery.yaml
+    https://github.com/pdyroy/ha-garmin-addon/blob/main/pacer/rootfs/app/blueprints/low_body_battery_recovery.yaml
   input:
     body_battery_sensor:
       name: Body Battery Sensor
