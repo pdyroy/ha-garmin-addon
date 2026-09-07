@@ -2,7 +2,7 @@
 // Build a structured text summary of the athlete's Garmin data for the LLM.
 // ---------------------------------------------------------------------------
 
-import { and, desc, eq, gte } from "@acme/db";
+import { and, desc, eq, gte, inArray } from "@acme/db";
 import {
   Activity,
   AdvancedMetric,
@@ -14,6 +14,7 @@ import {
   ReadinessScore,
   VO2maxEstimate,
 } from "@acme/db/schema";
+import { GarminRaw } from "@acme/db/schema";
 import type { DailyMetricInput, HrvRhrDailyPoint } from "@acme/engine";
 import {
   classifyHrvRhrQuadrant,
@@ -29,6 +30,14 @@ import {
 
 import { aggregateDailyLoads } from "../router/analytics";
 import { humanizeActivityName } from "./humanize";
+import {
+  buildRunDigest,
+  computeRunFormScore,
+  detectPerMinuteWanted,
+  detectRunDetailIntent,
+  parsePerMinuteSeries,
+} from "./run-digest";
+import type { RunDigestSource } from "./run-digest";
 import { isMemoryEnabled, renderHistoryBlock, retrieveHistory } from "./memory";
 import { pickBestVO2maxEstimate } from "./vo2max";
 
@@ -100,6 +109,14 @@ function fmtMin(mins: number | null | undefined): string {
   const h = Math.floor(mins / 60);
   const m = Math.round(mins % 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function fmtPace(secPerKm: number | null | undefined): string {
+  if (secPerKm == null || !Number.isFinite(secPerKm)) return "";
+  const total = Math.round(secPerKm);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}/km`;
 }
 
 function classifyVO2max(
@@ -174,6 +191,7 @@ export async function buildDataContext(
   options?: { message?: string },
 ): Promise<string> {
   const intent = detectAggregateIntent(options?.message ?? "");
+  const runDetailIntent = detectRunDetailIntent(options?.message ?? "");
   const recentWindowMs = intent.windowDays * 86_400_000;
   const recentLimit = intent.activityLimit;
 
@@ -668,6 +686,28 @@ export async function buildDataContext(
         `- ${when ? `${when} ` : ""}${a.sportTypeLabel}: ${dur}min${dist ? `, ${dist}` : ""}, ${hr}${strain ? `, ${strain}` : ""}`,
       );
     }
+    // Running-efficiency snapshot for the most recent run-like sessions so
+    // cadence/SPM and form questions can be answered immediately without the
+    // full opt-in digest of 3c. From the already-fetched typed columns.
+    const runLike = humanizedActivities10
+      .slice(0, 4)
+      .filter((a) => (a.sportType ?? "").toLowerCase().includes("run"));
+    if (runLike.length > 0) {
+      lines.push("");
+      lines.push("- Running form (recent runs):");
+      for (const a of runLike) {
+        const when = a.startedAt
+          ? new Date(a.startedAt).toISOString().split("T")[0]
+          : "";
+        const cad =
+          a.avgCadence != null ? `${Math.round(a.avgCadence)} spm` : "no cadence";
+        const gct = a.avgGroundContactTime != null ? `GCT ${Math.round(a.avgGroundContactTime)}ms` : "";
+        const pace = a.avgPaceSecPerKm != null ? fmtPace(a.avgPaceSecPerKm) : "";
+        lines.push(
+          `  - ${when ? `${when} ` : ""}${cad}${pace ? `, ${pace}` : ""}${gct ? `, ${gct}` : ""}`,
+        );
+      }
+    }
     sections.push(lines.join("\n"));
   }
 
@@ -710,6 +750,96 @@ export async function buildDataContext(
       );
     }
     sections.push(lines.join("\n"));
+  }
+
+  // 3c. Concrete run detail (opt-in) ---------------------------------------
+  // When the question targets an individual session — splits, cadence/SPM,
+  // running form, HR drift, minute-by-minute HR — render the full digest for
+  // the most recent qualifying activity rather than only the summary line
+  // from 1/3a. The digest is deterministic data (packages/api/src/lib/
+  // run-digest.ts); the LLM only analyses it. Deterministic detection, so it
+  // works identically on OpenRouter, Requesty, Ollama and ha_conversation.
+  if (runDetailIntent.wantsRunDetail && humanizedMetrics30.length > 0) {
+    // Prefer the most recent run-like activity; if none in the last 30 days,
+    // fall back to the most recent activity of any kind.
+    const recentForDigest =
+      [...humanizedMetrics30]
+        .reverse()
+        .find((a) => (a.sportType ?? "").toLowerCase().includes("run")) ??
+      [...humanizedMetrics30].reverse()[0];
+
+    if (recentForDigest) {
+      const wantsPerMinute = detectPerMinuteWanted(options?.message ?? "");
+      const source = await db.query.Activity.findFirst({
+        where: and(
+          eq(Activity.userId, userId),
+          eq(Activity.id, recentForDigest.id),
+        ),
+      });
+
+      if (source) {
+        const rawByEndpoint = new Map<string, unknown>();
+        if (source.garminActivityId) {
+          const rawRows = await db
+            .select({ endpoint: GarminRaw.endpoint, payload: GarminRaw.payload })
+            .from(GarminRaw)
+            .where(
+              and(
+                eq(GarminRaw.userId, userId),
+                eq(GarminRaw.scopeKey, source.garminActivityId),
+                inArray(GarminRaw.endpoint, [
+                  "activity_hr_zones",
+                  "activity_details",
+                ]),
+              ),
+            );
+          for (const r of rawRows) rawByEndpoint.set(r.endpoint, r.payload);
+        }
+
+        const perMinute = wantsPerMinute
+          ? parsePerMinuteSeries(rawByEndpoint.get("activity_details"))
+          : null;
+
+        const digest = buildRunDigest(
+          {
+            id: source.id,
+            startedAt: source.startedAt,
+            sportType: source.sportType,
+            durationMinutes: source.durationMinutes,
+            distanceMeters: source.distanceMeters,
+            avgPaceSecPerKm: source.avgPaceSecPerKm,
+            avgHr: source.avgHr,
+            maxHr: source.maxHr,
+            avgCadence: source.avgCadence,
+            maxCadence: source.maxCadence,
+            avgRespirationRate: source.avgRespirationRate,
+            elevationGain: source.elevationGain,
+            avgGroundContactTime: source.avgGroundContactTime,
+            gctBalance: source.gctBalance,
+            verticalOscillation: source.verticalOscillation,
+            verticalRatio: source.verticalRatio,
+            strideLength: source.strideLength,
+            laps: source.laps,
+            profile: { heightCm: profile?.heightCm ?? null },
+            runningFormScore: computeRunFormScore({
+              avgGroundContactTime: source.avgGroundContactTime,
+              verticalOscillation: source.verticalOscillation,
+              strideLength: source.strideLength,
+              gctBalance: source.gctBalance,
+              avgCadence: source.avgCadence,
+              profile: { heightCm: profile?.heightCm ?? null },
+              verticalRatio: source.verticalRatio,
+            } as RunDigestSource),
+          },
+          {
+            includePerMinute: wantsPerMinute,
+            perMinuteHr: perMinute ?? undefined,
+            perMinutePace: perMinute ?? undefined,
+          },
+        );
+        sections.push(`\n## Concrete Run Details (most recent)\n${digest}`);
+      }
+    }
   }
 
   // 4. Zone Distribution (30 days) ----------------------------------------
