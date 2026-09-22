@@ -46,7 +46,8 @@ const AGENTS: AgentConfig[] = [
     quickActions: [
       {
         label: "Trainiere ich zu viel?",
-        message: "Trainiere ich zu viel? Analysiere meinen ACWR und meine Training Load.",
+        message:
+          "Trainiere ich zu viel? Analysiere meinen ACWR und meine Training Load.",
       },
       {
         label: "Zonenverteilung",
@@ -78,7 +79,8 @@ const AGENTS: AgentConfig[] = [
     quickActions: [
       {
         label: "Motivation verloren",
-        message: "Ich verliere die Motivation zu trainieren. Kannst du mir helfen?",
+        message:
+          "Ich verliere die Motivation zu trainieren. Kannst du mir helfen?",
       },
       {
         label: "Wettkampftag-Vorbereitung",
@@ -142,7 +144,8 @@ const AGENTS: AgentConfig[] = [
       },
       {
         label: "Deload-Woche?",
-        message: "Sollte ich basierend auf meinen aktuellen Daten eine Deload-Woche einlegen?",
+        message:
+          "Sollte ich basierend auf meinen aktuellen Daten eine Deload-Woche einlegen?",
       },
       {
         label: "Verletzungsrisiko",
@@ -179,7 +182,7 @@ function renderMarkdown(text: string) {
       return (
         <hr
           key={li}
-          className="my-2 border-0 border-t border-border/60"
+          className="border-border/60 my-2 border-0 border-t"
           aria-hidden="true"
         />
       );
@@ -187,13 +190,13 @@ function renderMarkdown(text: string) {
     // Headers
     if (trimmed.startsWith("### "))
       return (
-        <h4 key={li} className="mt-3 mb-1 text-sm font-bold text-foreground">
+        <h4 key={li} className="text-foreground mt-3 mb-1 text-sm font-bold">
           {renderInline(trimmed.slice(4))}
         </h4>
       );
     if (trimmed.startsWith("## "))
       return (
-        <h3 key={li} className="mt-3 mb-1 text-sm font-bold text-foreground">
+        <h3 key={li} className="text-foreground mt-3 mb-1 text-sm font-bold">
           {renderInline(trimmed.slice(3))}
         </h3>
       );
@@ -288,7 +291,7 @@ function ChatBubble({
           className={cn(
             "rounded-2xl px-4 py-2.5",
             isUser
-              ? "bg-indigo-600 text-primary-foreground"
+              ? "text-primary-foreground bg-indigo-600"
               : "bg-muted text-foreground",
           )}
         >
@@ -300,7 +303,7 @@ function ChatBubble({
         </div>
         <p
           className={cn(
-            "text-[10px] text-muted-foreground",
+            "text-muted-foreground text-[10px]",
             isUser ? "text-right" : "text-left",
           )}
         >
@@ -397,201 +400,203 @@ export default function CoachPage() {
           chat shell still fills exactly one viewport, matching the fixed
           header/input behavior it had before the migration. */}
       <div className="bg-background flex h-[calc(100dvh-4rem)] flex-col">
-      {/* Header */}
-      <header className="border-border bg-card flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Zurück
-          </Link>
-          <div>
-            <h1 className="text-foreground text-base font-semibold">
-              {agentConfig.icon} KI-{agentConfig.label}
-            </h1>
-            <p className="text-muted-foreground text-xs">
-              Basierend auf deinen Garmin-Daten
-            </p>
+        {/* Header */}
+        <header className="border-border bg-card flex items-center justify-between border-b px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ← Zurück
+            </Link>
+            <div>
+              <h1 className="text-foreground text-base font-semibold">
+                {agentConfig.icon} KI-{agentConfig.label}
+              </h1>
+              <p className="text-muted-foreground text-xs">
+                Basierend auf deinen Garmin-Daten
+              </p>
+            </div>
           </div>
-        </div>
-        <button
-          onClick={() => setShowClearConfirm(true)}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg px-2 py-1 text-xs transition-colors"
-        >
-          Löschen
-        </button>
-      </header>
-
-      {/* Agent Selector Tabs */}
-      <div className="border-border bg-card/60 flex [scrollbar-width:thin] gap-1 overflow-x-auto border-b px-3 py-2">
-        {AGENTS.map((agent) => (
           <button
-            key={agent.id}
-            onClick={() => setActiveAgent(agent.id)}
-            aria-label={agent.label}
-            className={cn(
-              "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3",
-              activeAgent === agent.id
-                ? cn(agent.accentBg, "text-primary-foreground")
-                : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
+            onClick={() => setShowClearConfirm(true)}
+            className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg px-2 py-1 text-xs transition-colors"
           >
-            <span aria-hidden="true">{agent.icon}</span>
-            <span className="ml-1 sm:hidden">{agent.shortLabel}</span>
-            <span className="ml-1 hidden sm:inline">{agent.label}</span>
+            Löschen
           </button>
-        ))}
-      </div>
+        </header>
 
-      {/* Clear confirmation dialog */}
-      {showClearConfirm && (
-        <div className="border-border bg-card/80 border-b px-4 py-3">
-          <p className="text-foreground text-sm">Gesamten Chatverlauf löschen?</p>
-          <div className="mt-2 flex gap-2">
+        {/* Agent Selector Tabs */}
+        <div className="border-border bg-card/60 flex [scrollbar-width:thin] gap-1 overflow-x-auto border-b px-3 py-2">
+          {AGENTS.map((agent) => (
             <button
-              onClick={() => clearMutation.mutate()}
-              disabled={clearMutation.isPending}
-              className="text-primary-foreground rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium hover:bg-red-500 disabled:opacity-50"
-            >
-              {clearMutation.isPending ? "Wird gelöscht…" : "Ja, löschen"}
-            </button>
-            <button
-              onClick={() => setShowClearConfirm(false)}
-              className="bg-muted text-foreground hover:bg-accent rounded-lg px-3 py-1.5 text-xs"
-            >
-              Abbrechen
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.length === 0 && !history.isLoading ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <p className="text-4xl">{agentConfig.icon}</p>
-            <p className="text-muted-foreground mt-3 max-w-xs text-sm leading-relaxed">
-              {agentConfig.welcome}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((msg) => (
-              <ChatBubble
-                key={msg.id}
-                role={msg.role}
-                content={msg.content}
-                createdAt={msg.createdAt}
-                agentConfig={agentConfig}
-                timezone={timezone}
-              />
-            ))}
-            {sendMutation.isPending && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] space-y-1">
-                  <span
-                    className={cn("text-xs font-medium", agentConfig.accent)}
-                  >
-                    {agentConfig.icon} {agentConfig.label}
-                  </span>
-                  <div className="bg-muted text-foreground rounded-2xl px-4 py-3 text-sm">
-                    <span className="mr-2">
-                      {agentConfig.label} denkt nach…
-                      {waitedSeconds > 0 && ` ${waitedSeconds}s`}
-                    </span>
-                    <span className="inline-flex gap-1" aria-hidden="true">
-                      <span className="animate-bounce">●</span>
-                      <span className="animate-bounce [animation-delay:0.15s]">
-                        ●
-                      </span>
-                      <span className="animate-bounce [animation-delay:0.3s]">
-                        ●
-                      </span>
-                    </span>
-                    {waitedSeconds >= 20 && (
-                      <p className="text-muted-foreground mt-2 text-xs">
-                        Das Modell denkt intern, bevor es antwortet — das dauert
-                        meist 30–90 Sekunden.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            {sendError && !sendMutation.isPending && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] space-y-1">
-                  <div className="rounded-2xl border border-red-700/50 bg-red-900/40 px-4 py-2.5 text-sm text-red-300">
-                    {sendError}
-                  </div>
-                  <button
-                    onClick={() => setSendError(null)}
-                    className="text-muted-foreground hover:text-foreground text-[10px] transition-colors"
-                  >
-                    Schließen
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Quick Actions — always visible above input */}
-      {!history.isLoading && (
-        <div className="border-border flex flex-wrap gap-2 border-t px-4 py-2">
-          {agentConfig.quickActions.map((action) => (
-            <button
-              key={action.label}
-              onClick={() => handleSend(action.message)}
-              disabled={sendMutation.isPending}
+              key={agent.id}
+              onClick={() => setActiveAgent(agent.id)}
+              aria-label={agent.label}
               className={cn(
-                "max-w-full rounded-full border px-3 py-1.5 text-left text-xs whitespace-normal transition-colors disabled:opacity-50",
-                agentConfig.accentBorder,
-                "bg-muted text-foreground hover:bg-accent",
+                "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3",
+                activeAgent === agent.id
+                  ? cn(agent.accentBg, "text-primary-foreground")
+                  : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
-              {action.label}
+              <span aria-hidden="true">{agent.icon}</span>
+              <span className="ml-1 sm:hidden">{agent.shortLabel}</span>
+              <span className="ml-1 hidden sm:inline">{agent.label}</span>
             </button>
           ))}
         </div>
-      )}
 
-      {/* Input Area */}
-      <div className="border-border bg-card border-t px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-          className="flex gap-2"
-        >
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={`${agentConfig.label}: deine Nachricht…`}
-            disabled={sendMutation.isPending}
-            className={cn(
-              "bg-muted text-foreground placeholder:text-muted-foreground flex-1 rounded-xl border px-4 py-2.5 text-sm focus:outline-none disabled:opacity-50",
-              `focus:${agentConfig.accentBorder}`,
-              "border-border",
-            )}
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || sendMutation.isPending}
-            className={cn(
-              "text-primary-foreground rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50",
-              agentConfig.accentBg,
-            )}
+        {/* Clear confirmation dialog */}
+        {showClearConfirm && (
+          <div className="border-border bg-card/80 border-b px-4 py-3">
+            <p className="text-foreground text-sm">
+              Gesamten Chatverlauf löschen?
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => clearMutation.mutate()}
+                disabled={clearMutation.isPending}
+                className="text-primary-foreground rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium hover:bg-red-500 disabled:opacity-50"
+              >
+                {clearMutation.isPending ? "Wird gelöscht…" : "Ja, löschen"}
+              </button>
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="bg-muted text-foreground hover:bg-accent rounded-lg px-3 py-1.5 text-xs"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+          {messages.length === 0 && !history.isLoading ? (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <p className="text-4xl">{agentConfig.icon}</p>
+              <p className="text-muted-foreground mt-3 max-w-xs text-sm leading-relaxed">
+                {agentConfig.welcome}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((msg) => (
+                <ChatBubble
+                  key={msg.id}
+                  role={msg.role}
+                  content={msg.content}
+                  createdAt={msg.createdAt}
+                  agentConfig={agentConfig}
+                  timezone={timezone}
+                />
+              ))}
+              {sendMutation.isPending && (
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] space-y-1">
+                    <span
+                      className={cn("text-xs font-medium", agentConfig.accent)}
+                    >
+                      {agentConfig.icon} {agentConfig.label}
+                    </span>
+                    <div className="bg-muted text-foreground rounded-2xl px-4 py-3 text-sm">
+                      <span className="mr-2">
+                        {agentConfig.label} denkt nach…
+                        {waitedSeconds > 0 && ` ${waitedSeconds}s`}
+                      </span>
+                      <span className="inline-flex gap-1" aria-hidden="true">
+                        <span className="animate-bounce">●</span>
+                        <span className="animate-bounce [animation-delay:0.15s]">
+                          ●
+                        </span>
+                        <span className="animate-bounce [animation-delay:0.3s]">
+                          ●
+                        </span>
+                      </span>
+                      {waitedSeconds >= 20 && (
+                        <p className="text-muted-foreground mt-2 text-xs">
+                          Das Modell denkt intern, bevor es antwortet — das
+                          dauert meist 30–90 Sekunden.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {sendError && !sendMutation.isPending && (
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] space-y-1">
+                    <div className="rounded-2xl border border-red-700/50 bg-red-900/40 px-4 py-2.5 text-sm text-red-300">
+                      {sendError}
+                    </div>
+                    <button
+                      onClick={() => setSendError(null)}
+                      className="text-muted-foreground hover:text-foreground text-[10px] transition-colors"
+                    >
+                      Schließen
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Actions — always visible above input */}
+        {!history.isLoading && (
+          <div className="border-border flex flex-wrap gap-2 border-t px-4 py-2">
+            {agentConfig.quickActions.map((action) => (
+              <button
+                key={action.label}
+                onClick={() => handleSend(action.message)}
+                disabled={sendMutation.isPending}
+                className={cn(
+                  "max-w-full rounded-full border px-3 py-1.5 text-left text-xs whitespace-normal transition-colors disabled:opacity-50",
+                  agentConfig.accentBorder,
+                  "bg-muted text-foreground hover:bg-accent",
+                )}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input Area */}
+        <div className="border-border bg-card border-t px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+            className="flex gap-2"
           >
-            Senden
-          </button>
-        </form>
-      </div>
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={`${agentConfig.label}: deine Nachricht…`}
+              disabled={sendMutation.isPending}
+              className={cn(
+                "bg-muted text-foreground placeholder:text-muted-foreground flex-1 rounded-xl border px-4 py-2.5 text-sm focus:outline-none disabled:opacity-50",
+                `focus:${agentConfig.accentBorder}`,
+                "border-border",
+              )}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || sendMutation.isPending}
+              className={cn(
+                "text-primary-foreground rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50",
+                agentConfig.accentBg,
+              )}
+            >
+              Senden
+            </button>
+          </form>
+        </div>
       </div>
     </PageShell>
   );
