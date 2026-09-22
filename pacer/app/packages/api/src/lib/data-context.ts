@@ -14,17 +14,21 @@ import {
   JournalEntry,
   Profile,
   ReadinessScore,
+  StrengthSet,
   VO2maxEstimate,
 } from "@acme/db/schema";
 import {
   classifyHrvRhrQuadrant,
   computeACWR,
+  computeCoverage,
   computeHrvBaselineStatus,
   computeSleepRegularityIndex,
   computeStrainScore,
   computeTrainingLoads,
   countConsecutiveHardDays,
+  findExercise,
   getLatestNightSignal,
+  PATTERN_LABELS,
   predictRaceTimesAdaptive,
 } from "@acme/engine";
 
@@ -230,6 +234,7 @@ export async function buildDataContext(
     baselines,
     activitiesYtd,
     metrics90,
+    strengthSets,
   ] = await Promise.all([
     // Last 14 days of daily metrics
     db.query.DailyMetric.findMany({
@@ -355,6 +360,33 @@ export async function buildDataContext(
       orderBy: desc(DailyMetric.date),
       limit: 90,
     }) as Promise<(typeof DailyMetric.$inferSelect)[]>,
+
+    // Strength sets logged in the add-on. Garmin records that a strength
+    // session happened but nothing about its content, so without these the
+    // coach sees "Krafttraining, 45min" and knows nothing about what was
+    // trained. 120 days is what coverage needs to resolve staleness past
+    // the window; the projection is four small columns.
+    db
+      .select({
+        performedAt: StrengthSet.performedAt,
+        exerciseId: StrengthSet.exerciseId,
+        reps: StrengthSet.reps,
+        weightKg: StrengthSet.weightKg,
+      })
+      .from(StrengthSet)
+      .where(
+        and(
+          eq(StrengthSet.userId, userId),
+          gte(StrengthSet.performedAt, new Date(Date.now() - 120 * 86_400_000)),
+        ),
+      ) as Promise<
+      {
+        performedAt: Date;
+        exerciseId: string;
+        reps: number;
+        weightKg: number | null;
+      }[]
+    >,
   ]);
 
   const humanizedActivities10 = humanizeActivities(activities10);
@@ -732,6 +764,103 @@ export async function buildDataContext(
       }
     }
     sections.push(lines.join("\n"));
+  }
+
+  // 3a. Strength Training — movement pattern coverage ---------------------
+  // Garmin's strength tracking records the session but not its content, so
+  // sets are logged in the add-on. Without this section the coach sees
+  // "Krafttraining, 45min, HR 112" and has nothing to reason about, which is
+  // exactly the shape of gap it would otherwise fill with invention.
+  {
+    const STRENGTH_WINDOW_DAYS = 14;
+    const coverage = computeCoverage(strengthSets, {
+      windowDays: STRENGTH_WINDOW_DAYS,
+      staleAfterDays: 10,
+    });
+    const garminStrengthSessions = humanizedActivities10.filter((a) =>
+      (a.sportType ?? "").toLowerCase().includes("strength"),
+    ).length;
+
+    if (strengthSets.length === 0) {
+      // Say so explicitly when Garmin shows strength sessions but nothing was
+      // logged — silence here reads as "no strength training at all".
+      if (garminStrengthSessions > 0) {
+        sections.push(
+          [
+            "## Strength Training (Movement Patterns)",
+            `- ${garminStrengthSessions} strength session(s) recorded by Garmin in the recent window, but NO sets, reps or weights are logged.`,
+            "- You therefore do not know what was trained. Do not guess at exercises, loads or pattern coverage; say the log is empty and that logging sets in the add-on would let you assess coverage.",
+          ].join("\n"),
+        );
+      }
+    } else {
+      const lines: string[] = [
+        `## Strength Training (Movement Patterns, Last ${STRENGTH_WINDOW_DAYS} Days)`,
+        "- Source: sets logged in the add-on by the athlete. Garmin contributes only the session envelope (duration, HR), never the exercises.",
+        `- Window ${coverage.windowStart} to ${coverage.asOf}: ${coverage.trainingDays} training day(s), ${coverage.patterns.reduce((sum, patternRow) => sum + patternRow.sets, 0)} sets`,
+        `- Pattern coverage: ${coverage.coveredCount}/9`,
+      ];
+      if (coverage.missing.length > 0) {
+        lines.push(
+          `- Not trained in window: ${coverage.missing.map((patternKey) => PATTERN_LABELS[patternKey]).join(", ")}`,
+        );
+      }
+      if (coverage.stalePatterns.length > 0) {
+        lines.push(
+          `- Stale (>${coverage.staleAfterDays} days): ${coverage.stalePatterns
+            .map((patternKey) => {
+              const row = coverage.patterns.find(
+                (candidate) => candidate.pattern === patternKey,
+              );
+              return `${PATTERN_LABELS[patternKey]} (${row?.daysSince ?? "?"}d ago)`;
+            })
+            .join(", ")}`,
+        );
+      }
+      if (coverage.unclassifiedSets > 0) {
+        lines.push(
+          `- ${coverage.unclassifiedSets} set(s) could not be mapped to a movement pattern.`,
+        );
+      }
+      lines.push("- Per pattern:");
+      for (const row of coverage.patterns) {
+        const last =
+          row.daysSince == null
+            ? "never logged"
+            : row.daysSince === 0
+              ? "today"
+              : `${row.daysSince}d ago`;
+        lines.push(
+          `  - ${row.label}: ${row.covered ? `${row.sets} sets on ${row.days} day(s)` : "not in window"}, last ${last}`,
+        );
+      }
+
+      // Heaviest working set per exercise, so load questions have something
+      // concrete to quote instead of the coach estimating a weight.
+      const windowStartMs = Date.parse(`${coverage.windowStart}T00:00:00Z`);
+      const best = new Map<string, { weightKg: number; reps: number }>();
+      for (const logged of strengthSets) {
+        if (logged.weightKg == null) continue;
+        if (logged.performedAt.getTime() < windowStartMs) continue;
+        const current = best.get(logged.exerciseId);
+        if (!current || logged.weightKg > current.weightKg) {
+          best.set(logged.exerciseId, {
+            weightKg: logged.weightKg,
+            reps: logged.reps,
+          });
+        }
+      }
+      if (best.size > 0) {
+        lines.push("- Heaviest logged set per exercise (in window):");
+        for (const [exerciseId, entry] of [...best.entries()].sort(
+          (a, b) => b[1].weightKg - a[1].weightKg,
+        )) {
+          const name = findExercise(exerciseId)?.name ?? exerciseId;
+          lines.push(`  - ${name}: ${entry.weightKg}kg x ${entry.reps} reps`);
+        }
+      }
+      sections.push(lines.join("\n"));
+    }
   }
 
   // 3b. Year-To-Date Activity Summary -------------------------------------
