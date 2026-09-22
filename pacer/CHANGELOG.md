@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.2.2
+
+- Strength training is now tracked by movement pattern rather than by muscle
+  group. A new **Kraft** page under Training shows nine tiles — squat, hinge,
+  lunge, horizontal and vertical push, horizontal and vertical pull, loaded
+  carry, rotation/anti-rotation — and says which of them actually got loaded
+  over a rolling 7- or 14-day window. A session count cannot answer that: a
+  full-looking week routinely misses the horizontal pull and the carry.
+- Sets, reps and weights are entered in the add-on, seven slots per exercise
+  per day, over a seeded catalogue of 42 exercises tagged with equipment and
+  whether they load one side at a time. Garmin's own strength tracking
+  records that a session happened and nothing about its content, so it is not
+  used as the source here.
+- Coverage and staleness are deliberately separate horizons. A pattern counts
+  as covered inside the window; it only raises a warning once more than ten
+  days have passed since it was last trained at all, looking past the window
+  to do so. A pattern never logged is reported as missing data rather than as
+  a warning, so the first week of logging does not fire nine alarms.
+- The coach can now read the strength log. A new prompt section carries
+  pattern coverage, per-pattern recency and the heaviest logged set per
+  exercise, and the grounding rules forbid inferring exercises or loads from
+  a session's duration and heart rate — on a strength session, strain and
+  average HR measure rest intervals, not mechanical load. When Garmin shows
+  strength sessions but nothing is logged, the prompt says so explicitly
+  instead of leaving a gap the model would fill with invention.
+- **Fix:** German aggregate questions now widen the coach's activity window.
+  The matcher that decides between 14 days / 10 activities and 365 days / 500
+  was English-only, while the answer language is German — so "wie viele
+  Kilometer bin ich dieses Jahr gelaufen?" was answered from two weeks of
+  history. Both languages are recognised now, with a regression test.
+- The coach's waiting indicator is a filling ring with the elapsed seconds in
+  it, replacing the bouncing dots. It fills against the measured typical
+  answer time and switches to a spinning arc once the wait stops being
+  predictable, rather than sitting at 100% while nothing arrives.
+- The per-agent YouTube search suggestions collapsed into one shared rule.
+  Four agents carried three hardcoded example searches each, which padded
+  every prompt and every answer with references the coach cannot verify.
+
 ## 1.2.1
 
 - Replaced the out-of-date architecture diagram in the README with an
