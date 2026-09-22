@@ -318,6 +318,92 @@ function ChatBubble({
 // Page
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Thinking indicator
+// ---------------------------------------------------------------------------
+
+/**
+ * Typical time to a full coaching answer. A reasoning model on a pinned
+ * provider was measured between 34s and 94s, so the ring fills against the
+ * lower end of that and then gives up on predicting.
+ */
+const EXPECTED_ANSWER_SECONDS = 60;
+
+const RING_RADIUS = 20;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+/**
+ * A filling circle while the answer is generated, with the elapsed seconds in
+ * the middle. It fills honestly for as long as the wait is predictable and
+ * switches to a spinning arc once it is not — a ring parked at 100% while
+ * nothing arrives reads as a hung request.
+ */
+function ThinkingRing({
+  seconds,
+  accent,
+  label,
+}: {
+  seconds: number;
+  accent: string;
+  label: string;
+}) {
+  const determinate = seconds <= EXPECTED_ANSWER_SECONDS;
+  const progress = Math.min(seconds / EXPECTED_ANSWER_SECONDS, 1);
+
+  return (
+    <div
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={determinate ? 0 : undefined}
+      aria-valuemax={determinate ? 100 : undefined}
+      aria-valuenow={determinate ? Math.round(progress * 100) : undefined}
+      aria-valuetext={`${seconds} Sekunden`}
+      className={cn("relative h-12 w-12 shrink-0", accent)}
+    >
+      <svg
+        viewBox="0 0 48 48"
+        className={cn(
+          "h-full w-full -rotate-90",
+          !determinate && "animate-spin motion-reduce:animate-none",
+        )}
+        aria-hidden="true"
+      >
+        <circle
+          cx="24"
+          cy="24"
+          r={RING_RADIUS}
+          fill="none"
+          strokeWidth="3"
+          className="stroke-border"
+        />
+        <circle
+          cx="24"
+          cy="24"
+          r={RING_RADIUS}
+          fill="none"
+          strokeWidth="3"
+          strokeLinecap="round"
+          stroke="currentColor"
+          strokeDasharray={RING_CIRCUMFERENCE}
+          strokeDashoffset={
+            determinate
+              ? RING_CIRCUMFERENCE * (1 - progress)
+              : RING_CIRCUMFERENCE * 0.75
+          }
+          style={
+            determinate
+              ? { transition: "stroke-dashoffset 1s linear" }
+              : undefined
+          }
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium tabular-nums">
+        {seconds}s
+      </span>
+    </div>
+  );
+}
+
 export default function CoachPage() {
   const trpc = useTRPC();
   const timezone = useUserTimezone();
@@ -500,26 +586,21 @@ export default function CoachPage() {
                     >
                       {agentConfig.icon} {agentConfig.label}
                     </span>
-                    <div className="bg-muted text-foreground rounded-2xl px-4 py-3 text-sm">
-                      <span className="mr-2">
-                        {agentConfig.label} denkt nach…
-                        {waitedSeconds > 0 && ` ${waitedSeconds}s`}
-                      </span>
-                      <span className="inline-flex gap-1" aria-hidden="true">
-                        <span className="animate-bounce">●</span>
-                        <span className="animate-bounce [animation-delay:0.15s]">
-                          ●
-                        </span>
-                        <span className="animate-bounce [animation-delay:0.3s]">
-                          ●
-                        </span>
-                      </span>
-                      {waitedSeconds >= 20 && (
-                        <p className="text-muted-foreground mt-2 text-xs">
-                          Das Modell denkt intern, bevor es antwortet — das
-                          dauert meist 30–90 Sekunden.
-                        </p>
-                      )}
+                    <div className="bg-muted text-foreground flex items-center gap-3 rounded-2xl px-4 py-3 text-sm">
+                      <ThinkingRing
+                        seconds={waitedSeconds}
+                        accent={agentConfig.accent}
+                        label={`${agentConfig.label} denkt nach`}
+                      />
+                      <div>
+                        <p>{agentConfig.label} denkt nach…</p>
+                        {waitedSeconds >= 20 && (
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            Das Modell denkt intern, bevor es antwortet — das
+                            dauert meist 30–90 Sekunden.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
