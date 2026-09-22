@@ -231,3 +231,29 @@ export type {
   ChronotypeOutput,
   ChronotypeResult,
 } from "./sleep-regularity";
+
+// Movement pattern coverage — nine patterns over a rolling window, plus the
+// exercise reference data they are resolved from (Cook 2010; Boyle 2016)
+export {
+  computeCoverage,
+  suggestWindowDays,
+  patternForExercise,
+  patternGroup,
+  findExercise,
+  exercisesForPattern,
+  EXERCISES,
+  EQUIPMENT,
+  MOVEMENT_PATTERNS,
+  PATTERN_GROUPS,
+  PATTERN_LABELS,
+} from "./pattern-coverage";
+export type {
+  MovementPattern,
+  PatternGroup,
+  Equipment,
+  Exercise,
+  LoggedSetInput,
+  PatternCoverage,
+  CoverageResult,
+  CoverageOptions,
+} from "./pattern-coverage";

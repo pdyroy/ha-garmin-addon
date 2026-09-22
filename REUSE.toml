@@ -61,6 +61,7 @@ path = [
     "pacer/app/packages/engine/src/fitness-age/**",
     "pacer/app/packages/engine/src/hrv-baseline/**",
     "pacer/app/packages/engine/src/night-signal/**",
+    "pacer/app/packages/engine/src/pattern-coverage/**",
     "pacer/app/packages/engine/src/sleep-regularity/**",
     "pacer/app/packages/engine/src/__tests__/sleep-window.test.ts",
 ]
