@@ -17,6 +17,7 @@ import { readinessRouter } from "./router/readiness";
 import { referenceRouter } from "./router/reference";
 import { sessionReportRouter } from "./router/session-report";
 import { sleepRouter } from "./router/sleep";
+import { strengthRouter } from "./router/strength";
 import { trendsRouter } from "./router/trends";
 import { vitalsRouter } from "./router/vitals";
 import { workoutRouter } from "./router/workout";
@@ -43,6 +44,7 @@ export const appRouter = createTRPCRouter({
   reference: referenceRouter,
   sessionReport: sessionReportRouter,
   sleep: sleepRouter,
+  strength: strengthRouter,
   workout: workoutRouter,
   trends: trendsRouter,
   vitals: vitalsRouter,

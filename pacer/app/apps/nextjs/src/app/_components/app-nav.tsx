@@ -51,6 +51,7 @@ const navSections: NavSection[] = [
     icon: "💪",
     items: [
       { href: "/training", label: "Belastung", icon: "💪" },
+      { href: "/strength", label: "Kraft", icon: "🏋️" },
       { href: "/zones", label: "HF-Zonen", icon: "📶", audience: "athlete" },
       { href: "/fitness", label: "Fitness", icon: "🏋️", audience: "athlete" },
       { href: "/power", label: "Power", icon: "⚡", audience: "athlete" },

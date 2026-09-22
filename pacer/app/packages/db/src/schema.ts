@@ -303,6 +303,65 @@ export const DailyWorkout = pgTable("daily_workout", (t) => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Strength Sets (logged in the add-on, not synced)
+// ---------------------------------------------------------------------------
+
+// Garmin's strength tracking records that a session happened but not what was
+// in it, so sets are entered here instead. One row per set, and a "session"
+// is the day's rows grouped together — a separate session table would carry
+// nothing but the date these rows already have.
+//
+// `exerciseId` is a slug from EXERCISES in packages/engine/src/pattern-coverage
+// rather than a foreign key: the exercise list is reference data that ships
+// with the code, so a table for it would need a seed step and a migration
+// every time the list grows. Coverage resolves the movement pattern from the
+// slug; an unknown slug is reported as unclassified, never dropped.
+//
+// ponytail: the day-as-session grouping merges a morning and an evening
+// session into one. Add a nullable sessionId if splitting them ever matters.
+export const StrengthSet = pgTable(
+  "strength_set",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    userId: t.text().notNull(),
+    performedAt: t.timestamp({ withTimezone: true }).notNull(),
+    exerciseId: t.varchar({ length: 60 }).notNull(),
+    /** 1-based position within the day's work on that exercise. */
+    setIndex: t.integer().notNull().default(1),
+    reps: t.integer().notNull(),
+    /** Null for bodyweight work, and for carries and planks. */
+    weightKg: t.doublePrecision(),
+    /** Seconds under load, for carries and planks where reps say little. */
+    durationSeconds: t.integer(),
+    /** Borg CR10 rating of perceived exertion, 1-10. Optional. */
+    rpe: t.doublePrecision(),
+    notes: t.text(),
+    createdAt: t.timestamp().defaultNow().notNull(),
+  }),
+  (table) => [
+    index("strength_set_user_performed_at_idx").on(
+      table.userId,
+      table.performedAt,
+    ),
+    index("strength_set_user_exercise_idx").on(table.userId, table.exerciseId),
+  ],
+);
+
+export const CreateStrengthSetSchema = createInsertSchema(StrengthSet, {
+  exerciseId: z.string().min(1).max(60),
+  reps: z.number().int().min(1).max(500),
+  setIndex: z.number().int().min(1).max(50),
+  weightKg: z.number().min(0).max(1000).nullish(),
+  durationSeconds: z.number().int().min(1).max(3600).nullish(),
+  rpe: z.number().min(1).max(10).nullish(),
+  notes: z.string().max(500).nullish(),
+}).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+// ---------------------------------------------------------------------------
 // Chat Messages
 // ---------------------------------------------------------------------------
 export const ChatMessage = pgTable("chat_message", (t) => ({
