@@ -57,6 +57,7 @@ path = [
     "pacer/app/packages/api/src/lib/openrouter.ts",
     "pacer/app/packages/api/src/lib/run-digest.ts",
     "pacer/app/packages/api/src/lib/run-digest.test.ts",
+    "pacer/app/packages/api/src/lib/data-context.test.ts",
     "pacer/app/packages/api/src/router/strength.ts",
     "pacer/app/packages/api/vitest.config.ts",
     "pacer/app/packages/engine/src/energy-bank/**",

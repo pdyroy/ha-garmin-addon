@@ -88,6 +88,21 @@ const AGGREGATE_INTENT_PATTERNS: RegExp[] = [
   /\b(annual|yearly|lifetime|all-time|alltime|overall|cumulative)\b/i,
   /\b(report|summary|breakdown|overview|trend|trends|history|historical)\b/i,
   /\b(every|each) (run|ride|swim|workout|session|activity)\b/i,
+  // German. Everything the athlete reads is German (see the Language rules in
+  // agent-prompts.ts), so the athlete writes German too — and an
+  // English-only matcher left every German aggregate question on the narrow
+  // 14-day / 10-activity window, which is the one case that needs the wide
+  // one. The run-detail matcher in run-digest.ts was bilingual from the
+  // start; this one was not.
+  /\b(alle|all) (meine[nr]?|meiner)\b/i,
+  /\bdieses jahr\b/i,
+  /\bletztes jahr\b/i,
+  /\bseit (januar|jan|februar|feb|märz|maerz|mrz|april|apr|mai|juni|jun|juli|jul|august|aug|september|sep|oktober|okt|november|nov|dezember|dez|jahresbeginn|jahresanfang|\d{4})\b/i,
+  /\b(letzten|vergangenen) (6|sechs|9|neun|12|zwölf|zwoelf) monate?n?\b/i,
+  /\b(jahres\w*|gesamt\w*|insgesamt|bisher|seitdem)\b/i,
+  /\b(bericht|zusammenfassung|überblick|ueberblick|übersicht|uebersicht|auswertung|verlauf|historie|entwicklung|statistik\w*|bilanz)\b/i,
+  /\bjede[rns]? (lauf|läufe|laeufe|einheit|training|workout|aktivität|aktivitaet)\b/i,
+  /\b(wie viele?|wieviel\w*) (läufe|laeufe|kilometer|km|einheiten|aktivitäten|aktivitaeten|trainings?)\b/i,
 ];
 
 export interface AggregateIntent {
