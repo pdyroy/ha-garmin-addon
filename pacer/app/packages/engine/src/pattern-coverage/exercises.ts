@@ -3,8 +3,7 @@
  *
  * Strength work is organised by what the body does, not by which muscle is
  * sore afterwards. Nine patterns cover the joint actions a general programme
- * has to touch; grouping them into seven collapses the two push and the two
- * pull directions, which is the granularity a weekly plan is written at.
+ * has to touch.
  *
  * The rationale for pattern-based programming over muscle-group splits is
  * that a split guarantees volume per muscle but says nothing about whether
@@ -34,35 +33,6 @@ export const MOVEMENT_PATTERNS = [
 ] as const;
 
 export type MovementPattern = (typeof MOVEMENT_PATTERNS)[number];
-
-/** The seven groups the nine patterns roll up into. */
-export const PATTERN_GROUPS = [
-  "squat",
-  "hinge",
-  "lunge",
-  "push",
-  "pull",
-  "carry",
-  "rotation",
-] as const;
-
-export type PatternGroup = (typeof PATTERN_GROUPS)[number];
-
-const PATTERN_TO_GROUP: Record<MovementPattern, PatternGroup> = {
-  squat: "squat",
-  hinge: "hinge",
-  lunge: "lunge",
-  push_horizontal: "push",
-  push_vertical: "push",
-  pull_horizontal: "pull",
-  pull_vertical: "pull",
-  carry: "carry",
-  rotation: "rotation",
-};
-
-export function patternGroup(pattern: MovementPattern): PatternGroup {
-  return PATTERN_TO_GROUP[pattern];
-}
 
 /** German labels — the UI is German throughout (see lib/sport-labels.ts). */
 export const PATTERN_LABELS: Record<MovementPattern, string> = {
@@ -406,21 +376,7 @@ export function findExercise(id: string): Exercise | undefined {
   return BY_ID.get(id);
 }
 
-/**
- * The pattern a logged set trains, or null when the exercise id is unknown —
- * a set logged before an exercise was renamed away, or one written by hand.
- * Unknown ids are reported rather than silently dropped.
- */
-export function patternForExercise(id: string): MovementPattern | null {
-  return BY_ID.get(id)?.pattern ?? null;
-}
-
-/** Exercises for a pattern, optionally narrowed to the kit on hand. */
-export function exercisesForPattern(
-  pattern: MovementPattern,
-  equipment?: Equipment[],
-): Exercise[] {
-  const pool = EXERCISES.filter((e) => e.pattern === pattern);
-  if (!equipment || equipment.length === 0) return pool;
-  return pool.filter((e) => e.equipment.some((eq) => equipment.includes(eq)));
+/** Every exercise that trains one pattern. */
+export function exercisesForPattern(pattern: MovementPattern): Exercise[] {
+  return EXERCISES.filter((e) => e.pattern === pattern);
 }

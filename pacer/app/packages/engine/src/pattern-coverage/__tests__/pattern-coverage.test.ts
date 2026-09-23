@@ -5,8 +5,6 @@ import {
   EXERCISES,
   exercisesForPattern,
   MOVEMENT_PATTERNS,
-  patternForExercise,
-  suggestWindowDays,
 } from "../index";
 
 const TODAY = "2026-09-21";
@@ -43,20 +41,9 @@ describe("exercise reference data", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("filters a pattern's exercises by available equipment", () => {
-    const bodyweight = exercisesForPattern("squat", ["bodyweight"]);
-    expect(bodyweight.map((e) => e.id)).toContain("air-squat");
-    expect(bodyweight.map((e) => e.id)).not.toContain("back-squat");
-
-    // An empty filter means "no constraint", not "nothing available".
-    expect(exercisesForPattern("squat", [])).toEqual(
-      exercisesForPattern("squat"),
-    );
-  });
-
-  it("resolves a known id and reports an unknown one as null", () => {
-    expect(patternForExercise("pull-up")).toBe("pull_vertical");
-    expect(patternForExercise("nordic-hamstring-curl")).toBeNull();
+  it("groups every exercise under exactly one pattern", () => {
+    const grouped = MOVEMENT_PATTERNS.flatMap((p) => exercisesForPattern(p));
+    expect(grouped).toHaveLength(EXERCISES.length);
   });
 });
 
@@ -184,11 +171,5 @@ describe("computeCoverage", () => {
     expect(coverage(fortnight, 7).coveredCount).toBe(3);
     expect(coverage(fortnight, 14).coveredCount).toBe(9);
     expect(coverage(fortnight, 14).missing).toEqual([]);
-  });
-
-  it("picks the window length from the session cadence", () => {
-    expect(suggestWindowDays(2)).toBe(14);
-    expect(suggestWindowDays(3)).toBe(7);
-    expect(suggestWindowDays(4)).toBe(7);
   });
 });

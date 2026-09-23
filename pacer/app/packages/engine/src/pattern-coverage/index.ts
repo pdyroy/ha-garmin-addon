@@ -29,15 +29,16 @@
  * Ref: Cook G. Movement: Functional Movement Systems. On Target, 2010.
  */
 
-import type { MovementPattern, PatternGroup } from "./exercises";
-import {
-  MOVEMENT_PATTERNS,
-  PATTERN_LABELS,
-  patternForExercise,
-  patternGroup,
-} from "./exercises";
+import type { MovementPattern } from "./exercises";
+import { findExercise, MOVEMENT_PATTERNS, PATTERN_LABELS } from "./exercises";
 
 export * from "./exercises";
+
+/**
+ * Set slots offered per exercise per day. The router bounds its input with
+ * this and the log form draws this many rows, so it lives in one place.
+ */
+export const MAX_SETS_PER_EXERCISE = 7;
 
 /**
  * One logged set. Structural, so a database row with weight, reps and RPE on
@@ -52,7 +53,6 @@ export interface LoggedSetInput {
 
 export interface PatternCoverage {
   pattern: MovementPattern;
-  group: PatternGroup;
   label: string;
   /** Trained at least once inside the window. */
   covered: boolean;
@@ -96,15 +96,6 @@ export interface CoverageOptions {
   staleAfterDays?: number;
   /** Reference day. Defaults to now. */
   now?: Date | string;
-}
-
-/**
- * Two sessions a week cannot touch nine patterns without turning every
- * session into a circuit, so that cadence is tracked over a fortnight
- * instead. Three or more fit inside a week.
- */
-export function suggestWindowDays(sessionsPerWeek: number): number {
-  return sessionsPerWeek <= 2 ? 14 : 7;
 }
 
 /** YYYY-MM-DD of an instant, in UTC. */
@@ -158,7 +149,7 @@ export function computeCoverage(
     const inWindow = day >= windowStart;
     if (inWindow) trainingDays.add(day);
 
-    const pattern = patternForExercise(set.exerciseId);
+    const pattern = findExercise(set.exerciseId)?.pattern;
     if (!pattern) {
       if (inWindow) unclassifiedSets += 1;
       continue;
@@ -184,7 +175,6 @@ export function computeCoverage(
     const daysSince = last ? daysBetween(last, asOf) : null;
     return {
       pattern,
-      group: patternGroup(pattern),
       label: PATTERN_LABELS[pattern],
       covered: setCount > 0,
       sets: setCount,
