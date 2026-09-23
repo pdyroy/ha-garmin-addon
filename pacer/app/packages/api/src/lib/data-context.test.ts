@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectAggregateIntent } from "./data-context";
+import { detectAggregateIntent, selectMostRecentRun } from "./data-context";
 
 /**
  * The athlete reads and writes German (agent-prompts.ts pins the answer
@@ -48,5 +48,52 @@ describe("detectAggregateIntent", () => {
     expect(intent.isAggregate).toBe(false);
     expect(intent.windowDays).toBe(14);
     expect(intent.activityLimit).toBe(10);
+  });
+});
+
+/**
+ * The run-detail selector must hand the coach the MOST RECENT run. It used to
+ * reverse the newest-first input and select the OLDEST 30-day session, so a
+ * "letzter Lauf" question was answered from the wrong run.
+ */
+const run = (id: string, sportType: string | null) => ({ id, sportType });
+
+describe("selectMostRecentRun", () => {
+  it("prefers the newest run (first match in a newest-first list)", () => {
+    // index 0 is the most recent activity
+    const candidates = [
+      run("most-recent-run", "running"),
+      run("between-ride", "cycling"),
+      run("older-window-run", "running"),
+    ];
+    expect(selectMostRecentRun(candidates, candidates)).toEqual(
+      run("most-recent-run", "running"),
+    );
+  });
+
+  it("falls back to the newest activity of any kind when no run is present", () => {
+    const candidates = [run("swim", "swimming"), run("ride", "cycling")];
+    expect(selectMostRecentRun(candidates, candidates)).toEqual(
+      run("swim", "swimming"),
+    );
+  });
+
+  it("falls back to the newest run in the window when the named day has no activity", () => {
+    const all = [
+      run("most-recent-run", "running"),
+      run("ride", "cycling"),
+      run("older-window-run", "running"),
+    ];
+    expect(selectMostRecentRun([], all)).toEqual(
+      run("most-recent-run", "running"),
+    );
+  });
+
+  it("stays on the named day before widening to the window", () => {
+    const day = [run("stretch", "strength_training")];
+    const all = [run("most-recent-run", "running")];
+    expect(selectMostRecentRun(day, all)).toEqual(
+      run("stretch", "strength_training"),
+    );
   });
 });

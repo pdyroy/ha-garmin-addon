@@ -255,7 +255,11 @@ export function buildRunDigest(
       `- HR drift (2nd vs 1st half): ${drift >= 0 ? "+" : ""}${drift} bpm`,
     );
 
-  const formLines = renderForm(source.runningFormScore ?? null);
+  // Score the form inline so a source with the raw columns (but no
+  // pre-computed score, e.g. in tests or a direct caller) still gets form
+  // lines. The caller may still pre-pass `runningFormScore` to skip recompute.
+  const formScore = source.runningFormScore ?? computeRunFormScore(source);
+  const formLines = renderForm(formScore);
   if (formLines) lines.push(...formLines);
 
   const zones = source.hrZoneMinutes;
@@ -367,10 +371,11 @@ const RUN_DETAIL_PATTERNS: RegExp[] = [
   /\bintervall(?:e)?\b/i,
   /\b(split|splits|km section|kilometerweise)\b/i,
   /\b(cadence|spm|trittfrequen[az])\b/i,
-  /\b(effizien|lauf.?form|laufeffizien)\b/i,
+  // No trailing \b here: "Laufeffizienz" runs on past "effizien", and an embedded
+  // "effizien" has no leading boundary, so a bounded alternative missed it.
+  /(effizien|lauf.?form|laufeffizien|laufökonomie)/i,
   /\b(ground.?contact|gct|balan[cz]e|l.r|vert.*oscill|vertical.?ratio)\b/i,
   /\b(hr.?drift|drift.*hr)\b/i,
-  /\bminute[n]?weise\b/i,
 ];
 
 export interface RunDetailIntent {
@@ -408,7 +413,7 @@ function toIsoDay(day: string): string {
   // and the date regex captures YYYY-MM-DD, DD.MM.YYYY or DD.MM. Normalize
   // the latter two into YYYY-MM-DD. Weekday targets arrive pre-resolved.
   if (/^\d{4}-\d{2}-\d{2}$/.test(day)) return day;
-  const m = /^(\d{1,2})[.\/ -](\d{1,2})(?:[.\/ -](\d{2,4}))?$/.exec(day);
+  const m = /^(\d{1,2})[./ -](\d{1,2})(?:[./ -](\d{2,4}))?$/.exec(day);
   if (!m) return day; // fall through (usually a weekday name)
   const dd = m[1]!.padStart(2, "0");
   const mm = m[2]!.padStart(2, "0");
@@ -441,7 +446,7 @@ function weekdayIsoDay(weekday: string, tz: string | null | undefined): string {
 }
 
 const RUN_ON_DAY_CAPTURE =
-  /\b(?:la[au]f|la[au]feinheit|run|einheit)\b\s*(?:am|vom|von)\s+([a-zäöü]+|\d{1,2}(?:[.\/ -]\d{1,2})?(?:[.\/ -]\d{2,4})?)/i;
+  /\b(?:la[au]f|la[au]feinheit|run|einheit)\b\s*(?:am|vom|von)\s+([a-zäöü]+|\d{1,2}(?:[./ -]\d{1,2})?(?:[./ -]\d{2,4})?)/i;
 const WEEKDAY_NAME =
   /\b(montag|monday|dienstag|tuesday|mittwoch|wednesday|donnerstag|thursday|freitag|friday|samstag|saturday|sonntag|sunday)\b/i;
 

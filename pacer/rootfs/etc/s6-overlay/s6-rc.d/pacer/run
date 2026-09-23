@@ -197,6 +197,13 @@ fi
 # boot rather than continue against a half-migrated database — running on a
 # schema the app does not expect corrupts data instead of merely erroring.
 bashio::log.info "Pushing database schema..."
+# The add-on intentionally dropped the per-set `notes` column from
+# strength_set (commit 683158b) but a non-\"--force\" push refuses destructive
+# drops, so an upgraded database that still holds the column would abort the
+# boot on every start. Drop it here explicitly — it is a standalone column
+# nothing else reads — so the push diff is clean and non-destructive.
+psql -h 127.0.0.1 -U postgres -d pacer -c \
+  "ALTER TABLE strength_set DROP COLUMN IF EXISTS notes;" 2>/dev/null || true
 if ! (cd /app/packages/db && POSTGRES_URL="${POSTGRES_URL}" npx drizzle-kit push 2>&1); then
     bashio::log.fatal "Database schema push failed — refusing to start with a mismatched schema."
     bashio::exit.nok

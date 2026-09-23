@@ -252,7 +252,8 @@ describe("buildRunDigest", () => {
       perMinutePace: perMinute,
     });
     expect(text).toContain("Per-minute curve");
-    expect(text).toContain("0:140:5:20");
+    // The minute bucket carries a ' marker (0' = minute 0) before HR/pace.
+    expect(text).toContain("0':140:5:20");
   });
 
   it("omits per-minute curve when not requested", () => {

@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.3
+
+- **Fix:** the running coach now targets the actual most recent run. The
+  run-detail selector reversed the newest-first activity list and then took
+  the first run it found — the OLDEST session in the 30-day window — while
+  labelling it "most recent", so a "letzter Lauf" question was answered from
+  the wrong session. The selection is now a pure, tested helper.
+- **Fix:** a failing data query no longer takes the whole coach down. The
+  data-contest builder runs roughly a dozen queries up front; any one of them
+  (e.g. against a schema the running image does not expect) used to reject
+  every message before it reached the LLM. It now degrades to a short, honest
+  "data unavailable" context instead of throwing.
+- **Fix:** the strength log failed to save against an upgraded database that
+  still held the dropped `notes` column. The boot script now drops that
+  column explicitly before pushing the schema, so the push runs clean.
+- The coach's run-detail feature also regains correct efficiency-question
+  detection ("Laufeffizienz"), stops treating a bare "minutenweise" as a
+  request for per-minute data, and computes the running-form score inline
+  when only the raw columns are available.
+
 ## 1.2.2
 
 - Strength training is now tracked by movement pattern rather than by muscle

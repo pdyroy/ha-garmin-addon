@@ -125,6 +125,39 @@ export function detectAggregateIntent(message: string): AggregateIntent {
     : { isAggregate: false, windowDays: 14, activityLimit: 10 };
 }
 
+/**
+ * Minimal structural shape the run-detail selector reads off an activity. The
+ * real inputs are full Activity rows; keeping the helper structural means it
+ * stays pure and trivially testable.
+ */
+interface RunCandidate {
+  id: string;
+  sportType: string | null;
+}
+
+/**
+ * Pick the session the run-detail digest should describe. Both lists are
+ * newest-first (desc order). Prefers the most recent run; if a specific day
+ * was named and no run is on it, falls back to the newest activity of any
+ * kind on that day, then to the newest run in the whole window, then the
+ * newest activity. (This used to reverse the newest-first list and select the
+ * OLDEST run, so a "letzter Lauf" question was answered from the oldest
+ * 30-day session.)
+ */
+export function selectMostRecentRun(
+  candidates: RunCandidate[],
+  all: RunCandidate[],
+): RunCandidate | undefined {
+  const isRun = (a: RunCandidate) =>
+    (a.sportType ?? "").toLowerCase().includes("run");
+  return (
+    candidates.find(isRun) ??
+    candidates[0] ??
+    all.find(isRun) ??
+    all[0]
+  );
+}
+
 function fmtMin(mins: number | null | undefined): string {
   if (mins == null) return "N/A";
   const h = Math.floor(mins / 60);
@@ -142,7 +175,6 @@ function fmtPace(secPerKm: number | null | undefined): string {
 
 function classifyVO2max(
   value: number,
-  age: number | null | undefined,
   sex: string | null | undefined,
 ): string {
   // Simplified ACSM percentile classification
@@ -207,6 +239,26 @@ function stringOrUnavailable(value: string | null | undefined): string {
  * prompt.  Returns an empty string if there is no data at all.
  */
 export async function buildDataContext(
+  db: DB,
+  userId: string,
+  options?: { message?: string },
+): Promise<string> {
+  // A single failing query (e.g. a schema the running image does not expect)
+  // used to reject the whole call and take the coach down with it — chat.ts
+  // had no guard, so every message errored before reaching the LLM. Harden at
+  // the boundary: degrade to a short, honest context rather than throw.
+  try {
+    return await buildDataContextInternal(db, userId, options);
+  } catch (err) {
+    console.error(
+      "[Coach] Data context build failed; answering without data:",
+      err instanceof Error ? err.message : err,
+    );
+    return "## Athlete Data\nNone of the athlete data is currently available. Say so honestly and avoid inventing any numbers.";
+  }
+}
+
+async function buildDataContextInternal(
   db: DB,
   userId: string,
   options?: { message?: string },
@@ -598,18 +650,13 @@ export async function buildDataContext(
     if (latestVo2) {
       const classification = classifyVO2max(
         latestVo2.value,
-        profile?.age,
         profile?.sex,
       );
       lines.push(
         `- VO2max: ${latestVo2.value.toFixed(1)} ml/kg/min (${classification}) [${prettySport(latestVo2.sport)}]`,
       );
     } else if (profile?.vo2maxRunning) {
-      const classification = classifyVO2max(
-        profile.vo2maxRunning,
-        profile.age,
-        profile.sex,
-      );
+      const classification = classifyVO2max(profile.vo2maxRunning, profile.sex);
       lines.push(
         `- VO2max (profile): ${profile.vo2maxRunning.toFixed(1)} ml/kg/min (${classification})`,
       );
@@ -928,19 +975,9 @@ export async function buildDataContext(
           );
 
     // Prefer the most recent run; if none on the target day, fall back to the
-    // most recent activity of any kind on that day, else the newest run.
-    const runOnDay = [...candidates]
-      .reverse()
-      .find((a) => (a.sportType ?? "").toLowerCase().includes("run"));
-    const recentForDigest =
-      runOnDay ??
-      (target.type !== "latest"
-        ? [...candidates].reverse()[0]
-        : [...humanizedMetrics30]
-            .reverse()
-            .find((a) => (a.sportType ?? "").toLowerCase().includes("run"))) ??
-      [...candidates].reverse()[0] ??
-      [...humanizedMetrics30].reverse()[0];
+    // most recent activity of any kind on that day, else the newest run, else
+    // the newest activity (see selectMostRecentRun).
+    const recentForDigest = selectMostRecentRun(candidates, humanizedMetrics30);
 
     if (recentForDigest) {
       const wantsPerMinute = detectPerMinuteWanted(options?.message ?? "");
@@ -1539,7 +1576,6 @@ export async function buildDataContext(
         const total = totalZ1 + totalZ2 + totalZ3 + totalZ4 + totalZ5 || 1;
         const pctZ12 = ((totalZ1 + totalZ2) / total) * 100;
         const pctZ3 = (totalZ3 / total) * 100;
-        const pctZ45 = ((totalZ4 + totalZ5) / total) * 100;
         const pct = (v: number) => ((v / total) * 100).toFixed(0);
         let advice: string;
         if (pctZ3 > 25) {
