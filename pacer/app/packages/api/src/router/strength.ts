@@ -2,13 +2,12 @@ import type { TRPCRouterRecord } from "@trpc/server";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod/v4";
 
-import { and, asc, desc, eq, gte, inArray, lte } from "@acme/db";
+import { and, asc, eq, gte, inArray, lte } from "@acme/db";
 import { StrengthSet } from "@acme/db/schema";
 import {
   computeCoverage,
-  EXERCISES,
   findExercise,
-  suggestWindowDays,
+  MAX_SETS_PER_EXERCISE,
 } from "@acme/engine";
 
 import { protectedProcedure } from "../trpc";
@@ -23,19 +22,8 @@ import { protectedProcedure } from "../trpc";
 // from the input, and no procedure can reach another user's rows even when
 // handed a valid row id.
 
-/** Set slots offered per exercise per day. */
-export const MAX_SETS_PER_EXERCISE = 7;
-
 /** How much history coverage needs to resolve staleness beyond the window. */
 const HISTORY_DAYS = 120;
-
-/**
- * Ceiling on the coverage scan. Seven slots across forty-odd exercises is a
- * few hundred rows a week, so this is roughly a year of dense logging — far
- * more than coverage reads, and it keeps one query from walking the table if
- * rows ever arrive from somewhere other than the log UI.
- */
-const COVERAGE_ROW_LIMIT = 5000;
 
 /**
  * Only slugs that exist in EXERCISES are accepted. The column is free text,
@@ -109,25 +97,17 @@ function daysAgo(n: number): Date {
 }
 
 export const strengthRouter = {
-  /**
-   * Pattern coverage over a rolling window, plus the nine tiles' state.
-   * `sessionsPerWeek` only picks the default window length; an explicit
-   * `windowDays` wins.
-   */
+  /** Pattern coverage over a rolling window, plus the nine tiles' state. */
   coverage: protectedProcedure
     .input(
       z
         .object({
-          windowDays: z.number().int().min(1).max(90).optional(),
-          sessionsPerWeek: z.number().int().min(1).max(14).optional(),
+          windowDays: z.number().int().min(1).max(90).default(7),
           staleAfterDays: z.number().int().min(1).max(90).default(10),
         })
-        .default({ staleAfterDays: 10 }),
+        .default({ windowDays: 7, staleAfterDays: 10 }),
     )
     .query(async ({ ctx, input }) => {
-      const windowDays =
-        input.windowDays ?? suggestWindowDays(input.sessionsPerWeek ?? 3);
-
       const rows = await ctx.db
         .select({
           performedAt: StrengthSet.performedAt,
@@ -139,12 +119,10 @@ export const strengthRouter = {
             eq(StrengthSet.userId, ctx.session.user.id),
             gte(StrengthSet.performedAt, daysAgo(HISTORY_DAYS)),
           ),
-        )
-        .orderBy(desc(StrengthSet.performedAt))
-        .limit(COVERAGE_ROW_LIMIT);
+        );
 
       return computeCoverage(rows, {
-        windowDays,
+        windowDays: input.windowDays,
         staleAfterDays: input.staleAfterDays,
       });
     }),
@@ -186,7 +164,6 @@ export const strengthRouter = {
           weightKg: s.weightKg,
           durationSeconds: s.durationSeconds,
           rpe: s.rpe,
-          notes: s.notes,
         })),
       }));
     }),
@@ -203,7 +180,6 @@ export const strengthRouter = {
         date: daySchema,
         exerciseId: exerciseIdSchema,
         sets: z.array(setInputSchema).max(MAX_SETS_PER_EXERCISE),
-        notes: z.string().max(500).nullish(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -240,16 +216,15 @@ export const strengthRouter = {
         if (input.sets.length === 0) return { saved: 0 };
 
         await tx.insert(StrengthSet).values(
-          input.sets.map((set, i) => ({
+          input.sets.map((set, index) => ({
             userId,
             performedAt,
             exerciseId: input.exerciseId,
-            setIndex: i + 1,
+            setIndex: index + 1,
             reps: set.reps,
             weightKg: set.weightKg ?? null,
             durationSeconds: set.durationSeconds ?? null,
             rpe: set.rpe ?? null,
-            notes: i === 0 ? (input.notes ?? null) : null,
           })),
         );
 
@@ -334,42 +309,5 @@ export const strengthRouter = {
         throw new TRPCError({ code: "NOT_FOUND", message: "Set not found" });
       }
       return { success: true };
-    }),
-
-  /** The days with logged work, newest first — the log's own history list. */
-  recentDays: protectedProcedure
-    .input(
-      z.object({ limit: z.number().int().min(1).max(90).default(20) }).default({
-        limit: 20,
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const rows = await ctx.db
-        .select({
-          performedAt: StrengthSet.performedAt,
-          exerciseId: StrengthSet.exerciseId,
-        })
-        .from(StrengthSet)
-        .where(eq(StrengthSet.userId, ctx.session.user.id))
-        .orderBy(desc(StrengthSet.performedAt))
-        .limit(input.limit * MAX_SETS_PER_EXERCISE * EXERCISES.length);
-
-      const byDay = new Map<string, { sets: number; exercises: Set<string> }>();
-      for (const row of rows) {
-        const day = isoDay(row.performedAt);
-        const agg = byDay.get(day) ?? { sets: 0, exercises: new Set<string>() };
-        agg.sets += 1;
-        agg.exercises.add(row.exerciseId);
-        byDay.set(day, agg);
-      }
-
-      return [...byDay.entries()]
-        .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-        .slice(0, input.limit)
-        .map(([date, agg]) => ({
-          date,
-          sets: agg.sets,
-          exercises: agg.exercises.size,
-        }));
     }),
 } satisfies TRPCRouterRecord;
