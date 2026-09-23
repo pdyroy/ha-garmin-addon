@@ -335,7 +335,6 @@ export const StrengthSet = pgTable(
     durationSeconds: t.integer(),
     /** Borg CR10 rating of perceived exertion, 1-10. Optional. */
     rpe: t.doublePrecision(),
-    notes: t.text(),
     createdAt: t.timestamp().defaultNow().notNull(),
   }),
   (table) => [
@@ -354,7 +353,6 @@ export const CreateStrengthSetSchema = createInsertSchema(StrengthSet, {
   weightKg: z.number().min(0).max(1000).nullish(),
   durationSeconds: z.number().int().min(1).max(3600).nullish(),
   rpe: z.number().min(1).max(10).nullish(),
-  notes: z.string().max(500).nullish(),
 }).omit({
   id: true,
   userId: true,
