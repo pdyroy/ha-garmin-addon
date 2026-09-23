@@ -3,9 +3,11 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import type { PatternCoverage } from "@acme/engine";
 import {
-  EXERCISES,
+  exercisesForPattern,
   findExercise,
+  MAX_SETS_PER_EXERCISE,
   MOVEMENT_PATTERNS,
   PATTERN_LABELS,
 } from "@acme/engine";
@@ -25,9 +27,6 @@ import { BottomNav } from "../_components/bottom-nav";
 // content, so sets are entered here. The nine tiles answer the question a
 // session count cannot: which joint actions actually got loaded this week.
 
-/** Set slots per exercise. Matches MAX_SETS_PER_EXERCISE in the router. */
-const SET_SLOTS = 7;
-
 /**
  * The picker opens here. A slug that no longer exists in EXERCISES degrades
  * gracefully — the label falls back to the slug and the router rejects a save.
@@ -44,15 +43,13 @@ interface SlotState {
   rpe: string;
 }
 
-const EMPTY_SLOT: SlotState = {
-  weightKg: "",
-  reps: "",
-  durationSeconds: "",
-  rpe: "",
-};
-
 function emptySlots(): SlotState[] {
-  return Array.from({ length: SET_SLOTS }, () => ({ ...EMPTY_SLOT }));
+  return Array.from({ length: MAX_SETS_PER_EXERCISE }, () => ({
+    weightKg: "",
+    reps: "",
+    durationSeconds: "",
+    rpe: "",
+  }));
 }
 
 /** Today in the browser's zone — the day the athlete is standing in. */
@@ -73,18 +70,7 @@ function parseOptionalNumber(raw: string): number | null {
 // Coverage tiles
 // ---------------------------------------------------------------------------
 
-function CoverageTiles({
-  patterns,
-}: {
-  patterns: {
-    pattern: string;
-    label: string;
-    covered: boolean;
-    sets: number;
-    daysSince: number | null;
-    stale: boolean;
-  }[];
-}) {
+function CoverageTiles({ patterns }: { patterns: PatternCoverage[] }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {patterns.map((p) => (
@@ -155,9 +141,6 @@ export default function StrengthPage() {
     void queryClient.invalidateQueries({
       queryKey: trpc.strength.history.queryKey(),
     });
-    void queryClient.invalidateQueries({
-      queryKey: trpc.strength.recentDays.queryKey(),
-    });
   }
 
   const saveMutation = useMutation(
@@ -194,7 +177,7 @@ export default function StrengthPage() {
       MOVEMENT_PATTERNS.map((pattern) => ({
         pattern,
         label: PATTERN_LABELS[pattern],
-        items: EXERCISES.filter((e) => e.pattern === pattern),
+        items: exercisesForPattern(pattern),
       })),
     [],
   );
