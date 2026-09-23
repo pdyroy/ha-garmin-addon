@@ -97,7 +97,7 @@ export interface RunDigestOptions {
 // digest can also be fed raw activity_splits / activity_details payloads).
 // ---------------------------------------------------------------------------
 
-function fmtPace(secPerKm: number | null | undefined): string {
+export function fmtPace(secPerKm: number | null | undefined): string {
   if (secPerKm == null || !Number.isFinite(secPerKm)) return "n/a";
   const total = Math.round(secPerKm);
   const m = Math.floor(total / 60);

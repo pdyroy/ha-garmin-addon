@@ -32,15 +32,14 @@ import {
   predictRaceTimesAdaptive,
 } from "@acme/engine";
 
-import type { RunDigestSource } from "./run-digest";
 import { aggregateDailyLoads } from "../router/analytics";
 import { humanizeActivityName } from "./humanize";
 import { isMemoryEnabled, renderHistoryBlock, retrieveHistory } from "./memory";
 import {
   buildRunDigest,
-  computeRunFormScore,
   detectPerMinuteWanted,
   detectRunDetailIntent,
+  fmtPace,
   parsePerMinuteSeries,
   parseRunTarget,
 } from "./run-digest";
@@ -126,14 +125,9 @@ export function detectAggregateIntent(message: string): AggregateIntent {
 }
 
 /**
- * Minimal structural shape the run-detail selector reads off an activity. The
- * real inputs are full Activity rows; keeping the helper structural means it
- * stays pure and trivially testable.
+ * Minimal structural shape the run-detail selector reads off an activity.
  */
-interface RunCandidate {
-  id: string;
-  sportType: string | null;
-}
+type RunCandidate = Pick<typeof Activity.$inferSelect, "id" | "sportType">;
 
 /**
  * Pick the session the run-detail digest should describe. Both lists are
@@ -163,14 +157,6 @@ function fmtMin(mins: number | null | undefined): string {
   const h = Math.floor(mins / 60);
   const m = Math.round(mins % 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
-
-function fmtPace(secPerKm: number | null | undefined): string {
-  if (secPerKm == null || !Number.isFinite(secPerKm)) return "";
-  const total = Math.round(secPerKm);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, "0")}/km`;
 }
 
 function classifyVO2max(
@@ -239,26 +225,6 @@ function stringOrUnavailable(value: string | null | undefined): string {
  * prompt.  Returns an empty string if there is no data at all.
  */
 export async function buildDataContext(
-  db: DB,
-  userId: string,
-  options?: { message?: string },
-): Promise<string> {
-  // A single failing query (e.g. a schema the running image does not expect)
-  // used to reject the whole call and take the coach down with it — chat.ts
-  // had no guard, so every message errored before reaching the LLM. Harden at
-  // the boundary: degrade to a short, honest context rather than throw.
-  try {
-    return await buildDataContextInternal(db, userId, options);
-  } catch (err) {
-    console.error(
-      "[Coach] Data context build failed; answering without data:",
-      err instanceof Error ? err.message : err,
-    );
-    return "## Athlete Data\nNone of the athlete data is currently available. Say so honestly and avoid inventing any numbers.";
-  }
-}
-
-async function buildDataContextInternal(
   db: DB,
   userId: string,
   options?: { message?: string },
@@ -804,7 +770,7 @@ async function buildDataContextInternal(
             ? `GCT ${Math.round(a.avgGroundContactTime)}ms`
             : "";
         const pace =
-          a.avgPaceSecPerKm != null ? fmtPace(a.avgPaceSecPerKm) : "";
+          a.avgPaceSecPerKm != null ? `${fmtPace(a.avgPaceSecPerKm)}/km` : "";
         lines.push(
           `  - ${when ? `${when} ` : ""}${cad}${pace ? `, ${pace}` : ""}${gct ? `, ${gct}` : ""}`,
         );
@@ -1035,15 +1001,6 @@ async function buildDataContextInternal(
             strideLength: source.strideLength,
             laps: source.laps,
             profile: { heightCm: profile?.heightCm ?? null },
-            runningFormScore: computeRunFormScore({
-              avgGroundContactTime: source.avgGroundContactTime,
-              verticalOscillation: source.verticalOscillation,
-              strideLength: source.strideLength,
-              gctBalance: source.gctBalance,
-              avgCadence: source.avgCadence,
-              profile: { heightCm: profile?.heightCm ?? null },
-              verticalRatio: source.verticalRatio,
-            } as RunDigestSource),
           },
           {
             includePerMinute: wantsPerMinute,

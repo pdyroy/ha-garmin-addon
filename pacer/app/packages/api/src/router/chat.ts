@@ -148,10 +148,23 @@ export const chatRouter = {
         // 2. Build data context from real Garmin data — pass the user's
         //    message so the context builder can widen its activity window
         //    when the user asks aggregate / historical questions
-        //    ("this year", "all my runs", "summary", etc.).
-        const dataContext = await buildDataContext(ctx.db, userId, {
-          message: input.content,
-        });
+        //    ("this year", "all my runs", "summary", etc.). A failing query
+        //    (e.g. against a schema the running image does not expect) must
+        //    not take the whole message down — degrade to an honest short
+        //    context so the coach still answers.
+        let dataContext: string;
+        try {
+          dataContext = await buildDataContext(ctx.db, userId, {
+            message: input.content,
+          });
+        } catch (err) {
+          console.error(
+            "[Chat] Failed to build data context; answering without data:",
+            err instanceof Error ? err.message : err,
+          );
+          dataContext =
+            "## Athlete Data\nNone of the athlete data is currently available. Say so honestly and avoid inventing any numbers.";
+        }
 
         // 3. Get agent-specific system prompt (trimmed for low-memory devices)
         const systemPrompt = getAgentPrompt(input.agent);
@@ -226,7 +239,10 @@ export const chatRouter = {
               throw e;
             }
             if (!process.env.OLLAMA_URL?.trim()) {
-              throw new Error("no Ollama URL configured — no local fallback");
+              throw new Error(
+                "no Ollama URL configured — no local fallback",
+                { cause: e },
+              );
             }
             responseContent = await ollamaChat(chatMessages, {
               temperature: 0.7,

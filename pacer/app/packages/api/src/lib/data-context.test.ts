@@ -56,7 +56,7 @@ describe("detectAggregateIntent", () => {
  * reverse the newest-first input and select the OLDEST 30-day session, so a
  * "letzter Lauf" question was answered from the wrong run.
  */
-const run = (id: string, sportType: string | null) => ({ id, sportType });
+const run = (id: string, sportType: string) => ({ id, sportType });
 
 describe("selectMostRecentRun", () => {
   it("prefers the newest run (first match in a newest-first list)", () => {
