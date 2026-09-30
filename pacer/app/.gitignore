@@ -64,3 +64,6 @@ logs/
 # Python
 __pycache__/
 *.pyc
+
+# local pnpm content store (created by local installs; not part of the repo)
+.pnpm-store/
