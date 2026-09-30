@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.3.0
+
+- **AI backends consolidated into one OpenAI-compatible client.** OpenRouter,
+  HA Conversation and the local-Ollama *chat* path are gone, replaced by a
+  single URL + API key + model backend (`ai_backend` = `requesty` | `openrouter`
+  | `none`, with `ai_api_key`, `ai_model`, `ai_base_url`). OpenRouter keeps its
+  zero-data-retention provider routing and reasoning controls on that path.
+  Ollama survives only for coach-memory/RAG embeddings. **Config note:** after
+  updating, set `ai_backend` and `ai_api_key`/`ai_model` once in Settings — Garmin
+  tokens and your HA session are unaffected, no re-login.
+- **The coach now sees a true "today" window.** A dedicated `## Today's Training`
+  section filters activities by the athlete's calendar day, so "wie war der Lauf
+  heute" is answered from today's session — and when there is none it says it may
+  simply be unsynced rather than assuming rest.
+- **Metric staleness is surfaced.** The news of "today's" Body Battery / HRV /
+  Readiness actually read the newest daily-metric row, which can lag a day or
+  more when sync is behind. A `## Data Freshness` notice now states the row's age
+  and forbids presenting it as current.
+- **Missing data is explained, not just declared.** The empty-account path now
+  lists what is absent per category (profile / metrics / activities / advanced /
+  readiness) and points at checking sync, instead of a bare "no data" line.
+- **The quality gate now catches unit-label fabrications.** The numeric-claim
+  matcher ended in a word boundary that never matched punctuation units like `%`
+  or `°`, so a "top 30 % of your age" line was never flagged. It now matches
+  those and only approves a unit claim against a same-unit context figure, so an
+  unrelated number can no longer "confirm" a percentile. Nine regression tests
+  cover extraction, unit-aware support and the gate itself; seven smoke tests
+  pin the generic backend plumbing.
+
 ## 1.2.3
 
 - **Fix:** the running coach now targets the actual most recent run. The
