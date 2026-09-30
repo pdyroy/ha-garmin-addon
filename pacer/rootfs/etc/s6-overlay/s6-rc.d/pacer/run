@@ -112,10 +112,11 @@ STRAVA_CLIENT_ID=$(bashio::config 'strava_client_id' || echo "")
 STRAVA_CLIENT_SECRET=$(bashio::config 'strava_client_secret' || echo "")
 STRAVA_REFRESH_TOKEN=$(bashio::config 'strava_refresh_token' || echo "")
 AI_BACKEND=$(bashio::config 'ai_backend' || echo "none")
-OPENROUTER_API_KEY=$(bashio::config 'openrouter_api_key' || echo "")
-OPENROUTER_MODEL=$(bashio::config 'openrouter_model' || echo "google/gemini-2.5-flash-lite")
-OPENROUTER_PROVIDERS=$(bashio::config 'openrouter_providers' || echo "")
-OPENROUTER_REASONING=$(bashio::config 'openrouter_reasoning' || echo "off")
+AI_API_KEY=$(bashio::config 'ai_api_key' || echo "")
+AI_MODEL=$(bashio::config 'ai_model' || echo "deepseek/deepseek-v4-flash-0731")
+AI_BASE_URL=$(bashio::config 'ai_base_url' || echo "")
+AI_PROVIDERS=$(bashio::config 'ai_providers' || echo "")
+AI_REASONING=$(bashio::config 'ai_reasoning' || echo "off")
 OLLAMA_URL=$(bashio::config 'ollama_url' || echo "")
 OLLAMA_EMBED_MODEL=$(bashio::config 'ollama_embed_model' || echo "nomic-embed-text")
 SYNC_INTERVAL=$(bashio::config 'sync_interval_minutes' || echo "60")
@@ -125,10 +126,11 @@ ACTIVITY_DETAIL_DAYS=$(bashio::config 'activity_detail_days' || echo "90")
 export GARMIN_EMAIL GARMIN_PASSWORD
 export STRAVA_CLIENT_ID STRAVA_CLIENT_SECRET STRAVA_REFRESH_TOKEN
 export AI_BACKEND
-export OPENROUTER_API_KEY
-export OPENROUTER_PROVIDERS
-export OPENROUTER_REASONING
-export OPENROUTER_MODEL="${OPENROUTER_MODEL:-google/gemini-2.5-flash-lite}"
+export AI_API_KEY
+export AI_MODEL
+export AI_BASE_URL
+export AI_PROVIDERS
+export AI_REASONING
 export OLLAMA_URL
 export OLLAMA_MODEL="${OLLAMA_MODEL:-gpt-oss:20b}"
 export OLLAMA_EMBED_MODEL="${OLLAMA_EMBED_MODEL:-nomic-embed-text}"
@@ -450,50 +452,21 @@ else
     bashio::log.info "Stress Board auto-rescore disabled (interval <= 0)"
 fi
 
-# ─── Configure AI backend ─────────────────────────────────────────────────────
+# ─── Configure AI backend (single OpenAI-compatible endpoint) ────────────────
 case "${AI_BACKEND}" in
-    ha_conversation)
-        if [ -n "${SUPERVISOR_TOKEN}" ]; then
-            bashio::log.info "AI backend: HA Conversation API"
-            bashio::log.info "  Requires a conversation agent configured in HA (Settings → Voice Assistants)"
-            bashio::log.info "  Using Supervisor token for HA API access"
-            if [ -n "${OLLAMA_URL}" ]; then
-                if curl -s -o /dev/null -w "%{http_code}" "${OLLAMA_URL}/api/tags" | grep -q "200"; then
-                    bashio::log.info "  Secondary backend: Ollama at ${OLLAMA_URL} (embeddings + fallback)"
-                else
-                    bashio::log.warning "  Secondary backend Ollama not reachable at ${OLLAMA_URL} — embeddings/fallback unavailable"
-                fi
+    requesty|openrouter)
+        if [ -n "${AI_API_KEY}" ] && [ -n "${AI_MODEL}" ]; then
+            bashio::log.info "AI backend: ${AI_BACKEND} (model: ${AI_MODEL})"
+            bashio::log.info "  Base URL: ${AI_BASE_URL:-https://openrouter.ai/api/v1}"
+            if [ -n "${AI_PROVIDERS}" ]; then
+                bashio::log.info "  Provider allowlist: ${AI_PROVIDERS} — no failover if unavailable"
+            fi
+            if [ "${AI_BACKEND}" = "openrouter" ]; then
+                bashio::log.info "  Routing: zero-data-retention endpoints only"
+                bashio::log.info "  Reasoning: ${AI_REASONING:-off}"
             fi
         else
-            bashio::log.warning "AI backend set to ha_conversation but no Supervisor token — falling back to rules-based"
-            export AI_BACKEND="none"
-        fi
-        ;;
-    openrouter)
-        if [ -n "${OPENROUTER_API_KEY}" ]; then
-            bashio::log.info "AI backend: OpenRouter (model: ${OPENROUTER_MODEL})"
-            bashio::log.info "  Direct OpenRouter API — no HA conversation agent required"
-            bashio::log.info "  Routing: zero-data-retention endpoints only"
-            bashio::log.info "  Reasoning: ${OPENROUTER_REASONING:-off}"
-            if [ -n "${OPENROUTER_PROVIDERS}" ]; then
-                bashio::log.info "  Routing: restricted to ${OPENROUTER_PROVIDERS} — no failover if unavailable"
-            fi
-        else
-            bashio::log.warning "AI backend set to openrouter but no API key configured — falling back to rules-based"
-            export AI_BACKEND="none"
-            export OPENROUTER_API_KEY=""
-        fi
-        ;;
-    ollama)
-        if [ -n "${OLLAMA_URL}" ]; then
-            if curl -s -o /dev/null -w "%{http_code}" "${OLLAMA_URL}/api/tags" | grep -q "200"; then
-                bashio::log.info "AI backend: Ollama at ${OLLAMA_URL}"
-            else
-                bashio::log.warning "Ollama not reachable at ${OLLAMA_URL} — falling back to rules-based"
-                export AI_BACKEND="none"
-            fi
-        else
-            bashio::log.warning "AI backend set to ollama but no URL configured — falling back to rules-based"
+            bashio::log.warning "AI backend set to ${AI_BACKEND} but AI_API_KEY / AI_MODEL not set — falling back to rules-based"
             export AI_BACKEND="none"
         fi
         ;;

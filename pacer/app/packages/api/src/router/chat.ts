@@ -5,14 +5,11 @@ import { desc, eq } from "@acme/db";
 import { ChatMessage } from "@acme/db/schema";
 
 import type { AgentType } from "../lib/agent-prompts";
-import type { OllamaMessage } from "../lib/ollama";
 import { getAgentPrompt } from "../lib/agent-prompts";
+import { chat as aiChat, isBackendConfigured, type ChatMessage as AiChatMessage } from "../lib/backends";
 import { buildDataContext } from "../lib/data-context";
-import { haConversationChat } from "../lib/ha-conversation";
 import { humanizeActivityName } from "../lib/humanize";
 import { renumberOrderedLists } from "../lib/llm-post";
-import { ollamaChat } from "../lib/ollama";
-import { isOpenRouterConfigured, openRouterChat } from "../lib/openrouter";
 import { evaluateResponseQuality, qualityBadge } from "../lib/quality-gate";
 import { protectedProcedure } from "../trpc";
 
@@ -180,9 +177,9 @@ export const chatRouter = {
         let responseContent: string;
         const fullPrompt = `${systemPrompt}\n\n## Current Athlete Data\n${dataContext}\n\n## User Question\n${input.content}`;
 
-        // Shared message array for the message-based backends (OpenRouter,
-        // Ollama). `history` already includes the just-saved user message.
-        const chatMessages: OllamaMessage[] = [
+        // Shared message array for the message-based backend.
+        // `history` already includes the just-saved user message.
+        const chatMessages: AiChatMessage[] = [
           {
             role: "system",
             content: `${systemPrompt}\n\n## Current Athlete Data\n${dataContext}`,
@@ -197,64 +194,28 @@ export const chatRouter = {
           `[Chat] Prompt size: ${fullPrompt.length} chars, data context: ${dataContext.length} chars`,
         );
 
-        // Dispatch strictly on the configured backend. The prompt carries the
-        // athlete's health context — medications, diagnoses, injuries — so
-        // choosing "ollama" must never fall through to a cloud agent. Only
-        // Ollama, which is local, is used as a fallback.
-        const backend = process.env.AI_BACKEND ?? "none";
-
+        // Dispatch to the single OpenAI-compatible backend (requesty /
+        // openrouter). The prompt carries the athlete's health context —
+        // medications, diagnoses, injuries — so no secondary backend is ever
+        // quietly substituted; on failure we degrade to a rules-based data
+        // summary rather than send health data to an endpoint the user did
+        // not choose.
         try {
-          switch (backend) {
-            case "openrouter":
-              if (!isOpenRouterConfigured()) {
-                throw new Error("OpenRouter selected but no API key configured");
-              }
-              responseContent = await openRouterChat(chatMessages, {
-                temperature: 0.7,
-                timeoutMs: AI_TIMEOUT_MS,
-              });
-              break;
-            case "ha_conversation":
-              responseContent = await haConversationChat(fullPrompt, {
-                timeoutMs: AI_TIMEOUT_MS,
-              });
-              break;
-            case "ollama":
-              responseContent = await ollamaChat(chatMessages, {
-                temperature: 0.7,
-                timeoutMs: AI_TIMEOUT_MS,
-              });
-              break;
-            default:
-              throw new Error(`No AI backend configured (ai_backend=${backend})`);
+          if (!isBackendConfigured()) {
+            throw new Error(
+              "No AI backend configured (set AI_BACKEND + AI_API_KEY/AI_MODEL)",
+            );
           }
+          responseContent = await aiChat(chatMessages, {
+            temperature: 0.7,
+            timeoutMs: AI_TIMEOUT_MS,
+          });
         } catch (e) {
           console.error(
-            `[Chat] AI backend "${backend}" failed:`,
+            `[Chat] AI backend failed:`,
             e instanceof Error ? e.message : e,
           );
-          try {
-            if (backend === "ollama") {
-              // Already tried; nothing local left to fall back to.
-              throw e;
-            }
-            if (!process.env.OLLAMA_URL?.trim()) {
-              throw new Error(
-                "no Ollama URL configured — no local fallback",
-                { cause: e },
-              );
-            }
-            responseContent = await ollamaChat(chatMessages, {
-              temperature: 0.7,
-              timeoutMs: AI_TIMEOUT_MS,
-            });
-          } catch (e2) {
-            console.error(
-              `[Chat] Ollama also failed:`,
-              e2 instanceof Error ? e2.message : e2,
-            );
-            responseContent = `⚠️ AI service unavailable. Falling back to data summary:\n\n${generateFallbackResponse(input.content, dataContext)}`;
-          }
+          responseContent = `⚠️ AI service unavailable. Falling back to data summary:\n\n${generateFallbackResponse(input.content, dataContext)}`;
         }
 
         // 6. Normalize common LLM markdown issues, then append disclaimer
