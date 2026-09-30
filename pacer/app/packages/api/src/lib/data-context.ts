@@ -43,7 +43,7 @@ import {
   parsePerMinuteSeries,
   parseRunTarget,
 } from "./run-digest";
-import { dayInTimezone } from "./timezone";
+import { dayInTimezone, todayInTimezone } from "./timezone";
 import { pickBestVO2maxEstimate } from "./vo2max";
 
 // Drizzle db type — keep generic to avoid coupling to the concrete client
@@ -417,18 +417,49 @@ export async function buildDataContext(
   const latestVo2 = pickBestVO2maxEstimate(vo2Estimates);
 
   // Early exit if no data at all (including YTD activities for users whose
-  // recent window is empty but who have older history this year).
+  // recent window is empty but who have older history this year). Surface
+  // what is missing per category so the coach can say *why* rather than
+  // emit a single bare "no data" line — distinguishing a genuinely empty
+  // account from an unsynced/under-computed pipeline.
   if (
     !profile &&
     metrics14.length === 0 &&
     activities10.length === 0 &&
     activitiesYtd.length === 0
   ) {
-    return "No athlete data available yet — Garmin has not been synced.";
+    return [
+      "## Data Availability",
+      "No athlete data is available yet — nothing has been synced or computed for this account.",
+      "- Profile: none",
+      "- Daily metrics (HRV/Body Battery/CTL inputs): none in the last 14 days",
+      "- Activities: none (recent or year-to-date)",
+      "- Advanced metrics (CTL/ATL/TSB/Ramp Rate): none",
+      "- Readiness score: none",
+      "Tell the athlete that no data has reached the system yet: the Garmin account may not have completed its first sync, or the add-on's sync/metrics-compute services have not run. Ask them to confirm Garmin sync has run (check the add-on logs). Do not speculate about fitness or training with no data.",
+    ].join("\n");
   }
 
   const todayMetric = metrics14[0];
   const latestAdvMetric = advancedMetrics42[0];
+  const tz = profile?.timezone ?? "UTC";
+  const todayIso = todayInTimezone(tz);
+  // Data freshness: "today's metrics" are the NEWEST daily_metric row, which
+  // can be a day or more old when sync is behind. Without this the coach
+  // presents a stale Body Battery / HRV as if it were "now". We compute it
+  // once here and reuse it in both the JSON freshness block and section 3.1.
+  const todayMetricDate = todayMetric?.date ?? null;
+  const todayMetricIsToday = todayMetricDate === todayIso;
+  const stalenessHours =
+    todayMetricDate == null
+      ? null
+      : Math.max(
+          0,
+          // Both are YYYY-MM-DD; compare against today's calendar day.
+          Math.round(
+            (Date.now() - new Date(`${todayMetricDate}T12:00:00Z`).getTime()) /
+              3_600_000,
+          ),
+        );
   const asOfDate =
     latestReadiness?.date ??
     todayMetric?.date ??
@@ -573,6 +604,28 @@ export async function buildDataContext(
       "```",
     ].join("\n"),
   ];
+
+  // Data freshness notice (A2): the JSON's readiness/hrv/body_battery values
+  // read the NEWEST daily_metric row, which lags behind today when Garmin
+  // sync hasn't produced a row for the current calendar day. Surface the age
+  // explicitly so the coach never presents a stale metric as "now", and so
+  // it can explain an absent "today" metrics row as a sync-in-progress state
+  // rather than as "no data".
+  {
+    if (todayMetric) {
+      sections.push(
+        [
+          "## Data Freshness",
+          todayMetricIsToday
+            ? `- Latest daily metrics are from today (${todayIso}) — current.`
+            : `- Latest daily metrics are from ${todayMetricDate ?? "unknown"} (NOT today ${todayIso}). The Garmin sync may be behind. Do NOT present body_battery/HRV/readiness from this row as "current/now"; instead say they are from ${todayMetricDate ?? "an earlier day"} and that newer values may arrive after the next sync.`,
+          ...(stalenessHours != null && !todayMetricIsToday
+            ? [`- Approximate staleness: ~${stalenessHours}h since that row was written.`]
+            : []),
+        ].join("\n"),
+      );
+    }
+  }
 
   // RAG / coach memory (spec 007): for aggregate / long-range questions, pull
   // semantically relevant historical summaries + a deterministic year rollup
@@ -779,6 +832,51 @@ export async function buildDataContext(
     sections.push(lines.join("\n"));
   }
 
+  // 3.1 Today's Training ---------------------------------------------------
+  // A true "today" window (this calendar day in the athlete's timezone),
+  // distinct from the 14-day recent window. Without it the coach can only
+  // see the most recent synced session and cannot answer "wie war der Lauf
+  // heute" when the session is a day old — it would report a stale activity
+  // as if it happened today. This section separates "trained today" from
+  // "trained recently".
+  {
+    const todaysSessions = humanizedActivities10.filter(
+      (a) =>
+        a.startedAt &&
+        dayInTimezone(new Date(a.startedAt), tz) === todayIso,
+    );
+    const lines: string[] = [`## Today's Training (${todayIso})`];
+    if (todaysSessions.length > 0) {
+      let totalMinutes = 0;
+      for (const a of todaysSessions) {
+        const dur = Math.round(a.durationMinutes);
+        totalMinutes += dur;
+        const hr = a.avgHr ? `HR ${a.avgHr}` : "no HR";
+        const strain =
+          a.strainScore != null ? `strain ${a.strainScore.toFixed(1)}` : "";
+        const dist =
+          a.distanceMeters != null
+            ? `${(a.distanceMeters / 1000).toFixed(1)}km`
+            : "";
+        const t = a.startedAt
+          ? new Date(a.startedAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "";
+        lines.push(
+          `- ${a.sportTypeLabel}${t ? ` ${t}` : ""}: ${dur}min${dist ? `, ${dist}` : ""}, ${hr}${strain ? `, ${strain}` : ""}`,
+        );
+      }
+      lines.push(`- Total today: ${totalMinutes} min across ${todaysSessions.length} session(s)`);
+    } else {
+      lines.push(
+        "- No activity recorded for today. This does NOT mean the athlete rested — a session today may simply not be synced yet (add-on syncs on an interval). If asked whether today's run was good, say you have no synced session for today and that today's activity may still be pending sync — do not assume rest or judge an unsynced run.",
+      );
+    }
+    sections.push(lines.join("\n"));
+  }
+
   // 3a. Strength Training — movement pattern coverage ---------------------
   // Garmin's strength tracking records the session but not its content, so
   // sets are logged in the add-on. Without this section the coach sees
@@ -923,7 +1021,7 @@ export async function buildDataContext(
   // the most recent qualifying activity rather than only the summary line
   // from 1/3a. The digest is deterministic data (packages/api/src/lib/
   // run-digest.ts); the LLM only analyses it. Deterministic detection, so it
-  // works identically on OpenRouter, Requesty, Ollama and ha_conversation.
+  // works identically on any OpenAI-compatible backend.
   if (runDetailIntent.wantsRunDetail && humanizedMetrics30.length > 0) {
     // Resolve the named run ("am sonntag", "vom 06.09.", "sonntagslauf") to a
     // target calendar day in the athlete's timezone; otherwise fall back to
@@ -1611,18 +1709,11 @@ export async function buildDataContext(
 
   const result = sections.join("\n\n");
 
-  // Cap the context. The old limit of 4000 characters was set to protect a
-  // local Ollama model on a memory-constrained device, and it silently threw
-  // away everything after the metric JSON — training load, recent activities,
-  // sleep, zone distribution and the trend section all fell off the end, on
-  // every single request. A hosted model has orders of magnitude more room
-  // (deepseek-v4-flash offers 163k tokens), so the cap only needs to apply
-  // where it was actually earned.
-  //
-  // The sections are ordered most-important-first, so truncation still
-  // degrades gracefully rather than losing the grounding rules.
-  const localModel = (process.env.AI_BACKEND ?? "") === "ollama";
-  const cap = localModel ? (historyBlock ? 6000 : 4000) : 40_000;
+  // Cap the context as a safety floor. A hosted model has orders of
+  // magnitude more room, so the cap is only a guard, not a hard budget.
+  // Sections are ordered most-important-first, so truncation still degrades
+  // gracefully rather than losing the grounding rules.
+  const cap = 40_000;
   if (result.length > cap) {
     return result.slice(0, cap) + "\n\n[... context trimmed for performance]";
   }

@@ -8,8 +8,9 @@
 // downsampled per-minute HR/pace series. It is deliberately deterministic:
 // the digest is data, the LLM only analyses it.
 //
-// Backends (OpenRouter, Requesty, Ollama, ha_conversation) all receive this as
-// ordinary prompt text, so nothing here depends on tool-calling support.
+// Backends (OpenRouter, Requesty and any OpenAI-compatible router) all receive
+// this as ordinary prompt text, so nothing here depends on tool-calling
+// support.
 // ---------------------------------------------------------------------------
 
 import type { RunningFormScore } from "@acme/engine";
