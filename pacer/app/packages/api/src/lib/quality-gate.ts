@@ -41,8 +41,10 @@ const UNIT_PATTERN =
   "km|kms|kilometers?|mi|miles?|m|bpm|kg|kgs|lbs?|%|percent|min|mins|minutes?|hrs?|hours?|ml\\/kg(?:\\/min)?|w|watts?|spm|kcal|cal|°c?|bps";
 
 // number (optionally decimal / comma-grouped) immediately followed by a unit.
+// The trailing lookahead allows punctuation units (`%`, `°`) whose following
+// char (often a space) is non-word, where `\b` would wrongly reject them.
 const UNITED_NUMBER = new RegExp(
-  String.raw`(\d[\d,]*(?:\.\d+)?)\s*(${UNIT_PATTERN})\b`,
+  String.raw`(\d[\d,]*(?:\.\d+)?)\s*(${UNIT_PATTERN})(?![A-Za-z0-9])`,
   "gi",
 );
 
@@ -116,9 +118,60 @@ export function collectSupportedNumbers(context: string): number[] {
 }
 
 /**
+ * A context number with an explicit unit (`42 km`) and the set of bare /
+ * unitless decimals (`ctl: 48`) that may back any labelled claim. A claim
+ * with a unit is only "supported" when some context token of the SAME
+ * normalized unit matches within tolerance — a bare decimal never backs a
+ * unit-claim, and a different unit (e.g. `30 %` vs a context `30 km`) never
+ * counts as evidence. This stops a fabricated "top 30 %" being "confirmed"
+ * by an unrelated context figure like a 30 km run.
+ */
+export interface SupportedContext {
+  byUnit: Map<string, number[]>;
+  bare: number[];
+}
+
+export function collectSupportedContext(context: string): SupportedContext {
+  const byUnit = new Map<string, number[]>();
+  const bare: number[] = [];
+  const UNITED_MATCH = new RegExp(
+    String.raw`([+-]?\d[\d,]*(?:\.\d+)?)\s*(${UNIT_PATTERN})\b`,
+    "gi",
+  );
+  // [start,end) spans of numbers already consumed as part of a unit token.
+  const consumedSpans: { start: number; end: number }[] = [];
+  for (const m of context.matchAll(UNITED_MATCH)) {
+    const numStart = m.index ?? 0;
+    const numEnd = numStart + (m[1]?.length ?? 0);
+    const v = parseNum(m[1] ?? "");
+    if (!Number.isFinite(v)) continue;
+    const unit = normUnit(m[2] ?? "");
+    const arr = byUnit.get(unit) ?? [];
+    arr.push(v);
+    byUnit.set(unit, arr);
+    consumedSpans.push({ start: numStart, end: numEnd });
+  }
+  // If two unit numbers overlap (can't normally), keep widest span per start.
+  consumedSpans.sort((a, b) => a.start - b.start || a.end - b.end);
+  for (const m of context.matchAll(/[+-]?\d[\d,]*(?:\.\d+)?/g)) {
+    const start = m.index ?? 0;
+    const end = start + m[0].length;
+    // Skip any number that is part of an already-consumed unit token.
+    const consumed = consumedSpans.some(
+      (s) => start < s.end && end > s.start,
+    );
+    if (consumed) continue;
+    const v = parseNum(m[0]);
+    if (Number.isFinite(v)) bare.push(v);
+  }
+  return { byUnit, bare };
+}
+
+/**
  * A claim is supported when some context number matches within a small
  * tolerance (the larger of ±1 absolute or ±2 %), which absorbs the model
- * rounding "9.8 km" to "10 km" etc.
+ * rounding "9.8 km" to "10 km" etc. Unit claims match only same-unit tokens;
+ * bare claims match any bare token.
  */
 function isSupported(value: number, supported: number[]): boolean {
   const tol = Math.max(1, Math.abs(value) * 0.02);
@@ -137,11 +190,22 @@ export function evaluateResponseQuality(
   context: string,
 ): QualityResult {
   const claims = extractNumericClaims(response);
-  const supported = collectSupportedNumbers(context);
+  const supported = collectSupportedContext(context);
 
-  const unsupportedClaims = claims.filter(
-    (c) => !isSupported(c.value, supported),
-  );
+  const unsupportedClaims = claims.filter((c) => {
+    if (c.unit) {
+      // A unit claim is backed by a SAME-unit context number within
+      // tolerance — or by a bare context number (a metric value carried
+      // unitless in the JSON, e.g. "vo2max":53.4 backing "53.4 ml/kg/min").
+      // The `bare` list excludes any number already consumed by a unit
+      // token, so a fabricated "top 30%" is never approved by an unrelated
+      // "30km" figure.
+      const sameUnit = supported.byUnit.get(c.unit) ?? [];
+      return !isSupported(c.value, sameUnit) && !isSupported(c.value, supported.bare);
+    }
+    // Bare decimal claim → backed by any bare context number.
+    return !isSupported(c.value, supported.bare);
+  });
 
   const supportedRatio =
     claims.length === 0
